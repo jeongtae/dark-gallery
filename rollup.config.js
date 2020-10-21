@@ -1,3 +1,4 @@
+import json from "@rollup/plugin-json";
 import svelte from "rollup-plugin-svelte";
 import resolve from "@rollup/plugin-node-resolve";
 import commonjs from "@rollup/plugin-commonjs";
@@ -16,6 +17,7 @@ export default {
     chunkFileNames: "[name].mjs",
   },
   plugins: [
+    json(),
     svelte({
       dev: !production,
       css: css => {
