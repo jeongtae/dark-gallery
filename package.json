@@ -1,6 +1,6 @@
 {
   "name": "electron-svelte-template",
-  "productName": "Electron Svelte App",
+  "productName": "JT Gallery",
   "version": "1.0.0",
   "description": "My Electron application description",
   "main": "dist/main/index.js",
@@ -49,6 +49,7 @@
     "gulp-uglify": "^3.0.2",
     "node-sass": "^4.14.1",
     "npm-run-all": "^4.1.5",
+    "open-color": "^1.7.0",
     "prettier": "2.1.2",
     "prettier-plugin-svelte": "1.4.0",
     "rimraf": "^3.0.2",
@@ -62,6 +63,7 @@
     "typescript": "^4.0.3"
   },
   "dependencies": {
+    "custom-electron-titlebar": "^3.2.5",
     "electron-is-dev": "^1.2.0",
     "electron-squirrel-startup": "^1.0.0"
   }
