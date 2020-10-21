@@ -1,0 +1,4 @@
+/* This is the TypeScript config file for Svelte */
+{
+  "extends": "@tsconfig/svelte/tsconfig.json"
+}

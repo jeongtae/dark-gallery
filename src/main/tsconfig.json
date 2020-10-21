@@ -1,0 +1,13 @@
+/* This is the TypeScript config file for the main process entries of Electron */
+{
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "allowJs": true,
+    "sourceMap": true,
+    "noImplicitAny": true
+  }
+}

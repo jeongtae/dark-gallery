@@ -1,0 +1,5 @@
+/* This is the TypeScript config file for Gulp */
+{
+  "exclude": ["src"],
+  "compilerOptions": { "esModuleInterop": true }
+}
