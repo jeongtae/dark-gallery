@@ -1,10 +1,20 @@
 <script lang="ts">
+  const { Titlebar, Color } = require("custom-electron-titlebar");
+  import { onMount } from "svelte";
   import Link from "./Link.svelte";
-  // const { ipcRenderer } = require("electron");
 
   export let name: string;
+
+  onMount(() => {
+    new Titlebar({
+      backgroundColor: Color.fromHex("#444"),
+    });
+  });
 </script>
 
+<svelte:head>
+  <title>Hello</title>
+</svelte:head>
 <template>
   <main>
     <h1>Hello {name}!</h1>
