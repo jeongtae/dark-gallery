@@ -1,6 +1,7 @@
 import { app, BrowserWindow } from "electron";
 import * as path from "path";
 import isDev from "electron-is-dev";
+import oc from "open-color";
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require("electron-squirrel-startup")) {
@@ -23,6 +24,7 @@ const createWindow = (): void => {
   const mainWindow = new BrowserWindow({
     height: 600,
     width: 800,
+    backgroundColor: oc.gray[9],
     frame: false,
     titleBarStyle: "hidden",
     webPreferences: {
