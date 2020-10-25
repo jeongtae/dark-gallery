@@ -11,6 +11,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { difference, intersection } from "lodash";
+  import Icon from "./Icon.svelte";
+  import { lnrClose } from "../svg/linearicons";
 
   export let tabs: Tabs = {};
   export let selectedTabId: string = null;
@@ -133,6 +135,7 @@
           data-tabid={tabId}
           on:click|stopPropagation={handleTabClose}
         >
+          <Icon path={lnrClose} viewBoxSize={20} width={14} />
         </button>
       </button>
     {/each}

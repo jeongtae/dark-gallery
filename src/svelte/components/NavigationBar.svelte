@@ -1,6 +1,8 @@
 <script lang="ts">
+  import Icon from "./Icon.svelte";
   import TabBar from "./TabBar.svelte";
   import type { Tabs } from "./TabBar.svelte";
+  import { lnrHome, lnrCog } from "../svg/linearicons";
 
   export let selectedMenu: "home" | "settings" | null;
   export let tabs: Tabs = {};
@@ -22,6 +24,7 @@
         selectedTabId = null;
       }}
     >
+      <Icon path={lnrHome} viewBoxSize={20} width={16} />
     </button>
     <div class="tabbar">
       <TabBar bind:tabs bind:selectedTabId />
@@ -35,6 +38,7 @@
         selectedTabId = null;
       }}
     >
+      <Icon path={lnrCog} viewBoxSize={20} width={16} />
     </button>
   </div>
 </template>
