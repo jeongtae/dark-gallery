@@ -153,13 +153,6 @@
     &::-webkit-scrollbar {
       height: 0;
     }
-    &::-webkit-scrollbar-thumb {
-      background-color: red;
-    }
-    &::-webkit-scrollbar-track {
-      box-shadow: none;
-      background-color: blue;
-    }
   }
 
   button.tab {
