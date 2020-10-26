@@ -8,9 +8,13 @@ $oc-gray-list-expanded: ($oc-white, mix($oc-white, $oc-gray-0));
   @if $i != 9 {
     $plain-next: map-get($oc-gray-list, nth($keys, $i + 2));
   }
-  $mixed: mix($plain, $plain-next);
   $oc-gray-list-expanded: append($oc-gray-list-expanded, $plain);
-  $oc-gray-list-expanded: append($oc-gray-list-expanded, $mixed);
+  $mixed1: mix($plain, $plain-next, 75%);
+  $oc-gray-list-expanded: append($oc-gray-list-expanded, $mixed1);
+  $mixed2: mix($plain, $plain-next, 50%);
+  $oc-gray-list-expanded: append($oc-gray-list-expanded, $mixed2);
+  $mixed3: mix($plain, $plain-next, 25%);
+  $oc-gray-list-expanded: append($oc-gray-list-expanded, $mixed3);
 }
 $oc-gray-list-expanded: append($oc-gray-list-expanded, $oc-black);
 
