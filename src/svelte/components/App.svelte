@@ -59,6 +59,7 @@
 
 <style lang="scss">
   @import "open-color/open-color";
+  @import "../carbon";
 
   :global(body) {
     background-color: $oc-gray-9;
