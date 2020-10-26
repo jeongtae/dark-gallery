@@ -2,7 +2,10 @@
   import oc from "open-color";
   import TitleBar from "./TitleBar.svelte";
   import NavigationBar from "./NavigationBar.svelte";
+  import HomePage from "../pages/HomePage.svelte";
+  import SettingsPage from "../pages/SettingsPage.svelte";
   import type { Tabs } from "./TabBar.svelte";
+
   let tabs: Tabs = {
     apl: { title: "Apple", thumbnail: "apple.jpg" },
     ban: { title: "Banana", thumbnail: "banana.jpg" },
@@ -33,7 +36,25 @@
 </svelte:head>
 <template>
   <TitleBar color={oc.gray[9]} />
-  <NavigationBar bind:tabs bind:selectedTabId bind:selectedMenu />
+  <div class="container">
+    <NavigationBar bind:tabs bind:selectedTabId bind:selectedMenu />
+    <div class="pages">
+      <div
+        class="page-wrapper"
+        class:hidden={selectedMenu !== 'home'}
+        tabindex={selectedMenu === 'home' ? 0 : -1}
+      >
+        <HomePage />
+      </div>
+      <div
+        class="page-wrapper"
+        class:hidden={selectedMenu !== 'settings'}
+        tabindex={selectedMenu === 'settings' ? 0 : -1}
+      >
+        <SettingsPage />
+      </div>
+    </div>
+  </div>
 </template>
 
 <style lang="scss">
@@ -51,6 +72,32 @@
     margin: 0;
     padding: 0;
     cursor: pointer;
+    &:focus {
+      outline: none;
+    }
+  }
+
+  .container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .pages {
+    flex: 1;
+    position: relative;
+  }
+
+  .page-wrapper {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    overflow-y: scroll;
+    &.hidden {
+      visibility: hidden;
+    }
     &:focus {
       outline: none;
     }
