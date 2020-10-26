@@ -1231,6 +1231,19 @@ capture-stack-trace@^1.0.0:
   resolved "https://registry.yarnpkg.com/capture-stack-trace/-/capture-stack-trace-1.0.1.tgz#a6c0bbe1f38f3aa0b92238ecb6ff42c344d4135d"
   integrity sha512-mYQLZnx5Qt1JgB1WEiMCf2647plpGeQ2NMR/5L0HNZzGQo4fuSPnK+wjfPnKZV0aiJDgzmWqqkV/g7JD+DW0qw==
 
+carbon-components-svelte@^0.20.0:
+  version "0.20.0"
+  resolved "https://registry.yarnpkg.com/carbon-components-svelte/-/carbon-components-svelte-0.20.0.tgz#05ffa0c8852f8cd06e1926cee45b6816db277447"
+  integrity sha512-P3we9OujAA4JvvtnUUSIeXMuxOdX7vdn82kmy5MJ0CKqOp97sPZOQ4YjzB1UCLaLPsUT+EX7iVjRxn0MF+afhQ==
+  dependencies:
+    carbon-icons-svelte "^10.17.0"
+    flatpickr "4.6.3"
+
+carbon-icons-svelte@^10.17.0:
+  version "10.17.0"
+  resolved "https://registry.yarnpkg.com/carbon-icons-svelte/-/carbon-icons-svelte-10.17.0.tgz#f7559f58be9c789097ea4035e52dbc4c12691d45"
+  integrity sha512-as1RN87YLvF7iepGAGWQOk2oleyb4w17BoHSYyQgE3MceOla04YdSWASK5c22XZZnmMJbbrT17Z34Cl70niz0Q==
+
 caseless@~0.12.0:
   version "0.12.0"
   resolved "https://registry.yarnpkg.com/caseless/-/caseless-0.12.0.tgz#1b681c21ff84033c826543090689420d187151dc"
@@ -2620,6 +2633,11 @@ flagged-respawn@^1.0.0:
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/flagged-respawn/-/flagged-respawn-1.0.1.tgz#e7de6f1279ddd9ca9aac8a5971d618606b3aab41"
   integrity sha512-lNaHNVymajmk0OJMBn8fVUAU1BtDeKIqKoVhk4xAALB57aALg6b4W0MfJ/cUE0g9YBXy5XhSlPIpYIJ7HaY/3Q==
+
+flatpickr@4.6.3:
+  version "4.6.3"
+  resolved "https://registry.yarnpkg.com/flatpickr/-/flatpickr-4.6.3.tgz#15a8b76b6e34e3a072861250503a5995b9d3bc60"
+  integrity sha512-007VucCkqNOMMb9ggRLNuJowwaJcyOh4sKAFcdGfahfGc7JQbf94zSzjdBq/wVyHWUEs5o3+idhFZ0wbZMRmVQ==
 
 flora-colossus@^1.0.0:
   version "1.0.1"
