@@ -4,6 +4,7 @@ import resolve from "@rollup/plugin-node-resolve";
 import commonjs from "@rollup/plugin-commonjs";
 import { terser } from "rollup-plugin-terser";
 import sveltePreprocess from "svelte-preprocess";
+import typescript from "@rollup/plugin-typescript";
 
 const production = !process.env.ROLLUP_WATCH;
 
@@ -17,14 +18,16 @@ export default {
     chunkFileNames: "[name].mjs",
   },
   plugins: [
-    json(),
     svelte({
       dev: !production,
       css: css => {
         css.write("style.css", !production);
       },
       preprocess: sveltePreprocess({
-        typescript: { tsconfigFile: "src/svelte/tsconfig.json" },
+        typescript: {
+          tsconfigFile: "src/svelte/tsconfig.json",
+          compilerOptions: { sourceMap: !production, inlineSources: !production },
+        },
       }),
     }),
 
@@ -38,6 +41,12 @@ export default {
       dedupe: module => module === "svelte" || module.startsWith("svelte/"),
     }),
     commonjs(),
+    json({ namedExports: true }),
+    typescript({
+      tsconfig: "src/svelte/tsconfig.json",
+      sourceMap: !production,
+      inlineSources: !production,
+    }),
     production && terser(),
   ],
   watch: {
