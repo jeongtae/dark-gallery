@@ -1,5 +1,6 @@
 <script lang="ts">
   import oc from "open-color";
+  import { productName } from "../../../package.json";
   import TitleBar from "./TitleBar.svelte";
   import NavigationBar from "./NavigationBar.svelte";
   import HomePage from "../pages/HomePage.svelte";
@@ -21,18 +22,20 @@
   let selectedMenu: "home" | "settings" | null = "home";
 
   $: {
-    if (selectedMenu) {
-      document.title = `${selectedMenu} \u2500 JT Gallery`;
+    if (selectedMenu === "home") {
+      document.title = `홈 \u2500 ${productName}`;
+    } else if (selectedMenu === "settings") {
+      document.title = `설정 \u2500 ${productName}`;
     } else if (selectedTabId) {
-      document.title = `${tabs[selectedTabId].title} \u2500 JT Gallery`;
+      document.title = `${tabs[selectedTabId].title} \u2500 ${productName}`;
     } else {
-      document.title = "JT Gallery";
+      document.title = productName;
     }
   }
 </script>
 
 <svelte:head>
-  <title>JT Gallery</title>
+  <title>{productName}</title>
 </svelte:head>
 <template>
   <TitleBar color={oc.gray[9]} />
