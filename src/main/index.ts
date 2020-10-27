@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, ipcMain, dialog } from "electron";
 import * as path from "path";
 import isDev from "electron-is-dev";
 import oc from "open-color";
@@ -19,11 +19,14 @@ if (isDev) {
   });
 }
 
+let mainWindow: BrowserWindow;
 const createWindow = (): void => {
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
-    height: 600,
-    width: 800,
+  mainWindow = new BrowserWindow({
+    minWidth: 820,
+    minHeight: 600,
+    width: 960,
+    height: 640,
     backgroundColor: oc.gray[9],
     frame: false,
     titleBarStyle: "hidden",
@@ -67,3 +70,15 @@ app.on("activate", () => {
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and import them here.
+ipcMain.on("util-pick-dir", async (event, { title, buttonLabel } = {}) => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ["openDirectory"],
+    title,
+    message: title,
+    buttonLabel,
+    securityScopedBookmarks: true,
+  });
+  if (result.filePaths.length) {
+    event.reply("util-pick-dir", result.filePaths[0].normalize());
+  }
+});
