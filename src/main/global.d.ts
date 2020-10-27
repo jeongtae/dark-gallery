@@ -13,9 +13,4 @@ declare module "electron-reload" {
     const maxInterval: 12;
   }
   export = reload;
-  //   export default namespace reload;
-}
-
-declare module "sex" {
-  export default interface server {}
 }
