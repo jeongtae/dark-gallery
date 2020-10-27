@@ -2,5 +2,5 @@
 </script>
 
 <template>
-  <p>Hello Settings</p>
+  <p>Hello Gallery</p>
 </template>
