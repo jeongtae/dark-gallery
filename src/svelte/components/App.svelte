@@ -3,9 +3,11 @@
   import { productName } from "../../../package.json";
   import TitleBar from "./TitleBar.svelte";
   import NavigationBar from "./NavigationBar.svelte";
-  import HomePage from "../pages/HomePage.svelte";
-  import SettingsPage from "../pages/SettingsPage.svelte";
   import type { Tabs } from "./TabBar.svelte";
+  import HomePage from "../pages/HomePage.svelte";
+  import GalleryPage from "../pages/GalleryPage.svelte";
+  import SettingsPage from "../pages/SettingsPage.svelte";
+  import { galleryPath } from "../stores";
 
   let tabs: Tabs = {
     apl: { title: "Apple", thumbnail: "apple.jpg" },
@@ -47,7 +49,11 @@
         class:hidden={selectedMenu !== 'home'}
         tabindex={selectedMenu === 'home' ? 0 : -1}
       >
-        <HomePage />
+        {#if $galleryPath}
+          <GalleryPage />
+        {:else}
+          <HomePage />
+        {/if}
       </div>
       <div
         class="page-wrapper"
