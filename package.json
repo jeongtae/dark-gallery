@@ -6,7 +6,7 @@
   "main": "dist/main/index.js",
   "scripts": {
     "start": "run-p public:watch main:watch svelte:watch forge:start",
-    "prestart": "run-s clean public:build main:dev",
+    "prestart": "run-s public:build main:dev",
     "package": "run-s clean public:build main:build svelte:build forge:package",
     "format": "prettier --write \"**/*.{js,ts,json,svelte,html,css,scss}\"",
     "clean": "rimraf dist out",
