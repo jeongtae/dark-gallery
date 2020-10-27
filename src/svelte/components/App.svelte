@@ -41,7 +41,7 @@
   <TitleBar color={oc.gray[9]} />
   <div class="container">
     <NavigationBar bind:tabs bind:selectedTabId bind:selectedMenu />
-    <div class="pages">
+    <div class="pages-container">
       <div
         class="page-wrapper"
         class:hidden={selectedMenu !== 'home'}
@@ -75,7 +75,7 @@
     flex-direction: column;
   }
 
-  .pages {
+  .pages-container {
     flex: 1;
     position: relative;
   }
@@ -92,6 +92,13 @@
     }
     &:focus {
       outline: none;
+    }
+    &::-webkit-scrollbar {
+      width: 6px;
+      background-color: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+      background-color: $oc-gray-7;
     }
   }
 </style>
