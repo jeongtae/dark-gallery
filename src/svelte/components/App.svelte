@@ -69,18 +69,6 @@
     color: $oc-gray-0;
   }
 
-  :global(button) {
-    appearance: none;
-    border: none;
-    background-color: transparent;
-    margin: 0;
-    padding: 0;
-    cursor: pointer;
-    &:focus {
-      outline: none;
-    }
-  }
-
   .container {
     height: 100%;
     display: flex;
