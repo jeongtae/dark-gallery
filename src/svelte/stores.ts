@@ -1,7 +1,7 @@
 import { writable } from "svelte/store";
 import { storageWritable } from "./storage";
 
-export const galleryPath = writable<string>("");
+export const currentGalleryPathStore = writable<string>("test");
 
 interface RecentGalleryInfo {
   title: string;

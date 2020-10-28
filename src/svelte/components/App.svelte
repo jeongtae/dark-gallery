@@ -7,7 +7,7 @@
   import HomePage from "../pages/HomePage.svelte";
   import GalleryPage from "../pages/GalleryPage.svelte";
   import SettingsPage from "../pages/SettingsPage.svelte";
-  import { galleryPath } from "../stores";
+  import { currentGalleryPathStore } from "../stores";
 
   let tabs: Tabs = {
     apl: { title: "Apple", thumbnail: "apple.jpg" },
@@ -49,7 +49,7 @@
         class:hidden={selectedMenu !== 'home'}
         tabindex={selectedMenu === 'home' ? null : -1}
       >
-        {#if $galleryPath}
+        {#if $currentGalleryPathStore}
           <GalleryPage />
         {:else}
           <HomePage />
