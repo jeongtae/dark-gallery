@@ -44,22 +44,14 @@
   <div class="container">
     <NavigationBar bind:tabs bind:selectedTabId bind:selectedMenu />
     <div class="pages-container">
-      <div
-        class="page-wrapper"
-        class:hidden={selectedMenu !== 'home'}
-        tabindex={selectedMenu === 'home' ? null : -1}
-      >
+      <div class="page-wrapper" class:hidden={selectedMenu !== 'home'}>
         {#if $currentGalleryPathStore}
           <GalleryPage />
         {:else}
           <HomePage />
         {/if}
       </div>
-      <div
-        class="page-wrapper"
-        class:hidden={selectedMenu !== 'settings'}
-        tabindex={selectedMenu === 'settings' ? null : -1}
-      >
+      <div class="page-wrapper" class:hidden={selectedMenu !== 'settings'}>
         <SettingsPage />
       </div>
     </div>
