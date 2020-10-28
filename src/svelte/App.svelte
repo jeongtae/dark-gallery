@@ -1,13 +1,13 @@
 <script lang="ts">
   import oc from "open-color";
-  import { productName } from "../../../package.json";
-  import TitleBar from "./TitleBar.svelte";
-  import NavigationBar from "./NavigationBar.svelte";
-  import type { Tabs } from "./TabBar.svelte";
-  import HomePage from "../pages/HomePage.svelte";
-  import GalleryPage from "../pages/GalleryPage.svelte";
-  import SettingsPage from "../pages/SettingsPage.svelte";
-  import { currentGalleryPathStore } from "../stores";
+  import { productName } from "../../package.json";
+  import TitleBar from "./components/TitleBar.svelte";
+  import NavigationBar from "./components/NavigationBar.svelte";
+  import type { Tabs } from "./components/TabBar.svelte";
+  import HomePage from "./pages/HomePage.svelte";
+  import GalleryPage from "./pages/GalleryPage.svelte";
+  import SettingsPage from "./pages/SettingsPage.svelte";
+  import { currentGalleryPathStore } from "./stores";
 
   let tabs: Tabs = {
     apl: { title: "Apple", thumbnail: "apple.jpg" },
@@ -68,7 +68,7 @@
 
 <style lang="scss">
   @import "open-color/open-color";
-  @import "../carbon";
+  @import "./carbon";
 
   :global(body) {
     background-color: $oc-gray-9;
