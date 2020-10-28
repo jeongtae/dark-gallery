@@ -9,7 +9,11 @@
   export let selectedTabId: string;
 
   $: {
-    selectedMenu = selectedTabId === null ? "home" : null;
+    if (selectedTabId) {
+      selectedMenu = null;
+    } else if (selectedMenu === null) {
+      selectedMenu = "home";
+    }
   }
 </script>
 
