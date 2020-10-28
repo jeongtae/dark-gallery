@@ -1,0 +1,23 @@
+@import "./carbon";
+
+:global(body) {
+  background-color: $oc-gray-9;
+  color: $oc-gray-0;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell,
+    "Helvetica Neue", sans-serif;
+}
+
+:global(button) {
+  appearance: none;
+  border: none;
+  background-color: transparent;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+:global(button:focus),
+:global(div:focus) {
+  outline: none;
+}

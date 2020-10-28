@@ -68,12 +68,7 @@
 
 <style lang="scss">
   @import "open-color/open-color";
-  @import "./carbon";
-
-  :global(body) {
-    background-color: $oc-gray-9;
-    color: $oc-gray-0;
-  }
+  @import "./global";
 
   .container {
     height: 100%;
