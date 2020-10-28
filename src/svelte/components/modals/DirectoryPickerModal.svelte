@@ -109,6 +109,7 @@
     on:click:button--secondary={handleCancel}
     on:submit={handleSubmit}
     selectorPrimaryFocus="input#path"
+    iconDescription="닫기"
   >
     <div slot="heading">{heading}</div>
     <p class="label">{label}</p>
