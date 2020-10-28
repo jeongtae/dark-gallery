@@ -47,7 +47,7 @@
       <div
         class="page-wrapper"
         class:hidden={selectedMenu !== 'home'}
-        tabindex={selectedMenu === 'home' ? 0 : -1}
+        tabindex={selectedMenu === 'home' ? null : -1}
       >
         {#if $galleryPath}
           <GalleryPage />
@@ -58,7 +58,7 @@
       <div
         class="page-wrapper"
         class:hidden={selectedMenu !== 'settings'}
-        tabindex={selectedMenu === 'settings' ? 0 : -1}
+        tabindex={selectedMenu === 'settings' ? null : -1}
       >
         <SettingsPage />
       </div>
