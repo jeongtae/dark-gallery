@@ -58,6 +58,7 @@
     fill: $oc-gray-6;
     position: relative;
     flex-shrink: 0;
+    transition: box-shadow 70ms ease-in-out;
     :global(svg) {
       transform: translateY(1px);
     }
@@ -76,6 +77,9 @@
     }
     &:hover {
       fill: $oc-gray-0;
+    }
+    &:focus {
+      box-shadow: 0 0 0 2px $oc-gray-0 inset;
     }
   }
 
