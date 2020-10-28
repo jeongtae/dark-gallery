@@ -65,7 +65,8 @@
   @import "open-color/open-color";
 
   .container {
-    margin: 32px 0 24px;
+    max-width: 1000px;
+    margin: 32px auto 24px;
     padding: 0 24px;
   }
   h1 {
