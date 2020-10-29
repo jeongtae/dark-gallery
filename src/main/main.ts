@@ -2,6 +2,8 @@ import * as path from "path";
 import { app, BrowserWindow, ipcMain, dialog } from "electron";
 import oc from "open-color";
 
+const ipc = ipcMain as import("../ipc").TypedIpcMain;
+
 export default class Main {
   private mainWindow: BrowserWindow;
 
@@ -12,7 +14,7 @@ export default class Main {
     app.on("window-all-closed", () => this.handleWindowAllClosed());
     app.on("activate", () => this.handleActivate());
 
-    ipcMain.handle("pickDirectory", async (event, { title, buttonLabel }) => {
+    ipc.handle("pickDirectory", async (event, { title, buttonLabel } = {}) => {
       const result = await dialog.showOpenDialog(this.mainWindow, {
         properties: ["openDirectory"],
         title,

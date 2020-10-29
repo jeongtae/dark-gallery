@@ -1,5 +1,6 @@
 <script lang="ts">
   const { ipcRenderer } = require("electron");
+  const ipc = ipcRenderer as import("../../../ipc").TypedIpcRenderer;
 
   import { createEventDispatcher, tick } from "svelte";
   import { debounce } from "lodash";
@@ -79,7 +80,10 @@
   }
   async function handleFindButtonClick() {
     findButtonDisabled = true;
-    const path = await ipcRenderer.invoke("pickDirectory", { title: label, buttonLabel: "선택" });
+    const path = await ipc.invoke("pickDirectory", {
+      title: label,
+      buttonLabel: "선택",
+    });
     if (open && path) {
       pathInputElement.value = path;
       validatePath();
