@@ -2148,6 +2148,11 @@ electron-squirrel-startup@^1.0.0:
   dependencies:
     debug "^2.2.0"
 
+electron-typed-ipc@^0.1.0:
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/electron-typed-ipc/-/electron-typed-ipc-0.1.0.tgz#6c0bb6641e9201cf3bbe56f65979e8b580781ad8"
+  integrity sha512-PidZOE9gJo95ybhmUUdfnSdqughtTNZasL+QlJtzyE0XqDusWJFOFc2tl5IjYGn1bF9pBzAi7TrCD4/esK2LOw==
+
 electron-winstaller@^4.0.1:
   version "4.0.1"
   resolved "https://registry.yarnpkg.com/electron-winstaller/-/electron-winstaller-4.0.1.tgz#69da2a439a6986210c3106305f921a522369207d"

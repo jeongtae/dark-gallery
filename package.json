@@ -45,6 +45,7 @@
     "carbon-icons-svelte": "^10.17.0",
     "electron": "10.1.5",
     "electron-reload": "^1.5.0",
+    "electron-typed-ipc": "^0.1.0",
     "gulp": "^4.0.2",
     "gulp-clean-css": "^4.3.0",
     "gulp-filter": "^6.0.0",
