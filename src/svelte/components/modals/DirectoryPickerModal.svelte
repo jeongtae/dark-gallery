@@ -3,7 +3,7 @@
 
   import { onMount, createEventDispatcher } from "svelte";
   import { debounce } from "lodash";
-  import { Modal, TextInput, Button, InlineLoading } from "carbon-components-svelte";
+  import { Modal, TextInput, Button, InlineLoading, Icon } from "carbon-components-svelte";
   import Folder16 from "carbon-icons-svelte/lib/Folder16";
 
   const dispatch = createEventDispatcher();
@@ -34,6 +34,8 @@
 
   /** 모달의 제목 */
   export let heading: string = "디렉터리 선택";
+
+  export let icon: typeof Folder16 = null;
 
   /** 모달 제목 아래의 설명 레이블 */
   export let label: string = "디렉터리를 선택하세요.";
@@ -111,7 +113,12 @@
     selectorPrimaryFocus="input#path"
     iconDescription="닫기"
   >
-    <div slot="heading">{heading}</div>
+    <div slot="heading" class="heading">
+      {#if icon}
+        <Icon render={icon} />
+      {/if}
+      <span>{heading}</span>
+    </div>
     <p class="label">{label}</p>
     <div class="row">
       <TextInput
@@ -148,6 +155,14 @@
 
 <style lang="scss">
   @import "open-color/open-color";
+
+  .heading {
+    display: flex;
+    align-items: center;
+    span:not(:first-child) {
+      margin-left: (6rem / 16);
+    }
+  }
 
   .label {
     margin: 0 4px 16px;
