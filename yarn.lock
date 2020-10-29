@@ -1244,10 +1244,10 @@ capture-stack-trace@^1.0.0:
   resolved "https://registry.yarnpkg.com/capture-stack-trace/-/capture-stack-trace-1.0.1.tgz#a6c0bbe1f38f3aa0b92238ecb6ff42c344d4135d"
   integrity sha512-mYQLZnx5Qt1JgB1WEiMCf2647plpGeQ2NMR/5L0HNZzGQo4fuSPnK+wjfPnKZV0aiJDgzmWqqkV/g7JD+DW0qw==
 
-carbon-components-svelte@^0.20.0:
-  version "0.20.0"
-  resolved "https://registry.yarnpkg.com/carbon-components-svelte/-/carbon-components-svelte-0.20.0.tgz#05ffa0c8852f8cd06e1926cee45b6816db277447"
-  integrity sha512-P3we9OujAA4JvvtnUUSIeXMuxOdX7vdn82kmy5MJ0CKqOp97sPZOQ4YjzB1UCLaLPsUT+EX7iVjRxn0MF+afhQ==
+carbon-components-svelte@^0.21.0:
+  version "0.21.0"
+  resolved "https://registry.yarnpkg.com/carbon-components-svelte/-/carbon-components-svelte-0.21.0.tgz#77d9424c9f5d8c609e2379bf7a2e1554fc6335b8"
+  integrity sha512-UYniOFREhOME+fMLe00/DIqOFLqx1IL6pPgE1ofpU+pvZId1Aj8XEZ1XWFZ3hnTuOZ8X3BKQLOSzLouwGuQNQg==
   dependencies:
     carbon-icons-svelte "^10.17.0"
     flatpickr "4.6.3"
@@ -2174,7 +2174,7 @@ electron-winstaller@^4.0.1:
     lodash.template "^4.2.2"
     temp "^0.9.0"
 
-electron@10.1.5:
+electron@^10.1.5:
   version "10.1.5"
   resolved "https://registry.yarnpkg.com/electron/-/electron-10.1.5.tgz#f2b161310f627063e73fbac44efcb35dece83a90"
   integrity sha512-fys/KnEfJq05TtMij+lFvLuKkuVH030CHYx03iZrW5DNNLwjE6cW3pysJ420lB0FRSfPjTHBMu2eVCf5TG71zQ==
