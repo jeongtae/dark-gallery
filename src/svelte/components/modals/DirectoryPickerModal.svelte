@@ -1,7 +1,7 @@
 <script lang="ts">
   const { ipcRenderer } = require("electron");
 
-  import { onMount, createEventDispatcher } from "svelte";
+  import { createEventDispatcher, tick } from "svelte";
   import { debounce } from "lodash";
   import { Modal, TextInput, Button, InlineLoading, Icon } from "carbon-components-svelte";
   import Folder16 from "carbon-icons-svelte/lib/Folder16";
@@ -10,6 +10,7 @@
 
   let pathInputElement: HTMLInputElement;
   let findButtonElement: HTMLButtonElement;
+  let findButtonDisabled: boolean = false;
   let status: "init" | "empty" | "typing" | "invalid" | "valid";
   const statusMap: {
     readonly [key in typeof status]: "active" | "inactive" | "finished" | "error";
@@ -35,6 +36,7 @@
   /** 모달의 제목 */
   export let heading: string = "디렉터리 선택";
 
+  /** 모달의 제목 아이콘 */
   export let icon: typeof Folder16 = null;
 
   /** 모달 제목 아래의 설명 레이블 */
@@ -75,6 +77,17 @@
     validatingPath = false;
     status = "init";
   }
+  async function handleFindButtonClick() {
+    findButtonDisabled = true;
+    const path = await ipcRenderer.invoke("pickDirectory", { title: label, buttonLabel: "선택" });
+    if (open && path) {
+      pathInputElement.value = path;
+      validatePath();
+    }
+    findButtonDisabled = false;
+    await tick();
+    findButtonElement.focus();
+  }
   function handleCancel() {
     open = false;
   }
@@ -82,22 +95,6 @@
     open = false;
     dispatch("submit", pathInputElement.value);
   }
-
-  onMount(() => {
-    const handleIpc = (e, path) => {
-      if (open && path) {
-        pathInputElement.value = path;
-        validatePath();
-        findButtonElement.focus();
-        // validatingPath = true;
-        // _validatePathImmediately(path);
-      }
-    };
-    ipcRenderer.addListener("util-pick-dir", handleIpc);
-    return () => {
-      ipcRenderer.removeListener("util-pick-dir", handleIpc);
-    };
-  });
 </script>
 
 <template>
@@ -133,10 +130,9 @@
         size="small"
         icon={Folder16}
         kind="secondary"
-        on:click={() => {
-          ipcRenderer.send('util-pick-dir', { title: label, buttonLabel: '선택' });
-        }}
+        on:click={handleFindButtonClick}
         bind:ref={findButtonElement}
+        disabled={findButtonDisabled}
       >
         찾아보기
       </Button>

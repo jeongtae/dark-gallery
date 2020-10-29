@@ -12,7 +12,7 @@ export default class Main {
     app.on("window-all-closed", () => this.handleWindowAllClosed());
     app.on("activate", () => this.handleActivate());
 
-    ipcMain.on("util-pick-dir", async (event, { title, buttonLabel } = {}) => {
+    ipcMain.handle("pickDirectory", async (event, { title, buttonLabel }) => {
       const result = await dialog.showOpenDialog(this.mainWindow, {
         properties: ["openDirectory"],
         title,
@@ -21,7 +21,9 @@ export default class Main {
         securityScopedBookmarks: true,
       });
       if (result.filePaths.length) {
-        event.reply("util-pick-dir", result.filePaths[0].normalize());
+        return result.filePaths[0].normalize();
+      } else {
+        return "";
       }
     });
   }
