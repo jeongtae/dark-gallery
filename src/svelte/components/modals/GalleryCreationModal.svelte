@@ -1,6 +1,11 @@
 <script lang="ts">
   import DirectoryPickerModal from "./DirectoryPickerModal.svelte";
+  import type { PathValidator } from "./DirectoryPickerModal.svelte";
   export let open = false;
+
+  const pathValidator: PathValidator = async (path, setMessage) => {
+    return path.length > 3;
+  };
 </script>
 
 <template>
@@ -10,10 +15,7 @@
     label="갤러리로 만들 폴더를 선택하세요."
     pathInputPlaceholder="폴더 위치"
     submitButtonText="갤러리 생성"
-    pathValidator={(path, setMessage) => {
-      setMessage(path.length > 3 ? 'NICE' : 'bad.');
-      return path.length > 3;
-    }}
+    {pathValidator}
     on:submit
   >
     해당 위치에 색인 폴더인

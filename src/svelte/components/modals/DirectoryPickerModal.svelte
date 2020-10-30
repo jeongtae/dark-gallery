@@ -1,3 +1,10 @@
+<script context="module" lang="ts">
+  export type PathValidator = (
+    path: string,
+    setMessage: (message: string) => void
+  ) => Promise<boolean> | boolean; //;
+</script>
+
 <script lang="ts">
   const { ipcRenderer } = require("electron");
   const ipc = ipcRenderer as import("../../../ipc").TypedIpcRenderer;
@@ -12,20 +19,20 @@
   let pathInputElement: HTMLInputElement;
   let findButtonElement: HTMLButtonElement;
   let findButtonDisabled: boolean = false;
-  let status: "init" | "empty" | "typing" | "invalid" | "valid";
+  let status: "init" | "empty" | "validating" | "invalid" | "valid";
   const statusMap: {
     readonly [key in typeof status]: "active" | "inactive" | "finished" | "error";
   } = {
     init: "inactive",
     empty: "error",
-    typing: "active",
+    validating: "active",
     invalid: "error",
     valid: "finished",
   };
   let statusMessage: string;
   const statusMessageMap: { [key in typeof status]?: string } = {
     empty: "경로를 입력하세요",
-    typing: "검사 중",
+    validating: "검사 중",
   };
   function setMessage(message: string) {
     statusMessage = message;
@@ -50,32 +57,26 @@
   export let submitButtonText: string = "확인";
 
   /** 패스의 유효성 검사 콜백 */
-  type MessageSetter = typeof setMessage;
-  export let pathValidator: (path: string, setMessage: MessageSetter) => boolean;
+  export let pathValidator: PathValidator;
 
-  let validatingPath = false;
-  const _validatePathImmediately = (path: string) => {
-    if (validatingPath) {
-      const isValid = pathValidator ? pathValidator(path, setMessage) : true;
+  const _validatePathInputDebounced = debounce(async (path: string) => {
+    if (status === "validating") {
+      const isValid = pathValidator ? await pathValidator(path, setMessage) : true;
       status = isValid ? "valid" : "invalid";
     }
-  };
-  const _validatePathDebounced = debounce(_validatePathImmediately, 1000);
-  function validatePath() {
+  }, 1000);
+  function validatePathInput() {
     const path = pathInputElement.value;
-    status = "typing";
+    status = "validating";
     if (path.length) {
-      validatingPath = true;
-      _validatePathDebounced(path);
+      _validatePathInputDebounced(path);
     } else {
-      validatingPath = false;
       status = "empty";
     }
   }
 
   function handleOpen() {
     pathInputElement.value = "";
-    validatingPath = false;
     status = "init";
   }
   async function handleFindButtonClick() {
@@ -86,7 +87,7 @@
     });
     if (open && path) {
       pathInputElement.value = path;
-      validatePath();
+      validatePathInput();
     }
     findButtonDisabled = false;
     await tick();
@@ -126,7 +127,7 @@
         size="sm"
         placeholder={pathInputPlaceholder}
         bind:ref={pathInputElement}
-        on:input={validatePath}
+        on:input={validatePathInput}
         invalid={status === 'empty' || status === 'invalid'}
         id="path"
       />
