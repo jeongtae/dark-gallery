@@ -46,6 +46,7 @@ export default abstract class Main {
     if (isDev) {
       window.webContents.openDevTools();
     }
+    return window;
   }
 
   private static handleWindowAllClosed() {
@@ -61,9 +62,16 @@ export default abstract class Main {
   }
 
   private static handleClickPreference() {
-    const focusedWindow = BrowserWindow.getFocusedWindow();
-    if (focusedWindow) {
-      AppIpc.sendEvent(focusedWindow, "openPreference");
+    const allWindows = BrowserWindow.getAllWindows();
+    if (allWindows.length) {
+      let window = BrowserWindow.getFocusedWindow() ?? allWindows[0];
+      window.focus();
+      AppIpc.sendEvent(window, "openPreference");
+    } else {
+      const newWindow = this.createWindow();
+      newWindow.webContents.once("did-finish-load", () =>
+        AppIpc.sendEvent(newWindow, "openPreference")
+      );
     }
   }
 }
