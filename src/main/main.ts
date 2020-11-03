@@ -2,6 +2,7 @@ import * as path from "path";
 import { BrowserWindow, Menu, app, ipcMain } from "electron";
 import oc from "open-color";
 import * as AppIpc from "./ipc";
+import * as AppMenu from "./menu";
 import { isDev, isMac } from "./environment";
 
 export default abstract class Main {
@@ -16,6 +17,10 @@ export default abstract class Main {
     app.once("ready", () => this.createWindow());
     app.on("window-all-closed", () => this.handleWindowAllClosed());
     app.on("activate", () => this.handleActivate());
+
+    AppMenu.addEventListener("click-new-window", () => this.createWindow());
+    AppMenu.addEventListener("click-preference", () => this.handleClickPreference());
+    Menu.setApplicationMenu(AppMenu.menu);
 
     for (const [key, handler] of Object.entries(AppIpc.commandHandlers)) {
       ipcMain.handle(key, handler);
@@ -52,6 +57,13 @@ export default abstract class Main {
   private static handleActivate() {
     if (BrowserWindow.getAllWindows().length === 0) {
       this.createWindow();
+    }
+  }
+
+  private static handleClickPreference() {
+    const focusedWindow = BrowserWindow.getFocusedWindow();
+    if (focusedWindow) {
+      AppIpc.sendEvent(focusedWindow, "openPreference");
     }
   }
 }
