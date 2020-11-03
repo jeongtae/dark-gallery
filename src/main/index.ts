@@ -16,4 +16,4 @@ if (isDev) {
   });
 }
 
-new Main(isDev).start();
+new Main(isDev).init();

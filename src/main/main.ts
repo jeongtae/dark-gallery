@@ -4,12 +4,23 @@ import oc from "open-color";
 import { addIpcHandlers } from "./ipc";
 
 export default class Main {
-  constructor(readonly isDev: boolean) {}
+  readonly isMac: boolean;
+  constructor(readonly isDev: boolean) {
+    this.isMac = process.platform === "darwin";
+  }
 
-  public start() {
+  public init() {
+    this.initAppEventHandlers();
+    this.initIpcHandlers();
+  }
+
+  private initAppEventHandlers() {
     app.once("ready", () => this.createWindow());
     app.on("window-all-closed", () => this.handleWindowAllClosed());
     app.on("activate", () => this.handleActivate());
+  }
+
+  private initIpcHandlers() {
     addIpcHandlers();
   }
 
@@ -35,7 +46,7 @@ export default class Main {
   }
 
   private handleWindowAllClosed() {
-    if (process.platform !== "darwin") {
+    if (!this.isMac) {
       app.quit();
     }
   }
