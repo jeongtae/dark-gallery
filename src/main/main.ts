@@ -1,32 +1,28 @@
 import * as path from "path";
-import { BrowserWindow, app, ipcMain } from "electron";
+import { BrowserWindow, Menu, app, ipcMain } from "electron";
 import oc from "open-color";
 import { commandHandlers } from "./ipc";
+import { isDev, isMac } from "./environment";
 
-export default class Main {
-  readonly isMac: boolean;
-  constructor(readonly isDev: boolean) {
-    this.isMac = process.platform === "darwin";
-  }
+export default abstract class Main {
+  private static isStarted: boolean = false;
 
-  public init() {
-    this.initAppEventHandlers();
-    this.initIpcHandlers();
-  }
+  public static main() {
+    if (this.isStarted) {
+      return;
+    }
+    this.isStarted = false;
 
-  private initAppEventHandlers() {
     app.once("ready", () => this.createWindow());
     app.on("window-all-closed", () => this.handleWindowAllClosed());
     app.on("activate", () => this.handleActivate());
-  }
 
-  private initIpcHandlers() {
     for (const [key, handler] of Object.entries(commandHandlers)) {
       ipcMain.handle(key, handler);
     }
   }
 
-  private createWindow() {
+  private static createWindow() {
     const window = new BrowserWindow({
       minWidth: 820,
       minHeight: 600,
@@ -36,24 +32,24 @@ export default class Main {
       frame: false,
       titleBarStyle: "hidden",
       webPreferences: {
-        devTools: this.isDev,
+        devTools: isDev,
         nodeIntegration: true,
         enableRemoteModule: true,
       },
     });
     window.loadFile(path.join(__dirname, "../public/index.html"));
-    if (this.isDev) {
+    if (isDev) {
       window.webContents.openDevTools();
     }
   }
 
-  private handleWindowAllClosed() {
-    if (!this.isMac) {
+  private static handleWindowAllClosed() {
+    if (!isMac) {
       app.quit();
     }
   }
 
-  private handleActivate() {
+  private static handleActivate() {
     if (BrowserWindow.getAllWindows().length === 0) {
       this.createWindow();
     }

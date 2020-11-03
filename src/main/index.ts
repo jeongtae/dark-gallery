@@ -1,12 +1,12 @@
 import * as path from "path";
 import { app } from "electron";
 import Main from "./main";
+import { isSquirrelStartup, isDev } from "./environment";
 
-if (require("electron-squirrel-startup")) {
+if (isSquirrelStartup) {
   app.quit();
 }
 
-const isDev = require("electron-is-dev") as boolean;
 if (isDev) {
   import("electron-reload").then(({ default: watch }) => {
     watch(path.join(__dirname, ".."), {
@@ -16,4 +16,4 @@ if (isDev) {
   });
 }
 
-new Main(isDev).init();
+Main.main();
