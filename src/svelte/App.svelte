@@ -1,4 +1,7 @@
 <script lang="ts">
+  const ipc = require("electron").ipcRenderer as import("../ipc").TypedIpcRenderer;
+
+  import { onMount } from "svelte";
   import oc from "open-color";
   import { productName } from "../../package.json";
   import TitleBar from "./components/TitleBar.svelte";
@@ -22,6 +25,16 @@
   };
   let selectedTabId: string = null;
   let selectedMenu: "home" | "settings" | null = "home";
+
+  onMount(() => {
+    const listener = () => {
+      selectedMenu = "settings";
+    };
+    ipc.on("openPreference", listener);
+    return () => {
+      ipc.removeListener("openPreference", listener);
+    };
+  });
 
   $: {
     if (selectedMenu === "home") {
