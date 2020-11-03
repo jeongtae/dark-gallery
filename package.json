@@ -44,6 +44,7 @@
     "carbon-components-svelte": "^0.21.0",
     "carbon-icons-svelte": "^10.17.0",
     "electron": "^10.1.5",
+    "electron-packager-languages": "^0.4.0",
     "electron-reload": "^1.5.0",
     "electron-typed-ipc": "^0.1.0",
     "gulp": "^4.0.2",

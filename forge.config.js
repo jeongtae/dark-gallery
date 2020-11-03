@@ -1,3 +1,5 @@
+const setLanguages = require("electron-packager-languages");
+
 /**
  * @typedef {import("electron-packager").Options} PackagerConfig
  * @typedef {import("electron-rebuild/lib/src/rebuild").RebuildOptions} RebuildConfig
@@ -20,7 +22,8 @@ const packagerConfig = {
     "^/\\w+.config.js",
     "^/gulpfile",
   ],
-  // icon: "",
+  appBundleId: "com.jeongtae.dark-gallery",
+  afterCopy: [setLanguages(["ko", "ko_KR"])],
 };
 
 /**
