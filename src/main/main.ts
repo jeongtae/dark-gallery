@@ -1,7 +1,7 @@
 import * as path from "path";
-import { app, BrowserWindow } from "electron";
+import { BrowserWindow, app, ipcMain } from "electron";
 import oc from "open-color";
-import { addIpcHandlers } from "./ipc";
+import { commandHandlers } from "./ipc";
 
 export default class Main {
   readonly isMac: boolean;
@@ -21,7 +21,9 @@ export default class Main {
   }
 
   private initIpcHandlers() {
-    addIpcHandlers();
+    for (const [key, handler] of Object.entries(commandHandlers)) {
+      ipcMain.handle(key, handler);
+    }
   }
 
   private createWindow() {
