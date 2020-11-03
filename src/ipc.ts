@@ -1,10 +1,6 @@
 import { IpcMainEvent } from "electron";
 import ElectronTypedIpc from "electron-typed-ipc";
 
-// Main -> Renderer
-type Events = {};
-
-// Renderer -> Main
 export interface PathStatus {
   isAbsolute: boolean;
   exists: boolean;
@@ -17,9 +13,16 @@ export interface PathStatus {
   galleryHasWritePermission?: boolean;
 }
 
-type Commands = {
+/** Main -> Renderer */
+export type Events = {
+  openPreference: () => void;
+};
+
+/** Renderer -> Main */
+export type Commands = {
   pickDirectory: (args: { title?: string; buttonLabel?: string }) => string;
   getPathStatus: (args: { path: string }) => PathStatus;
+  makeGallery: (args: { path: string }) => boolean;
 };
 
 export type CommandListeners = {
@@ -37,3 +40,4 @@ export type CommandHandlers = {
 
 export type TypedIpcMain = ElectronTypedIpc.TypedIpcMain<Events, Commands>;
 export type TypedIpcRenderer = ElectronTypedIpc.TypedIpcRenderer<Events, Commands>;
+// export type TypedWebContents = ElectronTypedIpc.TypedWebContents<Events>;

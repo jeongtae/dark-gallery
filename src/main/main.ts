@@ -1,7 +1,7 @@
 import * as path from "path";
 import { BrowserWindow, Menu, app, ipcMain } from "electron";
 import oc from "open-color";
-import { commandHandlers } from "./ipc";
+import * as AppIpc from "./ipc";
 import { isDev, isMac } from "./environment";
 
 export default abstract class Main {
@@ -17,7 +17,7 @@ export default abstract class Main {
     app.on("window-all-closed", () => this.handleWindowAllClosed());
     app.on("activate", () => this.handleActivate());
 
-    for (const [key, handler] of Object.entries(commandHandlers)) {
+    for (const [key, handler] of Object.entries(AppIpc.commandHandlers)) {
       ipcMain.handle(key, handler);
     }
   }
