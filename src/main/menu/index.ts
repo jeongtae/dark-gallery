@@ -1,5 +1,5 @@
 import { app, Menu, MenuItemConstructorOptions, shell } from "electron";
-import { isDev, isMac } from "./environment";
+import { isDev, isMac } from "../environment";
 
 type EventListeners = {
   "click-new-window": () => any;
