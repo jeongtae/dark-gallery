@@ -1,14 +1,39 @@
 <script lang="ts">
-  import { Button } from "carbon-components-svelte";
+  import type * as Ipc from "../../ipc";
+  import { Button, Loading } from "carbon-components-svelte";
   import Add16 from "carbon-icons-svelte/lib/Add16";
   import Folder16 from "carbon-icons-svelte/lib/Folder16";
   import Close16 from "carbon-icons-svelte/lib/Close16";
   import { productName, description } from "../../../package.json";
+  import {
+    currentGalleryPathStore,
+    recentGalleryInfoListStore,
+    pushRecentGalleryInfo,
+  } from "../stores";
   import GalleryCreationModal from "../components/modals/GalleryCreationModal.svelte";
   import GalleryChoiceModal from "../components/modals/GalleryChoiceModal.svelte";
 
+  const { ipcRenderer } = require("electron");
+  const ipc = ipcRenderer as Ipc.TypedIpcRenderer;
+
   let creationModalIsOpen = false;
   let choiceModalIsOpen = false;
+  let isLoading = false;
+
+  async function handleCreationSubmit({ detail: path }) {
+    isLoading = true;
+    const title = await ipc.invoke("makeGallery", { galleryPath: path });
+    if (!title) {
+      // TODO: Push Error Toast
+    } else {
+      $currentGalleryPathStore = path;
+      pushRecentGalleryInfo({ path, title });
+    }
+    isLoading = false;
+  }
+  async function handleChoiceSubmit({ detail: path }) {
+    await ipc.invoke("openGallery", { galleryPath: path });
+  }
 </script>
 
 <template>
@@ -35,30 +60,56 @@
         기존 갤러리 열기
       </Button>
     </div>
-    <h2>최근 갤러리</h2>
-    <div class="recent-buttons-wrapper">
-      {#each ['Ladarius Huel', 'Skylar Schmeler', 'Justice Hauck', 'Doris Treutel', 'Imani Greenholt'] as name}
-        <div class="row">
-          <div class="primary-button-wrapper">
-            <Button size="small" kind="ghost">{name}</Button>
+    {#if $recentGalleryInfoListStore.length}
+      <h2>최근 갤러리</h2>
+      <div class="recent-buttons-wrapper">
+        {#each $recentGalleryInfoListStore as info, idx (info.path)}
+          <div class="row">
+            <div class="primary-button-wrapper">
+              <Button
+                size="small"
+                kind="ghost"
+                on:click={async () => {
+                  isLoading = true;
+                  const { path } = info;
+                  const title = await ipc.invoke('openGallery', { galleryPath: path });
+                  if (!title) {
+                    // TODO: Push Error Toast
+                  } else {
+                    $currentGalleryPathStore = path;
+                    pushRecentGalleryInfo({ path, title });
+                  }
+                  isLoading = false;
+                }}
+              >
+                {info.title}
+              </Button>
+            </div>
+            <span class="path">{info.path}</span>
+            <div class="delete-button-wrapper">
+              <Button
+                size="small"
+                icon={Close16}
+                on:click={() => {
+                  recentGalleryInfoListStore.update(list => {
+                    list.splice(idx, 1);
+                    return list;
+                  });
+                }}
+                hasIconOnly
+                iconDescription="목록에서 제거"
+                tooltipPosition="right"
+                tooltipAlignment="center"
+              />
+            </div>
           </div>
-          <span>~/Documents/{name.split(' ')[0]}</span>
-          <div class="delete-button-wrapper">
-            <Button
-              size="small"
-              icon={Close16}
-              hasIconOnly
-              iconDescription="목록에서 제거"
-              tooltipPosition="right"
-              tooltipAlignment="center"
-            />
-          </div>
-        </div>
-      {/each}
-    </div>
+        {/each}
+      </div>
+    {/if}
   </div>
-  <GalleryCreationModal bind:open={creationModalIsOpen} on:submit={console.log} />
-  <GalleryChoiceModal bind:open={choiceModalIsOpen} on:submit={console.log} />
+  <GalleryCreationModal bind:open={creationModalIsOpen} on:submit={handleCreationSubmit} />
+  <GalleryChoiceModal bind:open={choiceModalIsOpen} on:submit={handleChoiceSubmit} />
+  <Loading active={isLoading} />
 </template>
 
 <style lang="scss">
@@ -98,9 +149,14 @@
         margin: 0;
         font-size: 1rem;
       }
-      span {
+      .path {
         margin-right: 12px;
         color: $oc-gray-5;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        direction: rtl;
+        max-width: 300px;
       }
       .delete-button-wrapper :global(button) {
         visibility: hidden;

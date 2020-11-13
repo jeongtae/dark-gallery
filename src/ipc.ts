@@ -22,7 +22,8 @@ export type Events = {
 export type Commands = {
   pickDirectory: (args: { title?: string; buttonLabel?: string }) => string;
   getPathStatus: (args: { path: string }) => PathStatus;
-  makeGallery: (args: { path: string }) => boolean;
+  makeGallery: (args: { galleryPath: string }) => string;
+  openGallery: (args: { galleryPath: string }) => string;
 };
 
 export type CommandListeners = {
