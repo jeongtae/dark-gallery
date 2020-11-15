@@ -4,6 +4,7 @@ import oc from "open-color";
 import * as AppIpc from "./ipc";
 import * as AppMenu from "./menu";
 import { isDev, isMac } from "./environment";
+import { disposeSequelize } from "./sequelize";
 
 export default abstract class Main {
   private static isStarted: boolean = false;
@@ -12,16 +13,19 @@ export default abstract class Main {
     if (this.isStarted) {
       return;
     }
-    this.isStarted = false;
+    this.isStarted = true;
 
+    // Electron app
     app.once("ready", () => this.createWindow());
     app.on("window-all-closed", () => this.handleWindowAllClosed());
     app.on("activate", () => this.handleActivate());
 
+    // Menu
     AppMenu.addEventListener("click-new-window", () => this.createWindow());
     AppMenu.addEventListener("click-preference", () => this.handleClickPreference());
     Menu.setApplicationMenu(AppMenu.menu);
 
+    // Ipc
     for (const [key, handler] of Object.entries(AppIpc.commandHandlers)) {
       ipcMain.handle(key, handler);
     }
@@ -46,6 +50,7 @@ export default abstract class Main {
     if (isDev) {
       window.webContents.openDevTools();
     }
+    window.on("closed", () => disposeSequelize(window.id));
     return window;
   }
 

@@ -6,9 +6,9 @@
   import Close16 from "carbon-icons-svelte/lib/Close16";
   import { productName, description } from "../../../package.json";
   import {
-    currentGalleryPathStore,
     recentGalleryInfoListStore,
     pushRecentGalleryInfo,
+    currentGalleryInfoStore,
   } from "../stores";
   import GalleryCreationModal from "../components/modals/GalleryCreationModal.svelte";
   import GalleryChoiceModal from "../components/modals/GalleryChoiceModal.svelte";
@@ -21,19 +21,56 @@
   let isLoading = false;
 
   async function handleCreationSubmit({ detail: path }) {
-    isLoading = true;
-    const title = await ipc.invoke("makeGallery", { galleryPath: path });
-    if (!title) {
-      // TODO: Push Error Toast
-    } else {
-      $currentGalleryPathStore = path;
+    try {
+      isLoading = true;
+      const madeGallery = await ipc.invoke("makeGallery", { path });
+      if (!madeGallery) {
+        throw new Error();
+      }
+      const title = await ipc.invoke("openGallery", { path });
+      if (!title) {
+        throw new Error();
+      }
+      $currentGalleryInfoStore = { path, title };
       pushRecentGalleryInfo({ path, title });
+    } catch {
+      // TODO: Push Error Toast
+    } finally {
+      isLoading = false;
     }
-    isLoading = false;
   }
   async function handleChoiceSubmit({ detail: path }) {
-    await ipc.invoke("openGallery", { galleryPath: path });
+    try {
+      isLoading = true;
+      const title = await ipc.invoke("openGallery", { path });
+      if (!title) {
+        throw new Error();
+      }
+      $currentGalleryInfoStore = { path, title };
+      pushRecentGalleryInfo({ path, title });
+    } catch {
+      // TODO: Push Error Toast
+      console.error("Opening Error!!");
+    } finally {
+      isLoading = false;
+    }
   }
+  const handleClickRecentGallery: svelte.JSX.EventHandler = async e => {
+    const path = e.currentTarget.dataset.path as string;
+    try {
+      isLoading = true;
+      const title = await ipc.invoke("openGallery", { path });
+      if (!title) {
+        throw new Error();
+      }
+      $currentGalleryInfoStore = { path, title };
+      pushRecentGalleryInfo({ path, title });
+    } catch {
+      // TODO: Push Error Toast
+    } finally {
+      isLoading = false;
+    }
+  };
 </script>
 
 <template>
@@ -69,18 +106,8 @@
               <Button
                 size="small"
                 kind="ghost"
-                on:click={async () => {
-                  isLoading = true;
-                  const { path } = info;
-                  const title = await ipc.invoke('openGallery', { galleryPath: path });
-                  if (!title) {
-                    // TODO: Push Error Toast
-                  } else {
-                    $currentGalleryPathStore = path;
-                    pushRecentGalleryInfo({ path, title });
-                  }
-                  isLoading = false;
-                }}
+                on:click={handleClickRecentGallery}
+                data-path={info.path}
               >
                 {info.title}
               </Button>

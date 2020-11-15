@@ -10,7 +10,7 @@
   import HomePage from "./pages/HomePage.svelte";
   import GalleryPage from "./pages/GalleryPage.svelte";
   import SettingsPage from "./pages/SettingsPage.svelte";
-  import { currentGalleryPathStore } from "./stores";
+  import { currentGalleryInfoStore } from "./stores";
 
   let tabs: Tabs = {
     apl: { title: "Apple", thumbnail: "apple.jpg" },
@@ -58,7 +58,7 @@
     <NavigationBar bind:tabs bind:selectedTabId bind:selectedMenu />
     <div class="pages-container">
       <div class="page-wrapper" class:hidden={selectedMenu !== 'home'}>
-        {#if $currentGalleryPathStore}
+        {#if $currentGalleryInfoStore}
           <GalleryPage />
         {:else}
           <HomePage />
