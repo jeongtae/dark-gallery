@@ -90,3 +90,5 @@ typings/
 
 # Build files
 /dist/
+
+/dev-gallery

@@ -19,6 +19,7 @@
 }
 
 :global(button:focus),
+:global(ul:focus),
 :global(div:focus) {
   outline: none;
 }

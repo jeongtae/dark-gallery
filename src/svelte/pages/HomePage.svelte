@@ -21,21 +21,41 @@
   let choiceModalIsOpen = false;
   let isLoading = false;
 
+  /** 디렉터리를 갤러리로 만든다.
+   * @param path 갤러리로 만들 절대경로
+   * @returns 성공 여부 */
+  async function makeGallery(path: string) {
+    return await ipc.invoke("makeGallery", { path });
+  }
+
+  /** 로딩 모달을 표시하고, 갤러리를 여는 IPC를 요청한다.
+   * 성공 시, 현재 갤러리 스토어를 수정하고 최근 갤러리 목록 스토어에 푸시한다.
+   * @param path 갤러리의 절대경로, 미지정시 개발용 갤러리를 연다.
+   * @returns 성공 여부 */
+  async function openGallery(path?: string) {
+    const title = !path
+      ? await ipc.invoke("openDevGallery")
+      : await ipc.invoke("openGallery", { path });
+    if (title) {
+      $currentGalleryInfoStore = { path, title };
+      if (path) {
+        pushRecentGalleryInfo({ path, title });
+      }
+    }
+    return !!title;
+  }
+
   async function handleCreationSubmit({ detail: path }) {
     try {
       isLoading = true;
-      const madeGallery = await ipc.invoke("makeGallery", { path });
-      if (!madeGallery) {
-        throw new Error();
-      }
-      const title = await ipc.invoke("openGallery", { path });
-      if (!title) {
-        throw new Error();
-      }
-      $currentGalleryInfoStore = { path, title };
-      pushRecentGalleryInfo({ path, title });
+
+      const created = await makeGallery(path);
+      if (!created) throw new Error("");
+
+      const opened = await openGallery(path);
+      if (!opened) throw new Error("");
     } catch {
-      // TODO: Push Error Toast
+      // TODO: push error toast
     } finally {
       isLoading = false;
     }
@@ -43,15 +63,10 @@
   async function handleChoiceSubmit({ detail: path }) {
     try {
       isLoading = true;
-      const title = await ipc.invoke("openGallery", { path });
-      if (!title) {
-        throw new Error();
-      }
-      $currentGalleryInfoStore = { path, title };
-      pushRecentGalleryInfo({ path, title });
+      const opened = await openGallery(path);
+      if (!opened) throw new Error("");
     } catch {
-      // TODO: Push Error Toast
-      console.error("Opening Error!!");
+      // TODO: push error toast
     } finally {
       isLoading = false;
     }
@@ -60,18 +75,36 @@
     const path = e.currentTarget.dataset.path as string;
     try {
       isLoading = true;
-      const title = await ipc.invoke("openGallery", { path });
-      if (!title) {
-        throw new Error();
-      }
-      $currentGalleryInfoStore = { path, title };
-      pushRecentGalleryInfo({ path, title });
+      const opened = await openGallery(path);
+      if (!opened) throw new Error("");
     } catch {
-      // TODO: Push Error Toast
+      // TODO: push error toast
     } finally {
       isLoading = false;
     }
   };
+  async function handleClickOpenDevGallery() {
+    try {
+      isLoading = true;
+      const opened = await openGallery();
+      if (!opened) throw new Error("");
+    } catch {
+      // TODO: push error toast
+    } finally {
+      isLoading = false;
+    }
+  }
+  async function handleClickResetDevGallery() {
+    try {
+      isLoading = true;
+      const reset = await ipc.invoke("resetDevGallery");
+      if (!reset) throw new Error("");
+    } catch {
+      // TODO: push error toast
+    } finally {
+      isLoading = false;
+    }
+  }
 </script>
 
 <template>
@@ -97,6 +130,20 @@
       >
         기존 갤러리 열기
       </Button>
+      {#if environments.isDev}
+        <OverflowMenu icon={Debug16}>
+          <OverflowMenuItem
+            text="개발용 갤러리 열기"
+            primaryFocus
+            on:click={handleClickOpenDevGallery}
+          />
+          <OverflowMenuItem
+            text="개발용 갤러리 초기화"
+            danger
+            on:click={handleClickResetDevGallery}
+          />
+        </OverflowMenu>
+      {/if}
     </div>
     {#if $recentGalleryInfoListStore.length}
       <h2>최근 갤러리</h2>
@@ -158,8 +205,9 @@
   p {
     margin: 0 8px;
   }
-  .gallery-buttons-wrapper :global(button) {
+  .gallery-buttons-wrapper > :global(button) {
     margin: 12px 12px;
+    display: inline-flex;
     &:first-child {
       margin-right: 4px;
     }

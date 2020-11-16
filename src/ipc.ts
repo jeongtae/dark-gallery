@@ -24,6 +24,8 @@ export type Commands = {
   getPathStatus: (args: { path: string }) => PathStatus;
   makeGallery: (args: { path: string }) => boolean;
   openGallery: (args: { path: string }) => string;
+  openDevGallery: () => string;
+  resetDevGallery: () => boolean;
 };
 
 export type CommandListeners = {
