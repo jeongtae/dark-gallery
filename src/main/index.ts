@@ -1,7 +1,7 @@
 import * as path from "path";
 import { app } from "electron";
 import Main from "./main";
-import { isSquirrelStartup, isDev } from "./environment";
+import { isSquirrelStartup, isDev } from "./environments";
 
 if (isSquirrelStartup) {
   app.quit();

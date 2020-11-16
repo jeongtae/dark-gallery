@@ -1,5 +1,5 @@
 import { Sequelize, DataTypes } from "sequelize";
-import { isDev } from "../environment";
+import { isDev } from "../environments";
 import { defineModels, KeyValueStoreCtor } from "./models";
 export * from "./models";
 

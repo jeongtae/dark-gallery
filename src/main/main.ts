@@ -3,7 +3,7 @@ import { BrowserWindow, Menu, app, ipcMain } from "electron";
 import oc from "open-color";
 import * as AppIpc from "./ipc";
 import * as AppMenu from "./menu";
-import { isDev, isMac } from "./environment";
+import { isDev, isMac } from "./environments";
 import { disposeSequelize } from "./sequelize";
 
 export default abstract class Main {
