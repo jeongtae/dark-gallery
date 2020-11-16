@@ -7,22 +7,15 @@ import { isDev, isMac } from "./environments";
 import { disposeSequelize } from "./sequelize";
 
 export default abstract class Main {
-  private static isStarted: boolean = false;
-
   public static main() {
-    if (this.isStarted) {
-      return;
-    }
-    this.isStarted = true;
-
     // Electron app
-    app.once("ready", () => this.createWindow());
-    app.on("window-all-closed", () => this.handleWindowAllClosed());
-    app.on("activate", () => this.handleActivate());
+    app.once("ready", this.createWindow);
+    app.on("window-all-closed", this.handleWindowAllClosed);
+    app.on("activate", this.handleActivate);
 
     // Menu
-    AppMenu.addEventListener("click-new-window", () => this.createWindow());
-    AppMenu.addEventListener("click-preference", () => this.handleClickPreference());
+    AppMenu.addEventListener("click-new-window", this.createWindow);
+    AppMenu.addEventListener("click-preference", this.handleClickPreference);
     Menu.setApplicationMenu(AppMenu.menu);
 
     // Ipc
