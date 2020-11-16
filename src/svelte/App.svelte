@@ -3,14 +3,13 @@
 
   import { onMount } from "svelte";
   import oc from "open-color";
-  import { productName } from "../../package.json";
   import TitleBar from "./components/TitleBar.svelte";
   import NavigationBar from "./components/NavigationBar.svelte";
   import type { Tabs } from "./components/TabBar.svelte";
   import HomePage from "./pages/HomePage.svelte";
   import GalleryPage from "./pages/GalleryPage.svelte";
   import SettingsPage from "./pages/SettingsPage.svelte";
-  import { currentGalleryInfoStore } from "./stores";
+  import { currentGalleryInfoStore, environments } from "./stores";
 
   let tabs: Tabs = {
     apl: { title: "Apple", thumbnail: "apple.jpg" },
@@ -38,19 +37,19 @@
 
   $: {
     if (selectedMenu === "home") {
-      document.title = `홈 \u2500 ${productName}`;
+      document.title = `홈 \u2500 ${environments.appName}`;
     } else if (selectedMenu === "settings") {
-      document.title = `설정 \u2500 ${productName}`;
+      document.title = `설정 \u2500 ${environments.appName}`;
     } else if (selectedTabId) {
-      document.title = `${tabs[selectedTabId].title} \u2500 ${productName}`;
+      document.title = `${tabs[selectedTabId].title} \u2500 ${environments.appName}`;
     } else {
-      document.title = productName;
+      document.title = environments.appName;
     }
   }
 </script>
 
 <svelte:head>
-  <title>{productName}</title>
+  <title>{environments.appName}</title>
 </svelte:head>
 <template>
   <TitleBar color={oc.gray[9]} />

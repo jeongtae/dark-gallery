@@ -1,14 +1,15 @@
 <script lang="ts">
   import type * as Ipc from "../../ipc";
-  import { Button, Loading } from "carbon-components-svelte";
+  import { Button, Loading, OverflowMenu, OverflowMenuItem } from "carbon-components-svelte";
   import Add16 from "carbon-icons-svelte/lib/Add16";
   import Folder16 from "carbon-icons-svelte/lib/Folder16";
   import Close16 from "carbon-icons-svelte/lib/Close16";
-  import { productName, description } from "../../../package.json";
+  import Debug16 from "carbon-icons-svelte/lib/Debug16";
   import {
     recentGalleryInfoListStore,
     pushRecentGalleryInfo,
     currentGalleryInfoStore,
+    environments,
   } from "../stores";
   import GalleryCreationModal from "../components/modals/GalleryCreationModal.svelte";
   import GalleryChoiceModal from "../components/modals/GalleryChoiceModal.svelte";
@@ -75,8 +76,8 @@
 
 <template>
   <div class="container">
-    <h1>{productName}</h1>
-    <p>{description}</p>
+    <h1>{environments.appName}</h1>
+    <p>{environments.appDescription}</p>
     <h2>시작하기</h2>
     <p>새 갤러리를 만들거나 기존 갤러리를 여세요.</p>
     <div class="gallery-buttons-wrapper">
