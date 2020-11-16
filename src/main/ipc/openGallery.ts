@@ -1,5 +1,5 @@
 import type { CommandHandlers } from "../../ipc";
-import { createSequelize, SettingCtor } from "../sequelize";
+import { createSequelize, KeyValueStoreCtor } from "../sequelize";
 import path from "path";
 
 const command: CommandHandlers["openGallery"] = async ({ frameId }, { path: galleryPath }) => {
@@ -9,9 +9,8 @@ const command: CommandHandlers["openGallery"] = async ({ frameId }, { path: gall
 
     const sequelize = createSequelize(frameId, sqlitePath);
 
-    const Setting = sequelize.models.setting as SettingCtor;
-    const setting = await Setting.findOne();
-    const galleryTitle = setting.title;
+    const KeyValueStore = sequelize.models.keyValueStore as KeyValueStoreCtor;
+    const { value: galleryTitle } = await KeyValueStore.findByPk("title");
 
     return galleryTitle;
   } catch {

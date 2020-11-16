@@ -116,14 +116,12 @@ export type TagGroupCtor = ModelCtor<TagGroup> & {
   };
 };
 
-export type SettingAttributes = {
-  id: number;
-  /** 갤러리의 이름 */
-  title: string;
+export type KeyValueStoreAttributes = {
+  key: string;
+  value: string;
 };
-export type SettingCreationAttributes = Optional<SettingAttributes, "id">;
-export type Setting = Model<SettingAttributes, SettingCreationAttributes> & SettingAttributes;
-export type SettingCtor = ModelCtor<Setting>;
+export type KeyValueStore = Model<KeyValueStoreAttributes> & KeyValueStoreAttributes;
+export type KeyValueStoreCtor = ModelCtor<KeyValueStore>;
 
 export type ItemToTagAttributes = {
   itemId: number;
@@ -165,12 +163,13 @@ export function defineModels(sequelize: Sequelize) {
     icon: DataTypes.TEXT,
   });
 
-  const Setting = sequelize.define(
-    "setting",
+  const KeyValueStore = sequelize.define(
+    "keyValueStore",
     {
-      title: { type: DataTypes.TEXT, allowNull: false },
+      key: { type: DataTypes.STRING, primaryKey: true, allowNull: false },
+      value: { type: DataTypes.TEXT, allowNull: false },
     },
-    { timestamps: false }
+    { timestamps: false, freezeTableName: true }
   );
 
   const ItemToTag = sequelize.define("itemToTag", {

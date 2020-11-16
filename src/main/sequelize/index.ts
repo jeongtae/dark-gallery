@@ -1,6 +1,6 @@
 import { Sequelize, DataTypes } from "sequelize";
 import { isDev } from "../environment";
-import { defineModels } from "./models";
+import { defineModels, KeyValueStoreCtor } from "./models";
 export * from "./models";
 
 const sequelizes: { [frameId: number]: Sequelize } = {};
@@ -36,4 +36,20 @@ export async function disposeSequelize(frameId: number) {
   const sequelize = sequelizes[frameId];
   delete sequelizes[frameId];
   await sequelize?.close();
+}
+
+export async function initKeyValueStoreWithTitle(sequelize: Sequelize, title: string) {
+  const KeyValueStore = sequelize.models.keyValueStore as KeyValueStoreCtor;
+
+  const [titleRow] = await KeyValueStore.findOrCreate({
+    where: { key: "title" },
+    defaults: { key: "title", value: title },
+  });
+
+  await KeyValueStore.findOrCreate({
+    where: { key: "settings" },
+    defaults: { key: "settings", value: "{}" },
+  });
+
+  return titleRow.value;
 }

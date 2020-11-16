@@ -1,5 +1,5 @@
 import type { CommandHandlers } from "../../ipc";
-import { createSequelize, disposeSequelize, SettingCtor } from "../sequelize";
+import { createSequelize, disposeSequelize, initKeyValueStoreWithTitle } from "../sequelize";
 import { promises as fs } from "fs";
 import path from "path";
 
@@ -15,10 +15,8 @@ const command: CommandHandlers["makeGallery"] = async ({ frameId }, { path: gall
 
     const galleryTitle = path.basename(galleryPath);
 
-    const Setting = sequelize.models.setting as SettingCtor;
-    await Setting.create({
-      title: galleryTitle,
-    });
+    await initKeyValueStoreWithTitle(sequelize, galleryTitle);
+
     await disposeSequelize(frameId);
 
     return true;

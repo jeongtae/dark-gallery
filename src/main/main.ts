@@ -1,4 +1,4 @@
-import * as path from "path";
+import path from "path";
 import { BrowserWindow, Menu, app, ipcMain } from "electron";
 import oc from "open-color";
 import * as AppIpc from "./ipc";
