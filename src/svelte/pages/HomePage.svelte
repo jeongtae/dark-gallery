@@ -1,10 +1,10 @@
 <script lang="ts">
-  import type * as Ipc from "../../ipc";
   import { Button, Loading, OverflowMenu, OverflowMenuItem } from "carbon-components-svelte";
   import Add16 from "carbon-icons-svelte/lib/Add16";
   import Folder16 from "carbon-icons-svelte/lib/Folder16";
   import Close16 from "carbon-icons-svelte/lib/Close16";
   import Debug16 from "carbon-icons-svelte/lib/Debug16";
+  import ipc from "../ipc";
   import {
     recentGalleryInfoListStore,
     pushRecentGalleryInfo,
@@ -13,9 +13,6 @@
   } from "../stores";
   import GalleryCreationModal from "../components/modals/GalleryCreationModal.svelte";
   import GalleryChoiceModal from "../components/modals/GalleryChoiceModal.svelte";
-
-  const { ipcRenderer } = require("electron");
-  const ipc = ipcRenderer as Ipc.TypedIpcRenderer;
 
   let creationModalIsOpen = false;
   let choiceModalIsOpen = false;

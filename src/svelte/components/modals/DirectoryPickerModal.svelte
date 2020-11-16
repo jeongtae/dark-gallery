@@ -6,13 +6,11 @@
 </script>
 
 <script lang="ts">
-  const { ipcRenderer } = require("electron");
-  const ipc = ipcRenderer as import("../../../ipc").TypedIpcRenderer;
-
   import { createEventDispatcher, tick } from "svelte";
   import { debounce } from "lodash";
   import { Modal, TextInput, Button, InlineLoading, Icon } from "carbon-components-svelte";
   import Folder16 from "carbon-icons-svelte/lib/Folder16";
+  import ipc from "../../ipc";
 
   const dispatch = createEventDispatcher();
 

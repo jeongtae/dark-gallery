@@ -1,8 +1,7 @@
 <script lang="ts">
-  const ipc = require("electron").ipcRenderer as import("../ipc").TypedIpcRenderer;
-
   import { onMount } from "svelte";
   import oc from "open-color";
+  import ipc from "./ipc";
   import TitleBar from "./components/TitleBar.svelte";
   import NavigationBar from "./components/NavigationBar.svelte";
   import type { Tabs } from "./components/TabBar.svelte";

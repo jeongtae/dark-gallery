@@ -1,12 +1,8 @@
 <script lang="ts">
-  const { ipcRenderer } = require("electron");
-
-  import type * as Ipc from "../../../ipc";
+  import ipc from "../../ipc";
   import DirectoryPickerModal from "./DirectoryPickerModal.svelte";
   import type { PathValidator } from "./DirectoryPickerModal.svelte";
   export let open = false;
-
-  const ipc = ipcRenderer as Ipc.TypedIpcRenderer;
 
   const pathValidator: PathValidator = async (path, setMessage) => {
     const pathStatus = await ipc.invoke("getPathStatus", { path });
