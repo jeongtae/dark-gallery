@@ -18,11 +18,16 @@
   let choiceModalIsOpen = false;
   let isLoading = false;
 
-  /** 디렉터리를 갤러리로 만든다.
+  /** 디렉터리를 갤러리로 만들고 연다.
    * @param path 갤러리로 만들 절대경로
    * @returns 성공 여부 */
-  async function makeGallery(path: string) {
-    return await ipc.invoke("makeGallery", { path });
+  async function createAndOpenGallery(path: string) {
+    const title = await ipc.invoke("createAndOpenGallery", { path });
+    if (title) {
+      $currentGalleryInfoStore = { path, title };
+      pushRecentGalleryInfo({ path, title });
+    }
+    return !!title;
   }
 
   /** 로딩 모달을 표시하고, 갤러리를 여는 IPC를 요청한다.
@@ -30,14 +35,18 @@
    * @param path 갤러리의 절대경로, 미지정시 개발용 갤러리를 연다.
    * @returns 성공 여부 */
   async function openGallery(path?: string) {
-    const title = !path
-      ? await ipc.invoke("openDevGallery")
-      : await ipc.invoke("openGallery", { path });
-    if (title) {
-      $currentGalleryInfoStore = { path, title };
-      if (path) {
-        pushRecentGalleryInfo({ path, title });
-      }
+    const isDevGallery = !path;
+    if (isDevGallery && !environments.isDev) {
+      return false;
+    }
+    const title = await ipc.invoke("openGallery", { path });
+    if (isDevGallery) {
+      path = await ipc.invoke("getDevGalleryPath");
+    }
+    console.log(path, title);
+    $currentGalleryInfoStore = { path, title };
+    if (!isDevGallery) {
+      pushRecentGalleryInfo({ path, title });
     }
     return !!title;
   }
@@ -45,12 +54,8 @@
   async function handleCreationSubmit({ detail: path }) {
     try {
       isLoading = true;
-
-      const created = await makeGallery(path);
-      if (!created) throw new Error("");
-
-      const opened = await openGallery(path);
-      if (!opened) throw new Error("");
+      const opened = await createAndOpenGallery(path);
+      if (!opened) throw new Error();
     } catch {
       // TODO: push error toast
     } finally {
@@ -61,7 +66,7 @@
     try {
       isLoading = true;
       const opened = await openGallery(path);
-      if (!opened) throw new Error("");
+      if (!opened) throw new Error();
     } catch {
       // TODO: push error toast
     } finally {
@@ -73,7 +78,7 @@
     try {
       isLoading = true;
       const opened = await openGallery(path);
-      if (!opened) throw new Error("");
+      if (!opened) throw new Error();
     } catch {
       // TODO: push error toast
     } finally {
@@ -84,7 +89,7 @@
     try {
       isLoading = true;
       const opened = await openGallery();
-      if (!opened) throw new Error("");
+      if (!opened) throw new Error();
     } catch {
       // TODO: push error toast
     } finally {
@@ -95,7 +100,8 @@
     try {
       isLoading = true;
       const reset = await ipc.invoke("resetDevGallery");
-      if (!reset) throw new Error("");
+      if (!reset) throw new Error();
+      // TODO: push success toast
     } catch {
       // TODO: push error toast
     } finally {

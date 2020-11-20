@@ -1,6 +1,7 @@
 const { ipcRenderer } = require("electron");
-import type * as Ipc from "../ipc";
+import type { TypedIpcRenderer } from "electron-typed-ipc";
+import type { Commands, Events } from "../common/ipc";
 
-const ipc = ipcRenderer as Ipc.TypedIpcRenderer;
+const ipc = ipcRenderer as TypedIpcRenderer<Events, Commands>;
 
 export default ipc;

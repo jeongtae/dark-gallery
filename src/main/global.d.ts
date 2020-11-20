@@ -14,3 +14,7 @@ declare module "electron-reload" {
   }
   export = reload;
 }
+
+interface Disposable {
+  dispose(): void | Promise<void>;
+}

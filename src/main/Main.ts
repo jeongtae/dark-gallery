@@ -170,22 +170,3 @@ export default class Main {
   };
   //#endregion
 }
-
-//   // Menu TODO: 나중에 구현
-//   AppMenu.addEventListener("click-new-window", this.createWindow);
-//   AppMenu.addEventListener("click-preference", this.handleClickPreference);
-//   Menu.setApplicationMenu(AppMenu.menu);
-
-// private handleClickPreference() {
-//   const allWindows = AppWindow.getAllWindows();
-//   if (allWindows.length) {
-//     let window = AppWindow.getFocusedWindow() ?? allWindows[0];
-//     window.focus();
-//     AppIpc.sendEvent(window, "openPreference");
-//   } else {
-//     const newWindow = this.createWindow();
-//     newWindow.webContents.once("did-finish-load", () =>
-//       AppIpc.sendEvent(newWindow, "openPreference")
-//     );
-//   }
-// }

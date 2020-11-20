@@ -5,24 +5,24 @@
   export let open = false;
 
   const pathValidator: PathValidator = async (path, setMessage) => {
-    const pathStatus = await ipc.invoke("getPathStatus", { path });
+    const pathStatus = await ipc.invoke("checkGalleryPath", { path });
     if (!pathStatus.isAbsolute) {
       setMessage("절대 경로를 사용해야 합니다.");
       return false;
     }
-    if (!pathStatus.exists || !pathStatus.isDirectory) {
+    if (!pathStatus.exists || pathStatus.isDirectory === false) {
       setMessage("존재하지 않는 폴더입니다.");
       return false;
     }
-    if (!pathStatus.directoryHasReadPermission) {
+    if (pathStatus.directoryHasReadPermission === false) {
       setMessage("폴더에 접근 권한이 없습니다.");
       return false;
     }
-    if (!pathStatus.directoryHasWritePermission) {
+    if (pathStatus.directoryHasWritePermission === false) {
       setMessage("폴더에 쓰기 권한이 없습니다.");
       return false;
     }
-    if (pathStatus.isDecendantOfGallery) {
+    if (pathStatus.isDecendantDirectoryOfGallery) {
       setMessage("다른 갤러리의 하위 폴더입니다.");
       return false;
     }

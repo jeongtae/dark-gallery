@@ -1,7 +1,5 @@
-import {
-  Sequelize,
+import type {
   Model,
-  DataTypes,
   Association,
   ModelCtor,
   HasManyGetAssociationsMixin,
@@ -17,8 +15,12 @@ import {
   BelongsToGetAssociationMixin,
   BelongsToCreateAssociationMixin,
   Optional,
-} from "sequelize";
+  BelongsToSetAssociationMixin,
+} from "sequelize/types";
 
+declare type Raw<T> = Partial<T> & { [key: string]: any };
+
+//#region 아이템 모델
 export type ItemAttributes = {
   id: number;
   /** 항목에 대한 제목 */
@@ -38,15 +40,19 @@ export type ItemAttributes = {
   readonly createdAt: Date;
   readonly updatedAt: Date;
 };
+export type RawItem = Raw<
+  ItemAttributes & {
+    readonly tags: RawTag[];
+  }
+>;
 export type ItemCreationAttributes = Optional<ItemAttributes, "id" | "rating">;
 export type Item = Model<ItemAttributes, ItemCreationAttributes> &
   ItemAttributes & {
     getTags: BelongsToManyGetAssociationsMixin<Tag>;
-    addTag: BelongsToManyAddAssociationMixin<Tag, number>;
     hasTag: BelongsToManyHasAssociationMixin<Tag, number>;
     countTags: BelongsToManyCountAssociationsMixin;
     createTag: BelongsToManyCreateAssociationMixin<Tag>;
-
+    addTag: BelongsToManyAddAssociationMixin<Tag, number>;
     readonly tags?: Tag[];
   };
 export type ItemCtor = ModelCtor<Item> & {
@@ -54,7 +60,9 @@ export type ItemCtor = ModelCtor<Item> & {
     tags: Association<Item, Tag>;
   };
 };
+//#endregion
 
+//#region 태그 모델
 export type TagAttributes = {
   id: number;
   /** 태그의 이름 */
@@ -67,14 +75,25 @@ export type TagAttributes = {
   readonly createdAt: Date;
   readonly updatedAt: Date;
 };
+export type RawTag = Raw<
+  TagAttributes & {
+    readonly items: RawItem[];
+    readonly group: RawTagGroup;
+  }
+>;
 export type TagCreationAttributes = Optional<TagAttributes, "id" | "memo" | "icon">;
 export type Tag = Model<TagAttributes, TagCreationAttributes> &
   TagAttributes & {
     getItems: BelongsToManyGetAssociationsMixin<Item>;
-    addItem: BelongsToManyAddAssociationMixin<Item, number>;
     hasItem: BelongsToManyHasAssociationMixin<Item, number>;
     countItems: BelongsToManyCountAssociationsMixin;
     createItem: BelongsToManyCreateAssociationMixin<Item>;
+    addItem: BelongsToManyAddAssociationMixin<Item, number>;
+    getGroup: BelongsToGetAssociationMixin<TagGroup>;
+    setGroup: BelongsToSetAssociationMixin<TagGroup, number>;
+    createGroup: BelongsToCreateAssociationMixin<TagGroup>;
+    readonly items?: Item[];
+    readonly group?: TagGroup;
   };
 export type TagCtor = ModelCtor<Tag> & {
   associations: {
@@ -82,7 +101,9 @@ export type TagCtor = ModelCtor<Tag> & {
     group: Association<Tag, TagGroup>;
   };
 };
+//#endregion
 
+//#region 태그 그룹 모델
 export type TagGroupAttributes = {
   id: number;
   /** 그룹의 이름 */
@@ -97,6 +118,11 @@ export type TagGroupAttributes = {
   readonly createdAt: Date;
   readonly updatedAt: Date;
 };
+export type RawTagGroup = Raw<
+  TagGroupAttributes & {
+    tags: RawTag[];
+  }
+>;
 export type TagGroupCreationAttributes = Optional<
   TagGroupAttributes,
   "id" | "memo" | "color" | "icon"
@@ -105,21 +131,24 @@ export type TagGroup = Model<TagGroupAttributes, TagGroupCreationAttributes> &
   TagGroupAttributes &
   TagAttributes & {
     getTags: HasManyGetAssociationsMixin<Tag>;
-    addTag: HasManyAddAssociationMixin<Tag, number>;
     hasTag: HasManyHasAssociationMixin<Tag, number>;
     countTags: HasManyCountAssociationsMixin;
     createTag: HasManyCreateAssociationMixin<Tag>;
+    addTag: HasManyAddAssociationMixin<Tag, number>;
   };
 export type TagGroupCtor = ModelCtor<TagGroup> & {
   associations: {
     tags: Association<TagGroup, Tag>;
   };
 };
+//#endregion
 
+//#region 키-밸류 스토어 모델
 export type KeyValueStoreAttributes = {
   key: string;
   value: string;
 };
+export type RawKeyValueStore = Raw<KeyValueStoreAttributes>;
 export type KeyValueStore = Model<KeyValueStoreAttributes> & KeyValueStoreAttributes;
 export type KeyValueStoreCtor = ModelCtor<KeyValueStore>;
 
@@ -132,54 +161,4 @@ export type ItemToTagAttributes = {
 };
 export type ItemToTag = Model<ItemToTagAttributes> & ItemToTagAttributes;
 export type ItemToTagCtor = ModelCtor<ItemToTag>;
-
-/** `Sequelize` 인스턴스에 모든 모델을 `define()`한다. */
-export function defineModels(sequelize: Sequelize) {
-  const Item = sequelize.define("item", {
-    title: DataTypes.TEXT,
-    type: { type: DataTypes.ENUM("VIDEO", "IMAGE", "CARTOON"), allowNull: false },
-    rating: {
-      type: DataTypes.SMALLINT({ unsigned: true }),
-      allowNull: false,
-      defaultValue: 0,
-      validate: { min: 0, max: 5 },
-    },
-    hash: { type: DataTypes.STRING, allowNull: false },
-    path: { type: DataTypes.STRING(512), allowNull: false },
-    thumbnailPath: DataTypes.STRING,
-    memo: DataTypes.TEXT,
-  });
-
-  const Tag = sequelize.define("tag", {
-    name: { type: DataTypes.TEXT, allowNull: false },
-    memo: DataTypes.TEXT,
-    icon: DataTypes.TEXT,
-  });
-
-  const TagGroup = sequelize.define("tagGroup", {
-    name: { type: DataTypes.TEXT, allowNull: false },
-    memo: DataTypes.TEXT,
-    color: DataTypes.STRING,
-    icon: DataTypes.TEXT,
-  });
-
-  const KeyValueStore = sequelize.define(
-    "keyValueStore",
-    {
-      key: { type: DataTypes.STRING, primaryKey: true, allowNull: false },
-      value: { type: DataTypes.TEXT, allowNull: false },
-    },
-    { timestamps: false, freezeTableName: true }
-  );
-
-  const ItemToTag = sequelize.define("itemToTag", {
-    itemId: { type: DataTypes.INTEGER, references: "Items" },
-    tagId: { type: DataTypes.INTEGER, references: "Tags" },
-  });
-
-  TagGroup.hasMany(Tag);
-  Tag.belongsTo(TagGroup, { as: "group" });
-
-  Item.belongsToMany(Tag, { through: ItemToTag });
-  Tag.belongsToMany(Item, { through: ItemToTag });
-}
+//#endregion
