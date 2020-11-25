@@ -47,6 +47,7 @@ export default class Main {
     ipc.handle("createAndOpenGallery", this.onIpcCreateAndOpenGallery.bind(this));
     ipc.handle("openGallery", this.onIpcOpenGallery.bind(this));
     ipc.handle("getDevGalleryPath", this.onIpcGetDevGalleryPath.bind(this));
+    ipc.handle("resetDevGallery", this.onIpcResetDevGallery.bind(this));
   }
 
   /** 새 윈도우 생성 */
@@ -154,7 +155,7 @@ export default class Main {
   onIpcGetDevGalleryPath: IpcHandlers["getDevGalleryPath"] = () => {
     return path.join(app.getAppPath(), "dev-gallery");
   };
-  onIpcResetGallery: IpcHandlers["resetDevGallery"] = async () => {
+  onIpcResetDevGallery: IpcHandlers["resetDevGallery"] = async () => {
     if (!isDev) {
       return false;
     }
