@@ -116,13 +116,13 @@ export default class Gallery implements Disposable {
    * @param galleryPath 갤러리의 경로
    * @param isNew `true`인 경우, 데이터베이스를 새로 생성하겠다고 표시하는 것입니다.
    */
-  constructor(private readonly galleryPath: string, private readonly isNew: boolean = false) {}
+  constructor(readonly path: string, private readonly isNew: boolean = false) {}
 
   async open() {
     if (this.isOpened) {
       return;
     }
-    const pathInfo = await Gallery.checkGalleryPath(this.galleryPath);
+    const pathInfo = await Gallery.checkGalleryPath(this.path);
     if (this.isNew) {
       if (
         !pathInfo.exists ||
@@ -132,7 +132,7 @@ export default class Gallery implements Disposable {
       ) {
         throw new Error();
       }
-      const indexPath = buildIndexDirectoryPath(this.galleryPath);
+      const indexPath = buildIndexDirectoryPath(this.path);
       await fs.promises.mkdir(indexPath, { recursive: true });
     } else {
       if (
@@ -144,12 +144,12 @@ export default class Gallery implements Disposable {
       }
     }
 
-    const sqlitePath = buildSqliteFilePath(this.galleryPath);
+    const sqlitePath = buildSqliteFilePath(this.path);
     const sequelize = createSequelize(sqlitePath);
     const { item, tag, tagGroup, keyValueStore } = sequelize.models as any;
     if (this.isNew) {
       await sequelize.sync();
-      const title = path.basename(this.galleryPath);
+      const title = path.basename(this.path);
       await (keyValueStore as Models.KeyValueStoreCtor).create({ key: "title", value: title });
     }
     this.#models = {

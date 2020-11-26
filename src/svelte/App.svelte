@@ -25,13 +25,9 @@
   let selectedMenu: "home" | "settings" | null = "home";
 
   onMount(() => {
-    const listener = () => {
-      selectedMenu = "settings";
-    };
-    ipc.on("openPreference", listener);
-    return () => {
-      ipc.removeListener("openPreference", listener);
-    };
+    ipc.on("openGallery", (event, { path, title }) => {
+      $currentGalleryInfoStore = { path, title };
+    });
   });
 
   $: {

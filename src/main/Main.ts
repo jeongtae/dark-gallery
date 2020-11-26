@@ -1,9 +1,9 @@
 import path from "path";
 import fs from "fs";
 import { promisify } from "util";
-import { app, dialog } from "electron";
+import { app, BrowserWindow, dialog } from "electron";
 import { isSquirrelStartup, isDev, isMac, appPath } from "./environments";
-import { ipc, IpcHandlers } from "./ipc";
+import { ipc, IpcHandlers, sendEvent } from "./ipc";
 import { createWindow, getAllWindows, getWindow } from "./window";
 import Gallery, { buildIndexDirectoryPath, buildSqliteFilePath } from "./Gallery";
 import rimraf from "rimraf";
@@ -54,14 +54,23 @@ export default class Main {
   createWindow() {
     const window = createWindow();
     const { id } = window;
-    window.on("closed", () => this.onWindowClosed(id));
-    window.menuBarVisible = true;
+    window.on("closed", async () => await this.onWindowClosed(window));
+    window.webContents.on("did-finish-load", () => this.onWindowDidFinishLoad(window));
   }
 
   //#region 일렉트론 BrowserWindow의 이벤트 핸들러
-  async onWindowClosed(frameId: number) {
-    await this.galleries[frameId]?.dispose();
-    delete this.galleries[frameId];
+  async onWindowClosed(window: BrowserWindow) {
+    const { id } = window;
+    await this.galleries[id]?.dispose();
+    delete this.galleries[id];
+  }
+  async onWindowDidFinishLoad(window: BrowserWindow) {
+    const gallery = this.galleries[window.id];
+    if (gallery) {
+      const title = await gallery.getTitle();
+      const { path } = gallery;
+      sendEvent(window, "openGallery", { path, title });
+    }
   }
   //#endregion
 
@@ -83,7 +92,11 @@ export default class Main {
     }
   }
   /** 일렉트론 `app`의 `quit` 이벤트 핸들러 */
-  onAppQuit() {}
+  async onAppQuit() {
+    for (const gallery of Object.values(this.galleries)) {
+      await gallery.dispose();
+    }
+  }
   //#endregion
 
   //#region ipc 이벤트 핸들러

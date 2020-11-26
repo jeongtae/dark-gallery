@@ -21,6 +21,7 @@ export interface GalleryPathInfo {
 
 /** Main -> Renderer */
 export type Events = {
+  openGallery: (args: { path: string; title: string }) => void;
 };
 
 /** Renderer -> Main */
