@@ -1,10 +1,12 @@
 import path from "path";
 import fs from "fs";
 import { promisify } from "util";
-import { app, BrowserWindow, dialog } from "electron";
 import rimraf from "rimraf";
+import { app, BrowserWindow, dialog, Menu, shell } from "electron";
+import { MenuItemId } from "../common/ipc";
 import { isSquirrelStartup, isDev, isMac, appPath } from "./environments";
 import { ipc, IpcHandlers, sendEvent } from "./ipc";
+import { getMenu, addMenuClickHandler, setMenuItemEnabled } from "./menu";
 import { createWindow, getAllWindows, getWindow } from "./window";
 import Gallery, { buildIndexDirectoryPath, buildSqliteFilePath } from "./Gallery";
 
@@ -34,6 +36,10 @@ export default class Main {
       });
     }
 
+    // 메뉴 및 그 이벤트 핸들러 등록
+    Menu.setApplicationMenu(getMenu());
+    addMenuClickHandler(this.onMenuClick.bind(this));
+
     // 일렉트론 app 이벤트 핸들러 등록
     app.once("ready", this.onAppReady.bind(this));
     app.on("window-all-closed", this.onAppWindowAllClosed.bind(this));
@@ -47,6 +53,7 @@ export default class Main {
     ipc.handle("openGallery", this.onIpcOpenGallery.bind(this));
     ipc.handle("getDevGalleryPath", this.onIpcGetDevGalleryPath.bind(this));
     ipc.handle("resetDevGallery", this.onIpcResetDevGallery.bind(this));
+    ipc.handle("setMenuEnabled", this.onIpcSetMenuEnabled.bind(this));
   }
 
   /** 새 윈도우 생성 */
@@ -56,6 +63,39 @@ export default class Main {
     window.on("closed", async () => await this.onWindowClosed(id));
     window.webContents.on("did-finish-load", () => this.onWindowDidFinishLoad(window));
     return window;
+  }
+
+  async onMenuClick(id: MenuItemId, window: BrowserWindow) {
+    switch (id) {
+      case "openPreference": {
+        const allWindows = BrowserWindow.getAllWindows();
+        if (allWindows.length) {
+          let window = BrowserWindow.getFocusedWindow() ?? allWindows[0];
+          window.focus();
+          sendEvent(window, "clickMenu", "openPreference");
+        } else {
+          const newWindow = this.createWindow();
+          newWindow.webContents.once("did-finish-load", () =>
+            sendEvent(newWindow, "clickMenu", "openPreference")
+          );
+        }
+        break;
+      }
+      case "closeWindow": {
+        BrowserWindow.getFocusedWindow()?.close();
+        break;
+      }
+      case "newWindow": {
+        this.createWindow();
+        break;
+      }
+      case "help": {
+        await shell.openExternal("https://blog.jeongtae.com");
+        break;
+      }
+      default:
+        sendEvent(window, "clickMenu", id);
+    }
   }
 
   //#region 일렉트론 BrowserWindow의 이벤트 핸들러
@@ -180,6 +220,9 @@ export default class Main {
     } catch {
       return false;
     }
+  };
+  onIpcSetMenuEnabled: IpcHandlers["setMenuEnabled"] = (event, id, enabled) => {
+    setMenuItemEnabled(id, enabled);
   };
   //#endregion
 }

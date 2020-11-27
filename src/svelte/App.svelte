@@ -25,6 +25,11 @@
   let selectedMenu: "home" | "settings" | null = "home";
 
   onMount(() => {
+    ipc.on("clickMenu", (event, id) => {
+      if (id === "openPreference") {
+        selectedMenu = "settings";
+      }
+    });
     ipc.on("openGallery", (event, { path, title }) => {
       $currentGalleryInfoStore = { path, title };
     });

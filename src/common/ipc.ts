@@ -19,8 +19,11 @@ export interface GalleryPathInfo {
   sqliteFileHasWritePermission?: boolean;
 }
 
+export type MenuItemId = "newWindow" | "openPreference" | "closeWindow" | "closeTab" | "help";
+
 /** Main -> Renderer */
 export type Events = {
+  clickMenu: (id: MenuItemId) => void;
   openGallery: (args: { path: string; title: string }) => void;
 };
 
@@ -32,4 +35,5 @@ export type Commands = {
   getDevGalleryPath: () => string;
   openGallery: (args: { path: string }) => string;
   resetDevGallery: () => boolean;
+  setMenuEnabled: (id: MenuItemId, enabled: boolean) => void;
 };
