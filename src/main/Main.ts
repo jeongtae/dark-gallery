@@ -54,15 +54,14 @@ export default class Main {
   createWindow() {
     const window = createWindow();
     const { id } = window;
-    window.on("closed", async () => await this.onWindowClosed(window));
+    window.on("closed", async () => await this.onWindowClosed(id));
     window.webContents.on("did-finish-load", () => this.onWindowDidFinishLoad(window));
   }
 
   //#region 일렉트론 BrowserWindow의 이벤트 핸들러
-  async onWindowClosed(window: BrowserWindow) {
-    const { id } = window;
-    await this.galleries[id]?.dispose();
-    delete this.galleries[id];
+  async onWindowClosed(windowId: number) {
+    await this.galleries[windowId]?.dispose();
+    delete this.galleries[windowId];
   }
   async onWindowDidFinishLoad(window: BrowserWindow) {
     const gallery = this.galleries[window.id];
