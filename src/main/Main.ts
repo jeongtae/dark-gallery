@@ -2,12 +2,11 @@ import path from "path";
 import fs from "fs";
 import { promisify } from "util";
 import { app, BrowserWindow, dialog } from "electron";
+import rimraf from "rimraf";
 import { isSquirrelStartup, isDev, isMac, appPath } from "./environments";
 import { ipc, IpcHandlers, sendEvent } from "./ipc";
 import { createWindow, getAllWindows, getWindow } from "./window";
 import Gallery, { buildIndexDirectoryPath, buildSqliteFilePath } from "./Gallery";
-import rimraf from "rimraf";
-const rimrafPromise = promisify(rimraf);
 
 /** 이 애플리케이션의 진입 클래스 */
 export default class Main {
@@ -56,6 +55,7 @@ export default class Main {
     const { id } = window;
     window.on("closed", async () => await this.onWindowClosed(id));
     window.webContents.on("did-finish-load", () => this.onWindowDidFinishLoad(window));
+    return window;
   }
 
   //#region 일렉트론 BrowserWindow의 이벤트 핸들러
@@ -175,7 +175,7 @@ export default class Main {
       const galleryPath = path.join(app.getAppPath(), "dev-gallery");
       const indexPath = buildIndexDirectoryPath(galleryPath);
       await fs.promises.access(indexPath);
-      await rimrafPromise(indexPath);
+      await promisify(rimraf)(indexPath);
       return true;
     } catch {
       return false;

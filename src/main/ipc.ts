@@ -1,5 +1,5 @@
 import { BrowserWindow, ipcMain, IpcMainEvent } from "electron";
-import type { TypedIpcMain, TypedWebContents } from "electron-typed-ipc";
+import type { TypedIpcMain } from "electron-typed-ipc";
 import type { Events, Commands, GalleryPathInfo } from "../common/ipc";
 
 declare type OptionalPromise<T> = T | Promise<T>;
