@@ -47,6 +47,7 @@ export function getMenu() {
                   label: "환경설정...",
                   accelerator: "Command+,",
                   id: "openPreference",
+                  click,
                 },
                 { type: "separator" },
                 { label: "서비스", role: "services" },

@@ -70,7 +70,7 @@ export default class Main {
       case "openPreference": {
         const allWindows = BrowserWindow.getAllWindows();
         if (allWindows.length) {
-          let window = BrowserWindow.getFocusedWindow() ?? allWindows[0];
+          const window = BrowserWindow.getFocusedWindow() ?? allWindows[0];
           window.focus();
           sendEvent(window, "clickMenu", "openPreference");
         } else {
