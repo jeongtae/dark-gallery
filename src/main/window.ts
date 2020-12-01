@@ -23,6 +23,7 @@ export function createWindow(): BrowserWindow {
 
   if (isDev) {
     window.webContents.openDevTools();
+    window.webContents.once("devtools-opened", () => window.webContents.focus());
   }
 
   return window;
