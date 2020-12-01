@@ -55,6 +55,7 @@ export default class Main {
     ipc.handle("resetDevGallery", this.onIpcResetDevGallery.bind(this));
     ipc.handle("setMenuEnabled", this.onIpcSetMenuEnabled.bind(this));
     ipc.handle("startIndexing", this.onIpcStartIndexing.bind(this));
+    ipc.handle("getItems", this.onIpcGetItems.bind(this));
   }
 
   /** 새 윈도우 생성 */
@@ -225,13 +226,17 @@ export default class Main {
     }
   };
   onIpcSetMenuEnabled: IpcHandlers["setMenuEnabled"] = (event, id, enabled) => {
+    // TODO: 윈도우 id별로 상태 저장하고, 윈도우 focus될 때 메뉴에 적용시키는 매커니즘이 필요하다.
     setMenuItemEnabled(id, enabled);
   };
   onIpcStartIndexing: IpcHandlers["startIndexing"] = async ({ frameId }) => {
     await this.galleries[frameId].startIndexing({ compareHash: true, findNew: true });
+  };
+  onIpcGetItems: IpcHandlers["getItems"] = async ({ frameId }) => {
     const {
       models: { item: Item },
     } = this.galleries[frameId];
+    return Item.findAll({ raw: true });
   };
   //#endregion
 }

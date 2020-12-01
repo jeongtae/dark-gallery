@@ -1,3 +1,5 @@
+import type { RawItem } from "./sequelize";
+
 export interface GalleryPathInfo {
   /** 경로가 존재합니다. */
   exists: boolean;
@@ -37,4 +39,5 @@ export type Commands = {
   resetDevGallery: () => boolean;
   setMenuEnabled: (id: MenuItemId, enabled: boolean) => void;
   startIndexing: () => void;
+  getItems: () => RawItem[];
 };
