@@ -1,3 +1,3 @@
 # Auto detect text files and perform LF normalization
 * text=auto
-carbon/all.css linguist-vendored
+all.css linguist-vendored
