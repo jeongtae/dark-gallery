@@ -2,7 +2,6 @@ import path from "path";
 import fs from "fs";
 import { promisify } from "util";
 import rimraf from "rimraf";
-import { difference } from "lodash";
 import { app, BrowserWindow, dialog, Menu, shell } from "electron";
 import { MenuItemId } from "../common/ipc";
 import { isSquirrelStartup, isDev, isMac, appPath } from "./environments";
@@ -10,8 +9,6 @@ import { ipc, IpcHandlers, sendEvent } from "./ipc";
 import { getMenu, addMenuClickHandler, setMenuItemEnabled } from "./menu";
 import { createWindow, getAllWindows, getWindow } from "./window";
 import Gallery, { buildIndexDirectoryPath, buildSqliteFilePath } from "./Gallery";
-import type { Models } from "./sequelize";
-import { getAllChildFilePath, getFileInfo } from "./indexing";
 
 /** 이 애플리케이션의 진입 클래스 */
 export default class Main {
@@ -230,70 +227,11 @@ export default class Main {
   onIpcSetMenuEnabled: IpcHandlers["setMenuEnabled"] = (event, id, enabled) => {
     setMenuItemEnabled(id, enabled);
   };
-  onIpcStartIndexing: IpcHandlers["startIndexing"] = async (
-    { frameId },
-    { compareHash, findNew }
-  ) => {
-    // 물리적으로 존재하는 모든 파일 경로 수집
+  onIpcStartIndexing: IpcHandlers["startIndexing"] = async ({ frameId }) => {
+    await this.galleries[frameId].startIndexing({ compareHash: true, findNew: true });
     const {
-      path: galleryPath,
       models: { item: Item },
     } = this.galleries[frameId];
-
-    // 데이터베이스에 존재하는 모든 파일 경로 수집
-    const items = await Item.findAll({
-      attributes: compareHash
-        ? ["id", "path", "mtime", "size", "hash"]
-        : ["id", "path", "mtime", "size"],
-      raw: true,
-    });
-
-    // 원래 존재하는 것에 대해서 작업
-    for (const {
-      id: itemId,
-      path: itemPath,
-      mtime: itemMtime,
-      size: itemSize,
-      hash: itemHash,
-    } of items) {
-      try {
-        const itemFullPath = path.join(galleryPath, itemPath);
-        const { mtime: fileMtime, size: fileSize, hash: fileHash } = await getFileInfo(
-          itemFullPath,
-          { includeHash: compareHash }
-        );
-        const shouldUpdate =
-          itemMtime !== fileMtime || itemSize !== fileSize || itemHash !== fileHash;
-        if (shouldUpdate) {
-          const mtime = fileMtime;
-          const size = fileSize;
-          const hash = fileHash || (await getFileInfo(itemFullPath, { includeHash: true })).hash;
-          await Item.update({ mtime, size, hash }, { where: { id: itemId } });
-        }
-      } catch (e) {
-        if (e.code === "ENOENT") {
-          await Item.update({ lost: true }, { where: { id: itemId } });
-        }
-      }
-    }
-
-    // 새로 추가될 것에 대해 작업
-    if (findNew) {
-      const extensions = ["jpg", "jpeg", "gif", "png", "bmp", "webp", "webm", "mp4", "mov", "avi"];
-      const allFilePaths = await getAllChildFilePath(galleryPath, {
-        ignoreDirectories: [".darkgallery"],
-        acceptingExtensions: extensions,
-      });
-      const allItemPaths = items.map(item => item.path);
-      const newFilePaths = difference(allFilePaths, allItemPaths);
-      const newItems: Models.ItemCreationAttributes[] = [];
-      for (const filePath of newFilePaths) {
-        const fullFilePath = path.join(galleryPath, filePath);
-        const { mtime, size, hash } = await getFileInfo(fullFilePath, { includeHash: true });
-        newItems.push({ mtime, size, hash, path: filePath });
-      }
-      await Item.bulkCreate(newItems);
-    }
   };
   //#endregion
 }

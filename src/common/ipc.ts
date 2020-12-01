@@ -36,5 +36,5 @@ export type Commands = {
   openGallery: (args: { path: string }) => string;
   resetDevGallery: () => boolean;
   setMenuEnabled: (id: MenuItemId, enabled: boolean) => void;
-  startIndexing: (args: { compareHash?: boolean; findNew?: boolean }) => void;
+  startIndexing: () => void;
 };
