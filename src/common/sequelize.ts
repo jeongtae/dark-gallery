@@ -25,17 +25,20 @@ export type ItemAttributes = {
   id: number;
   /** 항목에 대한 제목 */
   title: string;
-  type: "VIDEO" | "IMAGE" | "CARTOON";
-  /** 항목에 대한 유저 점수 0~5 */
+  /** 항목에 대한 유저 점수 0~10 */
   rating: number;
   /** 항목 파일의 동일성 검사를 위한 MD5 해시 */
   hash: string;
+  /** 항목 파일의 수정한 날짜 */
+  mtime: Date;
+  /** 항목 파일의 바이트 단위 크기 */
+  size: number;
   /** 파일 시스템 상에 항목이 실제로 위치한 절대경로 */
   path: string;
-  /** 썸네일 파일의 이름 */
-  thumbnailPath: string;
   /** 항목에 대한 메모 */
   memo: string;
+  /** 항목 파일의 유실 여부 */
+  lost: boolean;
 
   readonly createdAt: Date;
   readonly updatedAt: Date;
@@ -45,7 +48,10 @@ export type RawItem = Raw<
     readonly tags: RawTag[];
   }
 >;
-export type ItemCreationAttributes = Optional<ItemAttributes, "id" | "rating">;
+export type ItemCreationAttributes = Optional<
+  ItemAttributes,
+  "id" | "title" | "rating" | "memo" | "lost" | "createdAt" | "updatedAt"
+>;
 export type Item = Model<ItemAttributes, ItemCreationAttributes> &
   ItemAttributes & {
     getTags: BelongsToManyGetAssociationsMixin<Tag>;

@@ -1,8 +1,9 @@
-import { Sequelize, DataTypes } from "sequelize";
+import path from "path";
+import { Sequelize, DataTypes, ModelAttributeColumnOptions } from "sequelize";
 import { isDev } from "./environments";
 import type * as Models from "../common/sequelize";
-export type { Models };
 
+export type { Models };
 export type { Sequelize };
 
 export function createSequelize(sqlitePath: string): Sequelize {
@@ -23,35 +24,64 @@ export function createSequelize(sqlitePath: string): Sequelize {
 }
 
 function defineModels(sequelize: Sequelize) {
-  const Item = sequelize.define("item", {
+  const id: ModelAttributeColumnOptions = {
+    primaryKey: true,
+    type: DataTypes.INTEGER.UNSIGNED,
+  };
+  const createdAt = DataTypes.DATE;
+  const updatedAt = DataTypes.DATE;
+
+  const Item = sequelize.define<Models.Item>("item", {
+    id,
+    createdAt,
+    updatedAt,
     title: DataTypes.TEXT,
-    type: { type: DataTypes.ENUM("VIDEO", "IMAGE", "CARTOON"), allowNull: false },
     rating: {
       type: DataTypes.SMALLINT,
       allowNull: false,
       defaultValue: 0,
-      validate: { min: 0, max: 5 },
+      validate: { min: 0, max: 10 },
     },
-    hash: { type: DataTypes.STRING, allowNull: false },
-    path: { type: DataTypes.STRING(1024), allowNull: false },
-    thumbnailPath: DataTypes.STRING,
+    hash: { type: DataTypes.CHAR(40), allowNull: false },
+    mtime: { type: DataTypes.DATE, allowNull: false },
+    size: { type: DataTypes.INTEGER, allowNull: false },
+    path: {
+      type: DataTypes.STRING(1024),
+      allowNull: false,
+      get() {
+        let value = this.getDataValue("path");
+        value = value.replace("/", path.sep);
+        return value;
+      },
+      set(value: string) {
+        value = value.replace(path.sep, "/");
+        this.setDataValue("path", value);
+      },
+    },
     memo: DataTypes.TEXT,
+    lost: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   });
 
-  const Tag = sequelize.define("tag", {
+  const Tag = sequelize.define<Models.Tag>("tag", {
+    id,
+    createdAt,
+    updatedAt,
     name: { type: DataTypes.TEXT, allowNull: false },
     memo: DataTypes.TEXT,
     icon: DataTypes.TEXT,
   });
 
-  const TagGroup = sequelize.define("tagGroup", {
+  const TagGroup = sequelize.define<Models.TagGroup>("tagGroup", {
+    id,
+    createdAt,
+    updatedAt,
     name: { type: DataTypes.TEXT, allowNull: false },
     memo: DataTypes.TEXT,
     color: DataTypes.STRING,
     icon: DataTypes.TEXT,
   });
 
-  const KeyValueStore = sequelize.define(
+  const KeyValueStore = sequelize.define<Models.KeyValueStore>(
     "keyValueStore",
     {
       key: { type: DataTypes.STRING, primaryKey: true, allowNull: false },
@@ -60,7 +90,9 @@ function defineModels(sequelize: Sequelize) {
     { timestamps: false, freezeTableName: true }
   );
 
-  const ItemToTag = sequelize.define("itemToTag", {
+  const ItemToTag = sequelize.define<Models.ItemToTag>("itemToTag", {
+    createdAt,
+    updatedAt,
     itemId: { type: DataTypes.INTEGER, references: "Items" },
     tagId: { type: DataTypes.INTEGER, references: "Tags" },
   });
