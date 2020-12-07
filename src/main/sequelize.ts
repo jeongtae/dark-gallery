@@ -56,17 +56,7 @@ function defineModels(sequelize: Sequelize) {
     hash: { type: DataTypes.CHAR(40), allowNull: false },
     size: { type: DataTypes.INTEGER, allowNull: false },
     mtime: { type: DataTypes.DATE, allowNull: false },
-    time: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      validate: {
-        compare(value: Date) {
-          const mtime = this.getDataValue("mtime");
-          const ctime = this.getDataValue("ctime");
-          return value === mtime || value === ctime;
-        },
-      },
-    },
+    time: { type: DataTypes.DATE, allowNull: false },
 
     rating: {
       type: DataTypes.SMALLINT,
@@ -75,6 +65,8 @@ function defineModels(sequelize: Sequelize) {
       validate: { min: 0, max: 10 },
     },
     memo: DataTypes.TEXT,
+
+    type: DataTypes.ENUM("IMAGE", "VIDEO"),
   });
 
   const Tag = sequelize.define<Models.Tag>("tag", {

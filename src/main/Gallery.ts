@@ -1,10 +1,13 @@
 import path from "path";
 import fs from "fs";
-import { difference } from "lodash";
+import { difference, union } from "lodash";
 import { Sequelize } from "sequelize/types";
 import { createSequelize, Models } from "./sequelize";
 import { GalleryPathInfo } from "./ipc";
-import { getAllChildFilePath, getFileHash, getFileInfo } from "./indexing";
+import { getAllChildFilePath, getFileHash, getFileInfo, getImageInfo } from "./indexing";
+
+const IMAGE_EXTENSIONS: readonly string[] = ["jpg", "jpeg", "gif", "png", "bmp", "webp"];
+const VIDEO_EXTENSIONS: readonly string[] = ["webm", "mp4", "mov", "avi"];
 
 export function buildIndexDirectoryPath(galleryPath: string) {
   return path.join(galleryPath, ".darkgallery");
@@ -123,6 +126,15 @@ export default class Gallery implements Disposable {
     return result;
   }
 
+  static pathIsImage(filePath: string): boolean {
+    const ext = path.extname(filePath).substring(1).toLowerCase();
+    return IMAGE_EXTENSIONS.includes(ext);
+  }
+  static pathIsVideo(filePath: string): boolean {
+    const ext = path.extname(filePath).substring(1).toLowerCase();
+    return VIDEO_EXTENSIONS.includes(ext);
+  }
+
   /** 주어진 경로의 갤러리 인스턴스를 생성합니다. 사용하기 전에 `open()`메서드를 호출하여 데이터베이스 파일을 연결해야합니다.
    * @param galleryPath 갤러리의 경로
    * @param isNew `true`인 경우, 데이터베이스를 새로 생성하겠다고 표시하는 것입니다.
@@ -188,8 +200,10 @@ export default class Gallery implements Disposable {
     // 원래 존재하는 것에 대해서 작업
     for (const {
       id: itemId,
+      type: itemType,
       path: itemPath,
       mtime: itemMtime,
+      time: itemTime,
       size: itemSize,
       hash: itemHash,
     } of items) {
@@ -203,6 +217,13 @@ export default class Gallery implements Disposable {
           const mtime = fileMtime;
           const size = fileSize;
           const hash = fileHash || (await getFileHash(itemFullPath));
+          let time = mtime;
+          if (itemType === "IMAGE") {
+            const { exifTime } = await getImageInfo(itemFullPath);
+            if (exifTime) {
+              time = exifTime;
+            }
+          }
           await Item.update({ mtime, size, hash }, { where: { id: itemId } });
         }
       } catch (e) {
@@ -214,19 +235,26 @@ export default class Gallery implements Disposable {
 
     // 새로 추가될 것에 대해 작업
     if (findNew) {
-      const extensions = ["jpg", "jpeg", "gif", "png", "bmp", "webp", "webm", "mp4", "mov", "avi"];
       const allFilePaths = await getAllChildFilePath(galleryPath, {
         ignoreDirectories: [".darkgallery"],
-        acceptingExtensions: extensions,
+        acceptingExtensions: union(IMAGE_EXTENSIONS, VIDEO_EXTENSIONS),
       });
       const allItemPaths = items.map(item => item.path);
       const newFilePaths = difference(allFilePaths, allItemPaths);
       const newItems: Models.ItemCreationAttributes[] = [];
       for (const filePath of newFilePaths) {
+        const type = Gallery.pathIsImage(filePath) ? "IMAGE" : "VIDEO";
         const fullFilePath = path.join(galleryPath, filePath);
         const { mtime, size } = await getFileInfo(fullFilePath);
         const hash = await getFileHash(fullFilePath);
-        newItems.push({ mtime, size, hash, path: filePath });
+        let time = mtime;
+        if (type === "IMAGE") {
+          const { exifTime } = await getImageInfo(fullFilePath);
+          if (exifTime) {
+            time = exifTime;
+          }
+        }
+        newItems.push({ type, mtime, time, size, hash, path: filePath });
       }
       await Item.bulkCreate(newItems);
     }

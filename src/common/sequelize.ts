@@ -40,7 +40,7 @@ export type ItemAttributes = {
   size: number;
   /** 항목 파일의 수정한 날짜 */
   mtime: Date;
-  /** `mtime`과 `ctime` 중 하나. 사용자가 선택하며, 정렬에 사용한다. */
+  /** 정렬에 사용할 날짜 */
   time: Date;
 
   /** 항목에 대한 유저 점수 0~10 */
@@ -48,6 +48,8 @@ export type ItemAttributes = {
   /** 항목에 대한 메모 */
   memo: string;
 
+  /** 미디어 종류 */
+  type: "VIDEO" | "IMAGE";
 };
 export type RawItem = Raw<
   ItemAttributes & {

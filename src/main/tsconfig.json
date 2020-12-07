@@ -9,6 +9,7 @@
     "resolveJsonModule": true,
     "allowJs": true,
     "sourceMap": true,
-    "noImplicitAny": true
+    "noImplicitAny": true,
+    "lib": ["es2020.string"]
   }
 }
