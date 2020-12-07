@@ -51,11 +51,11 @@ export type ItemAttributes = {
   /** 미디어 종류 */
   type: "VIDEO" | "IMAGE";
   /** 미디어의 가로 길이 (픽셀 단위) */
-  sizeWidth: number;
+  width: number;
   /** 미디어의 세로 길이 (픽셀 단위) */
-  sizeHeight: number;
-  /** 미디어의 길이 (초 단위) */
-  runningTime: number;
+  height: number;
+  /** 미디어의 길이 (마이크로초 단위, 1/1000초) */
+  duration: number;
 };
 export type RawItem = Raw<
   ItemAttributes & {

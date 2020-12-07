@@ -3,7 +3,9 @@ import path from "path";
 import fs from "fs";
 import crypto from "crypto";
 import { ExifImage } from "exif";
+import { ffprobe as _ffprobe, FfprobeData } from "fluent-ffmpeg";
 import _getImageSize from "image-size";
+const ffprobe = promisify<string, FfprobeData>(_ffprobe);
 const getImageSize = promisify(_getImageSize);
 
 type GetAllChildFilePathOptions = {
@@ -129,7 +131,7 @@ type ImageInfo = {
   width: number;
   height: number;
   /** EXIF 메타데이터에 기록된 시각입니다. */
-  exifTime?: Date;
+  taggedTime?: Date;
 };
 /** 주어진 경로에 해당하는 이미지 파일의 정보를 조회합니다.
  * @param filePath 조회할 파일의 절대 경로입니다.
@@ -144,8 +146,34 @@ export async function getImageInfo(filePath: string): Promise<ImageInfo> {
   const ext = path.extname(filePath).substring(1).toLowerCase();
   if (ext === "jpg" || ext === "jpeg") {
     try {
-      result.exifTime = await getExifTime(filePath);
+      result.taggedTime = await getExifTime(filePath);
     } catch {}
+  }
+  return result;
+}
+
+type VideoInfo = {
+  width: number;
+  height: number;
+  /** 마이크로초 단위의 길이입니다. */
+  duration: number;
+  /** 메타데이터에 기록된 시각입니다. */
+  taggedTime?: Date;
+};
+export async function getVideoInfo(filePath: string): Promise<VideoInfo> {
+  const metadata = await ffprobe(filePath);
+  const { width, height, duration } = metadata.streams.find(
+    stream => stream.codec_type.toLowerCase() === "video"
+  );
+  const result: VideoInfo = {
+    width,
+    height,
+    duration: Math.ceil(parseFloat(duration) * 1000),
+  };
+  const tags: any = metadata.format.tags;
+  const taggedTime: string = tags["com.apple.quicktime.creationdate"] || tags["creation_time"];
+  if (taggedTime) {
+    result.taggedTime = new Date(taggedTime);
   }
   return result;
 }

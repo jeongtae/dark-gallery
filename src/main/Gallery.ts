@@ -4,7 +4,13 @@ import { difference, union } from "lodash";
 import { Sequelize } from "sequelize/types";
 import { createSequelize, Models } from "./sequelize";
 import { GalleryPathInfo } from "./ipc";
-import { getAllChildFilePath, getFileHash, getFileInfo, getImageInfo } from "./indexing";
+import {
+  getAllChildFilePath,
+  getFileHash,
+  getFileInfo,
+  getImageInfo,
+  getVideoInfo,
+} from "./indexing";
 
 const IMAGE_EXTENSIONS: readonly string[] = ["jpg", "jpeg", "gif", "png", "bmp", "webp"];
 const VIDEO_EXTENSIONS: readonly string[] = ["webm", "mp4", "mov", "avi"];
@@ -203,7 +209,6 @@ export default class Gallery implements Disposable {
       type: itemType,
       path: itemPath,
       mtime: itemMtime,
-      time: itemTime,
       size: itemSize,
       hash: itemHash,
     } of items) {
@@ -217,14 +222,27 @@ export default class Gallery implements Disposable {
           const mtime = fileMtime;
           const size = fileSize;
           const hash = fileHash || (await getFileHash(itemFullPath));
-          let time = mtime;
           if (itemType === "IMAGE") {
-            const { exifTime } = await getImageInfo(itemFullPath);
-            if (exifTime) {
-              time = exifTime;
+            const { width, height, taggedTime } = await getImageInfo(itemFullPath);
+            let time = mtime;
+            if (taggedTime) {
+              time = taggedTime;
             }
+            await Item.update(
+              { mtime, size, hash, time, width, height },
+              { where: { id: itemId } }
+            );
+          } else if (itemType === "VIDEO") {
+            const { width, height, duration, taggedTime } = await getVideoInfo(itemFullPath);
+            let time = mtime;
+            if (taggedTime) {
+              time = taggedTime;
+            }
+            await Item.update(
+              { mtime, size, hash, time, width, height, duration },
+              { where: { id: itemId } }
+            );
           }
-          await Item.update({ mtime, size, hash }, { where: { id: itemId } });
         }
       } catch (e) {
         if (e.code === "ENOENT") {
@@ -247,19 +265,25 @@ export default class Gallery implements Disposable {
         const fullFilePath = path.join(galleryPath, filePath);
         const { mtime, size } = await getFileInfo(fullFilePath);
         const hash = await getFileHash(fullFilePath);
-        let sizeWidth: number;
-        let sizeHeight: number;
-        let runningTime: number;
+        let width: number;
+        let height: number;
+        let duration: number;
         let time = mtime;
         if (type === "IMAGE") {
-          const { width, height, exifTime } = await getImageInfo(fullFilePath);
-          sizeWidth = width;
-          sizeHeight = height;
-          if (exifTime) {
-            time = exifTime;
+          const imageInfo = await getImageInfo(fullFilePath);
+          width = imageInfo.width;
+          height = imageInfo.height;
+          if (imageInfo.taggedTime) {
+            time = imageInfo.taggedTime;
           }
         } else if (type === "VIDEO") {
-          // TODO: Get Video Width/Height/RunningTime
+          const videoInfo = await getVideoInfo(fullFilePath);
+          width = videoInfo.width;
+          height = videoInfo.height;
+          duration = videoInfo.duration;
+          if (videoInfo.taggedTime) {
+            time = videoInfo.taggedTime;
+          }
         }
         newItems.push({
           type,
@@ -268,9 +292,9 @@ export default class Gallery implements Disposable {
           size,
           hash,
           path: filePath,
-          sizeWidth,
-          sizeHeight,
-          runningTime,
+          width,
+          height,
+          duration,
         });
       }
       await Item.bulkCreate(newItems);
