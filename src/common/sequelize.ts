@@ -23,25 +23,31 @@ declare type Raw<T> = Partial<T> & { [key: string]: any };
 //#region 아이템 모델
 export type ItemAttributes = {
   id: number;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+
   /** 항목에 대한 제목 */
   title: string;
-  /** 항목에 대한 유저 점수 0~10 */
-  rating: number;
-  /** 항목 파일의 동일성 검사를 위한 MD5 해시 */
-  hash: string;
-  /** 항목 파일의 수정한 날짜 */
-  mtime: Date;
-  /** 항목 파일의 바이트 단위 크기 */
-  size: number;
-  /** 파일 시스템 상에 항목이 실제로 위치한 절대경로 */
+
+  /** 파일 시스템 상에 항목이 실제로 위치한 경로 (*갤러리 폴더에 대한 상대경로*) */
   path: string;
-  /** 항목에 대한 메모 */
-  memo: string;
   /** 항목 파일의 유실 여부 */
   lost: boolean;
 
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
+  /** 항목 파일의 동일성 검사를 위한 SHA-1 해시 */
+  hash: string;
+  /** 항목 파일의 바이트 단위 크기 */
+  size: number;
+  /** 항목 파일의 수정한 날짜 */
+  mtime: Date;
+  /** `mtime`과 `ctime` 중 하나. 사용자가 선택하며, 정렬에 사용한다. */
+  time: Date;
+
+  /** 항목에 대한 유저 점수 0~10 */
+  rating: number;
+  /** 항목에 대한 메모 */
+  memo: string;
+
 };
 export type RawItem = Raw<
   ItemAttributes & {
@@ -50,7 +56,7 @@ export type RawItem = Raw<
 >;
 export type ItemCreationAttributes = Optional<
   ItemAttributes,
-  "id" | "title" | "rating" | "memo" | "lost" | "createdAt" | "updatedAt"
+  "id" | "createdAt" | "updatedAt" | "title" | "lost" | "rating" | "memo"
 >;
 export type Item = Model<ItemAttributes, ItemCreationAttributes> &
   ItemAttributes & {

@@ -35,16 +35,9 @@ function defineModels(sequelize: Sequelize) {
     id,
     createdAt,
     updatedAt,
+
     title: DataTypes.TEXT,
-    rating: {
-      type: DataTypes.SMALLINT,
-      allowNull: false,
-      defaultValue: 0,
-      validate: { min: 0, max: 10 },
-    },
-    hash: { type: DataTypes.CHAR(40), allowNull: false },
-    mtime: { type: DataTypes.DATE, allowNull: false },
-    size: { type: DataTypes.INTEGER, allowNull: false },
+
     path: {
       type: DataTypes.STRING(1024),
       allowNull: false,
@@ -58,8 +51,30 @@ function defineModels(sequelize: Sequelize) {
         this.setDataValue("path", value);
       },
     },
-    memo: DataTypes.TEXT,
     lost: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+
+    hash: { type: DataTypes.CHAR(40), allowNull: false },
+    size: { type: DataTypes.INTEGER, allowNull: false },
+    mtime: { type: DataTypes.DATE, allowNull: false },
+    time: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      validate: {
+        compare(value: Date) {
+          const mtime = this.getDataValue("mtime");
+          const ctime = this.getDataValue("ctime");
+          return value === mtime || value === ctime;
+        },
+      },
+    },
+
+    rating: {
+      type: DataTypes.SMALLINT,
+      allowNull: false,
+      defaultValue: 0,
+      validate: { min: 0, max: 10 },
+    },
+    memo: DataTypes.TEXT,
   });
 
   const Tag = sequelize.define<Models.Tag>("tag", {
