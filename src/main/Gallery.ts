@@ -4,7 +4,7 @@ import { difference } from "lodash";
 import { Sequelize } from "sequelize/types";
 import { createSequelize, Models } from "./sequelize";
 import { GalleryPathInfo } from "./ipc";
-import { getAllChildFilePath, getFileInfo } from "./indexing";
+import { getAllChildFilePath, getFileHash, getFileInfo } from "./indexing";
 
 export function buildIndexDirectoryPath(galleryPath: string) {
   return path.join(galleryPath, ".darkgallery");
@@ -173,7 +173,7 @@ export default class Gallery implements Disposable {
   }
 
   async startIndexing(options: IndexingOptions = {}) {
-    const { compareHash, findNew } = options;
+    const { compareHash = false, findNew = false } = options;
     const {
       path: galleryPath,
       models: { item: Item },
@@ -181,9 +181,7 @@ export default class Gallery implements Disposable {
 
     // 데이터베이스에 존재하는 모든 파일 경로 수집
     const items = await Item.findAll({
-      attributes: compareHash
-        ? ["id", "path", "mtime", "size", "hash"]
-        : ["id", "path", "mtime", "size"],
+      attributes: ["id", "path", "mtime", "size", "hash"],
       raw: true,
     });
 
@@ -197,16 +195,14 @@ export default class Gallery implements Disposable {
     } of items) {
       try {
         const itemFullPath = path.join(galleryPath, itemPath);
-        const { mtime: fileMtime, size: fileSize, hash: fileHash } = await getFileInfo(
-          itemFullPath,
-          { includeHash: compareHash }
-        );
+        const { mtime: fileMtime, size: fileSize } = await getFileInfo(itemFullPath);
+        const fileHash = compareHash ? await getFileHash(itemFullPath) : null;
         const shouldUpdate =
           itemMtime !== fileMtime || itemSize !== fileSize || itemHash !== fileHash;
         if (shouldUpdate) {
           const mtime = fileMtime;
           const size = fileSize;
-          const hash = fileHash || (await getFileInfo(itemFullPath, { includeHash: true })).hash;
+          const hash = fileHash || (await getFileHash(itemFullPath));
           await Item.update({ mtime, size, hash }, { where: { id: itemId } });
         }
       } catch (e) {
@@ -228,7 +224,8 @@ export default class Gallery implements Disposable {
       const newItems: Models.ItemCreationAttributes[] = [];
       for (const filePath of newFilePaths) {
         const fullFilePath = path.join(galleryPath, filePath);
-        const { mtime, size, hash } = await getFileInfo(fullFilePath, { includeHash: true });
+        const { mtime, size } = await getFileInfo(fullFilePath);
+        const hash = await getFileHash(fullFilePath);
         newItems.push({ mtime, size, hash, path: filePath });
       }
       await Item.bulkCreate(newItems);

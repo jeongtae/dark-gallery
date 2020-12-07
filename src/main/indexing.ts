@@ -46,7 +46,10 @@ export async function getAllChildFilePath(
   return result;
 }
 
-function getChecksum(filePath: string): Promise<string> {
+/** 주어진 경로에 해당하는 파일의 파일의 SHA-1 해시값을 계산합니다.
+ * @returns 40자리의 16진수 문자열로 나타낸 SHA-1 해시값을 반환합니다.
+ */
+export function getFileHash(filePath: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const hasher = crypto.createHash("sha1");
     const stream = fs.createReadStream(filePath);
@@ -55,32 +58,22 @@ function getChecksum(filePath: string): Promise<string> {
     stream.once("close", () => resolve(hasher.digest("hex")));
   });
 }
+
 type FileInfo = {
   /** 바이트 단위의 파일 크기입니다. */
   size: number;
   /** 파일의 수정한 시각입니다. */
   mtime: Date;
-  /** 파일의 SHA-1 해시값이며, 16진수 문자열입니다. */
-  hash?: string;
-};
-type GetFileInfoOptions = {
-  /** 결과에 해시값을 포함합니다. 해시 계산으로 인해 부하가 증가합니다. */
-  includeHash?: boolean;
 };
 /** 주어진 경로에 해당하는 파일의 정보를 조회합니다.
  * @param filePath 조회할 파일의 절대 경로입니다.
- * @param options 조회 옵션입니다.
  * @throws `NodeJS.ErrnoException`
  * @returns 파일 정보 객체를 반환합니다.
  */
-export async function getFileInfo(filePath: string, options: GetFileInfoOptions = {}) {
+export async function getFileInfo(filePath: string): Promise<FileInfo> {
   const stat = await fs.promises.stat(filePath);
-  const result: FileInfo = {
+  return {
     size: stat.size,
     mtime: stat.mtime,
   };
-  if (options.includeHash) {
-    result.hash = await getChecksum(filePath);
-  }
-  return result;
 }
