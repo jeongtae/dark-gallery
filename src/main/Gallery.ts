@@ -243,18 +243,35 @@ export default class Gallery implements Disposable {
       const newFilePaths = difference(allFilePaths, allItemPaths);
       const newItems: Models.ItemCreationAttributes[] = [];
       for (const filePath of newFilePaths) {
-        const type = Gallery.pathIsImage(filePath) ? "IMAGE" : "VIDEO";
+        const type: Models.Item["type"] = Gallery.pathIsImage(filePath) ? "IMAGE" : "VIDEO";
         const fullFilePath = path.join(galleryPath, filePath);
         const { mtime, size } = await getFileInfo(fullFilePath);
         const hash = await getFileHash(fullFilePath);
+        let sizeWidth: number;
+        let sizeHeight: number;
+        let runningTime: number;
         let time = mtime;
         if (type === "IMAGE") {
-          const { exifTime } = await getImageInfo(fullFilePath);
+          const { width, height, exifTime } = await getImageInfo(fullFilePath);
+          sizeWidth = width;
+          sizeHeight = height;
           if (exifTime) {
             time = exifTime;
           }
+        } else if (type === "VIDEO") {
+          // TODO: Get Video Width/Height/RunningTime
         }
-        newItems.push({ type, mtime, time, size, hash, path: filePath });
+        newItems.push({
+          type,
+          mtime,
+          time,
+          size,
+          hash,
+          path: filePath,
+          sizeWidth,
+          sizeHeight,
+          runningTime,
+        });
       }
       await Item.bulkCreate(newItems);
     }

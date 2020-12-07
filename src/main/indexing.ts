@@ -1,7 +1,10 @@
+import { promisify } from "util";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
 import { ExifImage } from "exif";
+import _getImageSize from "image-size";
+const getImageSize = promisify(_getImageSize);
 
 type GetAllChildFilePathOptions = {
   /** 무시할 디렉터리 이름의 배열입니다. */

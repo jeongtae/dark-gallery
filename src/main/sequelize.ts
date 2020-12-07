@@ -67,6 +67,9 @@ function defineModels(sequelize: Sequelize) {
     memo: DataTypes.TEXT,
 
     type: DataTypes.ENUM("IMAGE", "VIDEO"),
+    sizeWidth: { type: DataTypes.SMALLINT, allowNull: false },
+    sizeHeight: { type: DataTypes.SMALLINT, allowNull: false },
+    runningTime: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   });
 
   const Tag = sequelize.define<Models.Tag>("tag", {
