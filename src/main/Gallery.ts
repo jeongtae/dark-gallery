@@ -29,14 +29,23 @@ interface GalleryModels {
   keyValueStore: Models.KeyValueStoreCtor;
 }
 
-type IndexingOptions = {
-  /** 기존에 인덱싱된 모든 항목에 대해 파일의 해시 비교를 수행하여,
-   * 파일이 변한 것을 확실하게 감지하지만 작업 속도가 늦어집니다.
+interface IndexingOptions {
+  /** 작업의 진행률 보고 콜백입니다.
+   * @param done 현재까지 작업한 항목 수 (에러난 것 포함)
+   * @param error 현재까지 작업하다가 실패한 항목 수
+   * @param remaning 남은 항목 수
+   */
+  reporter?: (done: number, error: number, remaning: number) => void;
+}
+
+interface IndexExistingItemsOptions extends IndexingOptions {
+  /** 기존에 인덱싱된 모든 항목에 대해 파일의 해시 비교까지 수행하여,
+   * 파일이 변한 것을 확실하게 감지할 수 있게 되지만 작업 속도가 늦어집니다.
+   * (선택적, 기본 false)
    */
   compareHash?: boolean;
-  /** 인덱싱되지 않은 파일을 인덱싱합니다. */
-  findNew?: boolean;
-};
+}
+interface IndexNewItemsOptions extends IndexingOptions {}
 
 /** 갤러리 폴더와 데이터베이스를 다루는 클래스 */
 export default class Gallery implements Disposable {
@@ -190,115 +199,156 @@ export default class Gallery implements Disposable {
     this.sequelize = sequelize;
   }
 
-  async startIndexing(options: IndexingOptions = {}) {
-    const { compareHash = false, findNew = false } = options;
+  async indexExistingItems(options: IndexExistingItemsOptions = {}) {
     const {
       path: galleryPath,
       models: { item: Item },
     } = this;
+    const { reporter = () => {}, compareHash = false } = options;
+    const { join } = path;
 
-    // 데이터베이스에 존재하는 모든 파일 경로 수집
+    // 데이터베이스에 존재하는 모든 아이템 목록 얻기
     const items = await Item.findAll({
       attributes: ["id", "path", "mtime", "size", "hash"],
       raw: true,
     });
 
-    // 원래 존재하는 것에 대해서 작업
-    for (const {
-      id: itemId,
-      type: itemType,
-      path: itemPath,
-      mtime: itemMtime,
-      size: itemSize,
-      hash: itemHash,
-    } of items) {
+    // 모든 아이템 순회
+    let remaning = items.length;
+    let errorPaths: string[] = [];
+    let lostPaths: string[] = [];
+    reporter(0, 0, remaning);
+    for (const item of items) {
       try {
         const itemFullPath = path.join(galleryPath, itemPath);
         const { mtime: fileMtime, size: fileSize } = await getFileInfo(itemFullPath);
-        const fileHash = compareHash ? await getFileHash(itemFullPath) : null;
-        const shouldUpdate =
-          itemMtime !== fileMtime || itemSize !== fileSize || itemHash !== fileHash;
-        if (shouldUpdate) {
-          const mtime = fileMtime;
-          const size = fileSize;
-          const hash = fileHash || (await getFileHash(itemFullPath));
-          if (itemType === "IMAGE") {
-            const { width, height, taggedTime } = await getImageInfo(itemFullPath);
-            let time = mtime;
-            if (taggedTime) {
-              time = taggedTime;
-            }
-            await Item.update(
-              { mtime, size, hash, time, width, height },
-              { where: { id: itemId } }
-            );
-          } else if (itemType === "VIDEO") {
-            const { width, height, duration, taggedTime } = await getVideoInfo(itemFullPath);
-            let time = mtime;
-            if (taggedTime) {
-              time = taggedTime;
-            }
-            await Item.update(
-              { mtime, size, hash, time, width, height, duration },
-              { where: { id: itemId } }
-            );
+        let fileHash = compareHash ? await getFileHash(itemFullPath) : null;
+
+        // 갱신 필요하면 수행
+        const isMtimeOrSizeDifferent = itemMtime !== fileMtime || itemSize !== fileSize;
+        const shouldBeUpdated = isMtimeOrSizeDifferent || (compareHash && itemHash !== fileHash);
+        if (shouldBeUpdated) {
+          // 원래있는 썸네일 파일 삭제
+          // const oldThumbPaths = buildThumbnailPathsForHash(galleryPath, itemHash);
+          // oldThumbPaths.image remove!!
+
+          // 썸네일 생성
+
+          // 데이터베이스 업데이트
+          if (!fileHash) fileHash = await getFileHash(itemFullPath);
+          let time: Date = fileMtime;
+          let width: number;
+          let height: number;
+          let duration = null;
+          switch (item.type) {
+            case "IMG":
+              const imageInfo = await getImageInfo(itemFullPath);
+              time = imageInfo.taggedTime || time;
+              width = imageInfo.width;
+              height = imageInfo.height;
+              break;
+            case "VID":
+              const videoInfo = await getVideoInfo(itemFullPath);
+              time = videoInfo.taggedTime || time;
+              width = videoInfo.width;
+              height = videoInfo.height;
+              duration = videoInfo.duration;
+              break;
           }
+          await Item.update(
+            { mtime: fileMtime, size: fileSize, hash: fileHash, time, width, height, duration },
+            { where: { id: item.id } }
+          );
         }
-      } catch (e) {
-        if (e.code === "ENOENT") {
-          await Item.update({ lost: true }, { where: { id: itemId } });
+      } catch (error) {
+        if (error.code === "ENOENT") {
+          // 유실
+          await Item.update({ lost: true }, { where: { id: item.id } });
+          lostPaths.push(item.path);
+        } else {
+          // 오류
+          errorPaths.push(item.path);
         }
+      } finally {
+        remaning--;
+        reporter(items.length - remaning, errorPaths.length, remaning);
       }
     }
+  }
 
-    // 새로 추가될 것에 대해 작업
-    if (findNew) {
-      const allFilePaths = await getAllChildFilePath(galleryPath, {
-        ignoreDirectories: [".darkgallery"],
-        acceptingExtensions: union(IMAGE_EXTENSIONS, VIDEO_EXTENSIONS),
-      });
-      const allItemPaths = items.map(item => item.path);
-      const newFilePaths = difference(allFilePaths, allItemPaths);
-      const newItems: Models.ItemCreationAttributes[] = [];
-      for (const filePath of newFilePaths) {
-        const type: Models.Item["type"] = Gallery.pathIsImage(filePath) ? "IMAGE" : "VIDEO";
-        const fullFilePath = path.join(galleryPath, filePath);
+  async indexNewItems(options: IndexNewItemsOptions = {}) {
+    const {
+      path: galleryPath,
+      models: { item: Item },
+    } = this;
+    const { reporter = () => {} } = options;
+    const { join } = path;
+
+    // 새로운 파일 목록 얻기
+    const allFilePaths = await getAllChildFilePath(galleryPath, {
+      ignoreDirectories: [".darkgallery"],
+      acceptingExtensions: union(IMAGE_EXTENSIONS, VIDEO_EXTENSIONS),
+    });
+    const allItemPaths = (await Item.findAll({ attributes: ["path"], raw: true })).map(
+      item => item.path
+    );
+    const newFilePaths = difference(allFilePaths, allItemPaths);
+
+    // 새로운 파일 목록 순회
+    let remaning = newFilePaths.length;
+    let errorPaths: string[] = [];
+    reporter(0, 0, remaning);
+    const newItems: Models.ItemCreationAttributes[] = [];
+    for (const path of newFilePaths) {
+      try {
+        let type: Models.Item["type"];
+        if (Gallery.pathIsImage(path)) type = "IMG";
+        else if (Gallery.pathIsVideo(path)) type = "VID";
+        else continue;
+
+        const fullFilePath = join(galleryPath, path);
         const { mtime, size } = await getFileInfo(fullFilePath);
         const hash = await getFileHash(fullFilePath);
         let width: number;
         let height: number;
         let duration: number;
         let time = mtime;
-        if (type === "IMAGE") {
-          const imageInfo = await getImageInfo(fullFilePath);
-          width = imageInfo.width;
-          height = imageInfo.height;
-          if (imageInfo.taggedTime) {
-            time = imageInfo.taggedTime;
-          }
-        } else if (type === "VIDEO") {
-          const videoInfo = await getVideoInfo(fullFilePath);
-          width = videoInfo.width;
-          height = videoInfo.height;
-          duration = videoInfo.duration;
-          if (videoInfo.taggedTime) {
-            time = videoInfo.taggedTime;
-          }
+        switch (type) {
+          case "IMG":
+            const imageInfo = await getImageInfo(fullFilePath);
+            time = imageInfo.taggedTime || time;
+            width = imageInfo.width;
+            height = imageInfo.height;
+            break;
+          case "VID":
+            const videoInfo = await getVideoInfo(fullFilePath);
+            time = videoInfo.taggedTime || time;
+            width = videoInfo.width;
+            height = videoInfo.height;
+            duration = videoInfo.duration;
+            break;
         }
         newItems.push({
           type,
           mtime,
-          time,
           size,
           hash,
-          path: filePath,
+          time,
+          path,
           width,
           height,
           duration,
         });
+      } catch (error) {
+        // TODO: handle error
+      } finally {
+        remaning--;
+        reporter(newFilePaths.length - remaning, errorPaths.length, remaning);
       }
-      await Item.bulkCreate(newItems);
     }
+
+    // 데이터베이스에 일괄 삽입
+    await Item.bulkCreate(newItems);
   }
 
   /** 데이터베이스 연결을 닫고 참조를 지웁니다. */

@@ -49,7 +49,7 @@ export type ItemAttributes = {
   memo: string;
 
   /** 미디어 종류 */
-  type: "VIDEO" | "IMAGE";
+  type: "VID" | "IMG";
   /** 미디어의 가로 길이 (픽셀 단위) */
   width: number;
   /** 미디어의 세로 길이 (픽셀 단위) */

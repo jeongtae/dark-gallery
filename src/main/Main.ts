@@ -230,7 +230,18 @@ export default class Main {
     setMenuItemEnabled(id, enabled);
   };
   onIpcStartIndexing: IpcHandlers["startIndexing"] = async ({ frameId }) => {
-    await this.galleries[frameId].startIndexing({ compareHash: true, findNew: true });
+    await this.galleries[frameId].indexExistingItems({
+      compareHash: true,
+      reporter(d, e, r) {
+        // TODO: 여기서 이벤트 보고
+      },
+    });
+    await this.galleries[frameId].indexNewItems({
+      reporter(d, e, r) {
+        // TODO: 여기서 이벤트 보고
+      },
+    });
+    // TODO: 여기서 이벤트 보고
   };
   onIpcGetItems: IpcHandlers["getItems"] = async ({ frameId }) => {
     const {

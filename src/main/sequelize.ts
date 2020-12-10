@@ -66,7 +66,7 @@ function defineModels(sequelize: Sequelize) {
     },
     memo: DataTypes.TEXT,
 
-    type: DataTypes.ENUM("IMAGE", "VIDEO"),
+    type: DataTypes.CHAR(4),
     width: { type: DataTypes.SMALLINT, allowNull: false },
     height: { type: DataTypes.SMALLINT, allowNull: false },
     duration: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
