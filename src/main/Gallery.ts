@@ -220,7 +220,8 @@ export default class Gallery implements Disposable {
     reporter(0, 0, remaning);
     for (const item of items) {
       try {
-        const itemFullPath = path.join(galleryPath, itemPath);
+        const itemFullPath = join(galleryPath, item.path);
+        const { mtime: itemMtime, size: itemSize, hash: itemHash } = item;
         const { mtime: fileMtime, size: fileSize } = await getFileInfo(itemFullPath);
         let fileHash = compareHash ? await getFileHash(itemFullPath) : null;
 
