@@ -15,11 +15,38 @@ import {
 const IMAGE_EXTENSIONS: readonly string[] = ["jpg", "jpeg", "gif", "png", "bmp", "webp"];
 const VIDEO_EXTENSIONS: readonly string[] = ["webm", "mp4", "mov", "avi"];
 
+/** 갤러리 인덱싱 폴더의 절대경로를 얻습니다.
+ * @param galleryPath 갤러리의 절대경로
+ * @returns 인덱싱 폴더의 절대경로
+ */
 export function buildIndexDirectoryPath(galleryPath: string) {
   return path.join(galleryPath, ".darkgallery");
 }
+
+/** 갤러리 데이터베이스 파일의 절대경로를 얻습니다.
+ * @param galleryPath 갤러리의 절대경로
+ * @returns 데이터베이스 파일의 절대경로
+ */
 export function buildSqliteFilePath(galleryPath: string) {
   return path.join(galleryPath, ".darkgallery", "db.sqlite");
+}
+
+/** 주어진 파일 경로의 확장자가 이미지인지 확인합니다.
+ * @param filePath 확인할 파일 경로
+ * @returns 이미지 여부
+ */
+function checkPathIsImage(filePath: string) {
+  const ext = path.extname(filePath).substring(1).toLowerCase();
+  return IMAGE_EXTENSIONS.includes(ext);
+}
+
+/** 주어진 파일 경로의 확장자가 비디오인지 확인합니다.
+ * @param filePath 확인할 파일 경로
+ * @returns 비디오 여부
+ */
+function checkPathIsVideo(filePath: string) {
+  const ext = path.extname(filePath).substring(1).toLowerCase();
+  return VIDEO_EXTENSIONS.includes(ext);
 }
 
 interface GalleryModels {
@@ -58,7 +85,7 @@ export default class Gallery implements Disposable {
 
   #models: Readonly<GalleryModels>;
   /** 갤러리 데이터베이스에 접근할 수 있는 모델의 목록입니다.
-   * @throws 새로 생성한 데이터베이스인 경우, `sync()` 메서드를 반드시 한 번 실행해야 합니다.
+   * @throws 갤러리 인스턴스를 생성하면 처음 사용하기 전에 `open()` 메서드를 반드시 한 번 실행해야 합니다.
    *         그렇지 않고 이 프로퍼티에 접근하는 경우 에러가 발생합니다.
    */
   get models(): Readonly<GalleryModels> {
@@ -68,10 +95,17 @@ export default class Gallery implements Disposable {
     return this.#models;
   }
 
+  /** 데이터베이스에 기록된 갤러리 제목을 가져옵니다.
+   * @returns 갤러리 제목
+   */
   async getTitle() {
     const row = await this.#models.keyValueStore.findByPk("title");
     return row.value;
   }
+
+  /** 새로운 갤러리 제목을 데이터베이스에 기록합니다.
+   * @param value 새로운 갤러리 제목
+   */
   async setTitle(value: string) {
     await this.#models.keyValueStore.update({ value: value }, { where: { key: "title" } });
   }
@@ -141,21 +175,13 @@ export default class Gallery implements Disposable {
     return result;
   }
 
-  static pathIsImage(filePath: string): boolean {
-    const ext = path.extname(filePath).substring(1).toLowerCase();
-    return IMAGE_EXTENSIONS.includes(ext);
-  }
-  static pathIsVideo(filePath: string): boolean {
-    const ext = path.extname(filePath).substring(1).toLowerCase();
-    return VIDEO_EXTENSIONS.includes(ext);
-  }
-
-  /** 주어진 경로의 갤러리 인스턴스를 생성합니다. 사용하기 전에 `open()`메서드를 호출하여 데이터베이스 파일을 연결해야합니다.
+  /** 주어진 경로의 갤러리 인스턴스를 생성합니다. 사용하기 전에 `open()`메서드를 호출하여 데이터베이스 파일에 연결되어야합니다.
    * @param galleryPath 갤러리의 경로
    * @param isNew `true`인 경우, 데이터베이스를 새로 생성하겠다고 표시하는 것입니다.
    */
   constructor(readonly path: string, private readonly isNew: boolean = false) {}
 
+  /** 갤러리 데이터베이스 파일을 열어서 연결합니다. */
   async open() {
     if (this.isOpened) {
       return;
@@ -199,6 +225,10 @@ export default class Gallery implements Disposable {
     this.sequelize = sequelize;
   }
 
+  /** 데이터베이스에 인덱싱된 아이템을 실제 파일 시스템에 존재하는 것과 비교하여 업데이트합니다.
+   * 기본적으로 파일의 수정한 날짜, 바이트 단위의 파일 크기를 비교하여 차이를 감지합니다.
+   * @param options 인덱싱 옵션입니다.
+   */
   async indexExistingItems(options: IndexExistingItemsOptions = {}) {
     const {
       path: galleryPath,
@@ -229,12 +259,6 @@ export default class Gallery implements Disposable {
         const isMtimeOrSizeDifferent = itemMtime !== fileMtime || itemSize !== fileSize;
         const shouldBeUpdated = isMtimeOrSizeDifferent || (compareHash && itemHash !== fileHash);
         if (shouldBeUpdated) {
-          // 원래있는 썸네일 파일 삭제
-          // const oldThumbPaths = buildThumbnailPathsForHash(galleryPath, itemHash);
-          // oldThumbPaths.image remove!!
-
-          // 썸네일 생성
-
           // 데이터베이스 업데이트
           if (!fileHash) fileHash = await getFileHash(itemFullPath);
           let time: Date = fileMtime;
@@ -277,6 +301,9 @@ export default class Gallery implements Disposable {
     }
   }
 
+  /** 파일 시스템에서 데이터베이스에 인덱싱되지 않은 새로운 파일을 찾아 데이터베이스에 추가합니다.
+   * @param options 인덱싱 옵션입니다.
+   */
   async indexNewItems(options: IndexNewItemsOptions = {}) {
     const {
       path: galleryPath,
@@ -303,8 +330,8 @@ export default class Gallery implements Disposable {
     for (const path of newFilePaths) {
       try {
         let type: Models.Item["type"];
-        if (Gallery.pathIsImage(path)) type = "IMG";
-        else if (Gallery.pathIsVideo(path)) type = "VID";
+        if (checkPathIsImage(path)) type = "IMG";
+        else if (checkPathIsVideo(path)) type = "VID";
         else continue;
 
         const fullFilePath = join(galleryPath, path);
