@@ -10,6 +10,10 @@ import {
   getFileInfo,
   getImageInfo,
   getVideoInfo,
+  getResizedImageSize,
+  writeResizedWebpImageFileOfImageFile,
+  getResizedWebpImageBufferOfImageFile,
+  writeResizedWebpImageFileOfVideoFile,
 } from "./indexing";
 
 const IMAGE_EXTENSIONS: readonly string[] = ["jpg", "jpeg", "gif", "png", "bmp", "webp"];
@@ -87,11 +91,28 @@ async function processImageIndexing(
   thumbnailPath: string
 ): Promise<ImageIndexingData> {
   const { width, height, taggedTime: time } = await getImageInfo(filePath);
+
+  const bigThumbnailSize = getResizedImageSize(width, height, 256, 3);
+  const smallThumbnailSize = getResizedImageSize(width, height, 20, 3);
+
+  await writeResizedWebpImageFileOfImageFile(
+    filePath,
+    thumbnailPath,
+    bigThumbnailSize.width,
+    bigThumbnailSize.height,
+    60
+  );
+  const thumbnailBuffer = await getResizedWebpImageBufferOfImageFile(
+    thumbnailPath,
+    smallThumbnailSize.width,
+    smallThumbnailSize.height,
+    50
+  );
+  const thumbnail = thumbnailBuffer.toString("base64");
   return {
     width,
     height,
     time,
-    thumbnail: "",
   };
 }
 
@@ -115,6 +136,24 @@ async function processVideoIndexing(
   thumbnailPath: string
 ): Promise<VideoIndexingData> {
   const { width, height, duration, taggedTime: time } = await getVideoInfo(filePath);
+
+  const bigThumbnailSize = getResizedImageSize(width, height, 256, 3);
+  const smallThumbnailSize = getResizedImageSize(width, height, 20, 3);
+
+  const timestamp = getPreviewClipRangesOfVideoDuration(duration)[0].start;
+  await writeResizedWebpImageFileOfVideoFile(
+    filePath,
+    thumbnailPath,
+    bigThumbnailSize.width,
+    bigThumbnailSize.height,
+    timestamp,
+    60
+  );
+  const thumbnailBuffer = await getResizedWebpImageBufferOfImageFile(
+    thumbnailPath,
+    smallThumbnailSize.width,
+    smallThumbnailSize.height,
+    50
   return {
     width,
     height,

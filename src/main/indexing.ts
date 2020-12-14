@@ -2,8 +2,9 @@ import { promisify } from "util";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
+import sharp from "sharp";
 import { ExifImage } from "exif";
-import { ffprobe as _ffprobe, FfprobeData } from "fluent-ffmpeg";
+import ffmpeg, { ffprobe as _ffprobe, FfprobeData } from "fluent-ffmpeg";
 import _getImageSize from "image-size";
 const ffprobe = promisify<string, FfprobeData>(_ffprobe);
 const getImageSize = promisify(_getImageSize);
@@ -157,18 +158,22 @@ type VideoInfo = {
   height: number;
   /** 마이크로초 단위의 길이입니다. */
   duration: number;
+  /** 비디오 코덱 문자열입니다. */
+  codec: string;
   /** 메타데이터에 기록된 시각입니다. */
   taggedTime?: Date;
 };
-export async function getVideoInfo(filePath: string): Promise<VideoInfo> {
+export async function getVideoInfo(filePath: string) {
   const metadata = await ffprobe(filePath);
-  const { width, height, duration } = metadata.streams.find(
+  const { duration } = metadata.format;
+  const { width, height, codec_name: codec } = metadata.streams.find(
     stream => stream.codec_type.toLowerCase() === "video"
   );
   const result: VideoInfo = {
     width,
     height,
-    duration: Math.ceil(parseFloat(duration) * 1000),
+    codec,
+    duration: Math.ceil(duration * 1000),
   };
   const tags: any = metadata.format.tags;
   const taggedTime: string = tags["com.apple.quicktime.creationdate"] || tags["creation_time"];
@@ -176,4 +181,147 @@ export async function getVideoInfo(filePath: string): Promise<VideoInfo> {
     result.taggedTime = new Date(taggedTime);
   }
   return result;
+}
+
+/** 원본 크기 비율을 유지한 채로, 적당하게 변경되는 크기를 계산합니다.
+ * @param width 원본 크기의 너비
+ * @param height 원본 크기의 높이
+ * @param coverSize 희망 크기, 제공한 너비와 높이 중 짧은 쪽이 이 값이 됩니다.
+ * @param maxAspectRatio 최대 허용할 크기 비율, 비율의 긴 정도만을 의미합니다.
+ * 제공한 원본 크기의 긴 정도가, 이 값을 넘어서면, 긴 쪽을 희망 크기에 맞춥니다.
+ * 단순히 긴 정도를 의미하기 때문에 1 이상의 값만 사용할 수 있습니다.
+ * @returns 적당하게 계산된 결과 크기
+ */
+export function getResizedImageSize(
+  width: number,
+  height: number,
+  coverSize: number,
+  maxAspectRatio: number
+): { width: number; height: number } {
+  const aspectRatio = width / height;
+  if (aspectRatio <= maxAspectRatio && aspectRatio >= 1 / maxAspectRatio) {
+    return {
+      width: Math.round(aspectRatio <= 1 ? coverSize : coverSize * aspectRatio),
+      height: Math.round(aspectRatio >= 1 ? coverSize : coverSize / aspectRatio),
+    };
+  } else {
+    return {
+      width: Math.round(aspectRatio >= 1 ? coverSize : coverSize * aspectRatio),
+      height: Math.round(aspectRatio <= 1 ? coverSize : coverSize / aspectRatio),
+    };
+  }
+}
+
+type ClipRange = {
+  /** 시작 타임스탬프 (밀리초 단위) */
+  start: number;
+  /** 길이 (밀리초 단위) */
+  duration: number;
+};
+/** 주어진 비디오 길이에서 미리보기 용도로 쓸만하도록 적당히 나눈 ClipRange 객체 목록을 계산합니다.
+ * @param duration 나눌 비디오 길이입니다. (밀리초 단위)
+ * @returns 적당하게 분할된 `ClipRange` 객체 목록
+ */
+export function getPreviewClipRangesOfVideoDuration(duration: number) {
+  const CLIP_INTERVAL = 10000;
+  const CLIP_DURATION = 1250;
+
+  const numberOfClips = Math.min(~~(duration / CLIP_INTERVAL) + 1, 7);
+
+  const clipRanges: ClipRange[] = [];
+  for (let i = 0; i < numberOfClips; i++) {
+    const mid = (duration / numberOfClips) * (i + 0.5);
+    const start = Math.max(mid - CLIP_DURATION / 2, 0);
+    clipRanges.push({
+      start,
+      duration: Math.min(CLIP_DURATION, duration - start),
+    });
+  }
+  return clipRanges;
+}
+
+/** 주어진 경로에 있는 이미지로 크기가 변경된 WEBP 이미지를 만들어서 버퍼 형태로 반환합니다.
+ * 변경하려는 크기 비율이 원본 비율과 다를 경우, `cover attention`모드로 변경됩니다.
+ * @param filePath 이미지 파일의 절대경로
+ * @param width 변경할 너비
+ * @param height 변경할 높이
+ * @param quality WEBP 퀄리티값 (기본 70)
+ * @returns WEBP 이미지가 담긴 버퍼
+ */
+export async function getResizedWebpImageBufferOfImageFile(
+  filePath: string,
+  width: number,
+  height: number,
+  quality: number = 70
+) {
+  return await sharp(filePath)
+    .resize(width, height, { fit: "cover", position: sharp.strategy.attention })
+    .webp({ quality })
+    .toBuffer();
+}
+
+/** 주어진 경로에 있는 이미지로 크기가 변경된 WEBP 이미지로 만들어서 저장합니다.
+ * 변경하려는 크기 비율이 원본 비율과 다를 경우, `cover attention`모드로 변경됩니다.
+ * @param srcPath 원본 이미지 파일의 절대경로
+ * @param destPath 저장할 이미지 파일의 절대경로
+ * @param width 변경할 너비
+ * @param height 변경할 높이
+ * @param quality WEBP 퀄리티값 (기본 70)
+ */
+export function writeResizedWebpImageFileOfImageFile(
+  srcPath: string,
+  destPath: string,
+  width: number,
+  height: number,
+  quality: number = 70
+) {
+  return new Promise((resolve, reject) =>
+    sharp(srcPath)
+      .resize(width, height, { fit: "cover", position: sharp.strategy.attention })
+      .webp({ quality })
+      .toFile(destPath, (err, info) => (err ? reject(err) : resolve(info)))
+  );
+}
+
+/** 주어진 경로에 있는 비디오의 특정 시점을 크기가 변경된 WEBP 이미지로 만들어서 저장합니다.
+/** 변경하려는 크기 비율이 원본 비율과 다를 경우, 비율을 늘려서 맞춥니다.
+ * @param srcPath 원본 비디오 파일의 절대경로
+ * @param destPath 저장할 비디오 파일의 절대경로
+ * @param width 변경할 너비
+ * @param height 변경할 높이
+ * @param timestamp 이미지로 만들 타임스탬프 시간 (밀리초 단위)
+ * @param quality WEBP 퀄리티 (기본 70)
+ */
+export function writeResizedWebpImageFileOfVideoFile(
+  srcPath: string,
+  destPath: string,
+  width: number,
+  height: number,
+  timestamp: number,
+  quality: number = 70
+) {
+  return new Promise((resolve, reject) =>
+    ffmpeg()
+      .seek(timestamp / 1000)
+      .input(srcPath)
+      .size(`${~~width}x${~~height}`)
+      .videoCodec("libwebp")
+      .withOptions(["-vframes:v 1", `-qscale ${~~quality}`])
+      .output(destPath)
+      .on("error", reject)
+      .on("end", resolve)
+      .run()
+  );
+}
+
+/** 주어진 경로에 있는 비디오의 축소판 프리뷰 비디오 파일을 작성합니다. H264 MP4 형식으로 작성됩니다.
+ * @param filePath 비디오 파일의 절대경로
+ * @param destPath 비디오 파일을 저장할 절대경로 (.mp4로 끝나야 함)
+ * @param tempDirPath 분할 클립을 임시저장할 디렉터리 경로
+ */
+export async function writeResizedPreviewVideoFileOfVideoFile(
+  srcPath: string,
+  destPath: string,
+  tempDirPath: string
+) {
 }
