@@ -307,6 +307,7 @@ export function writeResizedWebpImageFileOfVideoFile(
       .size(`${~~width}x${~~height}`)
       .videoCodec("libwebp")
       .withOptions(["-vframes:v 1", `-qscale ${~~quality}`])
+      .outputFormat("webp")
       .output(destPath)
       .on("error", reject)
       .on("end", resolve)

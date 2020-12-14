@@ -14,6 +14,7 @@ import {
   writeResizedWebpImageFileOfImageFile,
   getResizedWebpImageBufferOfImageFile,
   writeResizedWebpImageFileOfVideoFile,
+  getPreviewClipRangesOfVideoDuration,
 } from "./indexing";
 
 const IMAGE_EXTENSIONS: readonly string[] = ["jpg", "jpeg", "gif", "png", "bmp", "webp"];
@@ -109,10 +110,12 @@ async function processImageIndexing(
     50
   );
   const thumbnail = thumbnailBuffer.toString("base64");
+
   return {
     width,
     height,
     time,
+    thumbnail,
   };
 }
 
@@ -154,12 +157,15 @@ async function processVideoIndexing(
     smallThumbnailSize.width,
     smallThumbnailSize.height,
     50
+  );
+  const thumbnail = thumbnailBuffer.toString("base64");
+
   return {
     width,
     height,
     duration,
     time,
-    thumbnail: "",
+    thumbnail,
   };
 }
 
@@ -479,7 +485,7 @@ export default class Gallery implements Disposable {
             Object.assign(newItem, imageIndexingData);
             break;
           case "VID":
-            const videoIndexingData = await processVideoIndexing(fullPath, thumbnailPaths.video);
+            const videoIndexingData = await processVideoIndexing(fullPath, thumbnailPaths.image);
             videoIndexingData.time = videoIndexingData.time || newItem.time;
             Object.assign(newItem, videoIndexingData);
             break;
