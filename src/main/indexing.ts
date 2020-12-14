@@ -219,14 +219,14 @@ type ClipRange = {
   duration: number;
 };
 /** 주어진 비디오 길이에서 미리보기 용도로 쓸만하도록 적당히 나눈 ClipRange 객체 목록을 계산합니다.
- * @param duration 나눌 비디오 길이입니다. (밀리초 단위)
+ * @param duration 클립당 비디오 길이 (밀리초 단위)
  * @returns 적당하게 분할된 `ClipRange` 객체 목록
  */
-export function getPreviewClipRangesOfVideoDuration(duration: number) {
-  const CLIP_INTERVAL = 10000;
-  const CLIP_DURATION = 1250;
+function getPreviewClipRangesOfVideoDuration(duration: number) {
+  const CLIP_INTERVAL = 12000;
+  const CLIP_DURATION = 1500;
 
-  const numberOfClips = Math.min(~~(duration / CLIP_INTERVAL) + 1, 7);
+  const numberOfClips = Math.min(~~(duration / CLIP_INTERVAL) + 1, 8);
 
   const clipRanges: ClipRange[] = [];
   for (let i = 0; i < numberOfClips; i++) {
@@ -283,23 +283,27 @@ export function writeResizedWebpImageFileOfImageFile(
   );
 }
 
-/** 주어진 경로에 있는 비디오의 특정 시점을 크기가 변경된 WEBP 이미지로 만들어서 저장합니다.
-/** 변경하려는 크기 비율이 원본 비율과 다를 경우, 비율을 늘려서 맞춥니다.
+/** 주어진 경로에 있는 비디오의 적당한 장면을 크기가 변경된 WEBP 이미지로 만들어서 저장합니다.
+ * 변경하려는 크기 비율이 원본 비율과 다를 경우, 비율을 늘려서 맞춥니다.
  * @param srcPath 원본 비디오 파일의 절대경로
  * @param destPath 저장할 비디오 파일의 절대경로
  * @param width 변경할 너비
  * @param height 변경할 높이
- * @param timestamp 이미지로 만들 타임스탬프 시간 (밀리초 단위)
  * @param quality WEBP 퀄리티 (기본 70)
  */
-export function writeResizedWebpImageFileOfVideoFile(
+export async function writeResizedWebpImageFileOfVideoFile(
   srcPath: string,
   destPath: string,
   width: number,
   height: number,
-  timestamp: number,
   quality: number = 70
 ) {
+  const metadata = await ffprobe(srcPath);
+  let { duration } = metadata.format;
+  duration *= 1000;
+  const clipRange = getPreviewClipRangesOfVideoDuration(duration)[0];
+  const timestamp = clipRange.start + clipRange.duration / 2;
+
   return new Promise((resolve, reject) =>
     ffmpeg()
       .seek(timestamp / 1000)
@@ -316,13 +320,68 @@ export function writeResizedWebpImageFileOfVideoFile(
 }
 
 /** 주어진 경로에 있는 비디오의 축소판 프리뷰 비디오 파일을 작성합니다. H264 MP4 형식으로 작성됩니다.
+ * 변경하려는 크기 비율이 원본 비율과 다를 경우, 비율을 늘려서 맞춥니다.
  * @param filePath 비디오 파일의 절대경로
- * @param destPath 비디오 파일을 저장할 절대경로 (.mp4로 끝나야 함)
+ * @param destPath 비디오 파일을 저장할 절대경로 (.mp4 확장자)
  * @param tempDirPath 분할 클립을 임시저장할 디렉터리 경로
+ * @param width 변경할 너비
+ * @param height 변경할 높이
+ * @param crf H264 CRF, 낮을수록 고화질 (0~51, 기본 22)
  */
 export async function writeResizedPreviewVideoFileOfVideoFile(
   srcPath: string,
   destPath: string,
-  tempDirPath: string
+  tempDirPath: string,
+  width: number,
+  height: number,
+  crf: number = 22
 ) {
+  const srcBaseName = path.basename(srcPath);
+  const metadata = await ffprobe(srcPath);
+  let { duration } = metadata.format;
+  duration *= 1000;
+  const clipRanges = getPreviewClipRangesOfVideoDuration(duration);
+
+  const clipPaths: string[] = [];
+  try {
+    for (let i = 0; i < clipRanges.length; i++) {
+      const { start, duration } = clipRanges[i];
+      const clipPath = path.join(tempDirPath, `TMP_${srcBaseName}_CLIP${i + 1}.mp4`);
+      clipPaths.push(clipPath);
+      await new Promise((resolve, reject) =>
+        ffmpeg()
+          .input(srcPath)
+          .size(`${~~width}x${~~height}`)
+          .setStartTime(start / 1000)
+          .setDuration(duration / 1000)
+          .videoCodec("libx264")
+          .addOptions([`-crf ${~~crf}`])
+          .fps(24)
+          .noAudio()
+          .output(clipPath)
+          .on("error", reject)
+          .on("end", resolve)
+          .run()
+      );
+    }
+    await new Promise((resolve, reject) => {
+      let command = ffmpeg();
+      for (const path of clipPaths) {
+        command = command.addInput(path);
+      }
+      return command
+        .videoCodec("libx264")
+        .addOptions([`-crf ${~~crf}`])
+        .noAudio()
+        .on("error", reject)
+        .on("end", resolve)
+        .mergeToFile(destPath);
+    });
+  } finally {
+    for (const clipPath of clipPaths) {
+      try {
+        fs.promises.unlink(clipPath);
+      } catch {}
+    }
+  }
 }

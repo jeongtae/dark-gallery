@@ -14,7 +14,7 @@ import {
   writeResizedWebpImageFileOfImageFile,
   getResizedWebpImageBufferOfImageFile,
   writeResizedWebpImageFileOfVideoFile,
-  getPreviewClipRangesOfVideoDuration,
+  writeResizedPreviewVideoFileOfVideoFile,
 } from "./indexing";
 
 const IMAGE_EXTENSIONS: readonly string[] = ["jpg", "jpeg", "gif", "png", "bmp", "webp"];
@@ -143,13 +143,11 @@ async function processVideoIndexing(
   const bigThumbnailSize = getResizedImageSize(width, height, 256, 3);
   const smallThumbnailSize = getResizedImageSize(width, height, 20, 3);
 
-  const timestamp = getPreviewClipRangesOfVideoDuration(duration)[0].start;
   await writeResizedWebpImageFileOfVideoFile(
     filePath,
     thumbnailPath,
     bigThumbnailSize.width,
     bigThumbnailSize.height,
-    timestamp,
     60
   );
   const thumbnailBuffer = await getResizedWebpImageBufferOfImageFile(
@@ -381,8 +379,12 @@ export default class Gallery implements Disposable {
         if (shouldBeUpdated) {
           // 원래있는 썸네일 파일 삭제
           const oldThumbPaths = buildThumbnailPathsForHash(galleryPath, extingItem.hash);
-          await fs.promises.rm(oldThumbPaths.image, { force: true });
-          await fs.promises.rm(oldThumbPaths.video, { force: true });
+          try {
+            fs.promises.unlink(oldThumbPaths.image);
+          } catch {}
+          try {
+            fs.promises.unlink(oldThumbPaths.video);
+          } catch {}
 
           // 데이터베이스 업데이트
           hash = hash || (await getFileHash(fullPath));
@@ -495,6 +497,7 @@ export default class Gallery implements Disposable {
         newItems.push(newItem);
       } catch (error) {
         // TODO: handle error
+        console.error(error);
       } finally {
         remaning--;
         reporter(newFilePaths.length - remaning, errorPaths.length, remaning);
