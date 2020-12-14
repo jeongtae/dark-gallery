@@ -1,6 +1,6 @@
 import json from "@rollup/plugin-json";
 import svelte from "rollup-plugin-svelte";
-import resolve from "@rollup/plugin-node-resolve";
+import { nodeResolve } from "@rollup/plugin-node-resolve";
 import commonjs from "@rollup/plugin-commonjs";
 import { terser } from "rollup-plugin-terser";
 import sveltePreprocess from "svelte-preprocess";
@@ -19,9 +19,8 @@ export default {
   },
   plugins: [
     svelte({
-      dev: !production,
-      css: css => {
-        css.write("style.css", !production);
+      compilerOptions: {
+        dev: !production,
       },
       preprocess: sveltePreprocess({
         typescript: {
@@ -29,16 +28,16 @@ export default {
           compilerOptions: { sourceMap: !production, inlineSources: !production },
         },
       }),
+      emitCss: false,
     }),
-
     // If you have external dependencies installed from
     // npm, you'll most likely need these plugins. In
     // some cases you'll need additional configuration -
     // consult the documentation for details:
     // https://github.com/rollup/plugins/tree/master/packages/commonjs
-    resolve({
+    nodeResolve({
       browser: true,
-      dedupe: module => module === "svelte" || module.startsWith("svelte/"),
+      dedupe: ["svelte"],
     }),
     commonjs(),
     json({ namedExports: true }),
