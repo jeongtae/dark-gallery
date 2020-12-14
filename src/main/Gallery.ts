@@ -49,6 +49,81 @@ function checkPathIsVideo(filePath: string) {
   return VIDEO_EXTENSIONS.includes(ext);
 }
 
+type ThumbnailPaths = {
+  directory: string;
+  image: string;
+  video: string;
+};
+/** 갤러리 아이템 썸네일 파일의 절대경로 목록을 얻습니다.
+ * @param galleryPath 갤러리의 절대경로
+ * @param hash 아이템의 해시값
+ * @returns 썸네일 파일의 절대경로를 포함하는 객체
+ */
+function buildThumbnailPathsForHash(galleryPath: string, hash: string): ThumbnailPaths {
+  const indexPath = buildIndexDirectoryPath(galleryPath);
+  const dirPath = path.join(indexPath, "thumbs", hash[0]);
+  return {
+    directory: dirPath,
+    image: path.join(dirPath, hash + ".webp"),
+    video: path.join(dirPath, hash + ".webm"),
+  };
+}
+
+type ImageIndexingData = {
+  width: number;
+  height: number;
+  /** 이미지의 메타데이터에 기록된 시간 */
+  time?: Date;
+  /** DB에 저장할 WEBP 썸네일의 Base64 문자열 */
+  thumbnail: string;
+};
+/** 이미지 파일의 썸네일 이미지를 만들고, DB에 저장할 썸네일의 Base64 문자열을 포함한 이미지 인덱싱 정보를 반환한다.
+ * @param filePath 이미지 파일의 절대경로
+ * @param thumbnailPath 썸네일 저장할 절대경로 (WEBP 확장자)
+ * @returns 이미지 인덱싱 정보
+ */
+async function processImageIndexing(
+  filePath: string,
+  thumbnailPath: string
+): Promise<ImageIndexingData> {
+  const { width, height, taggedTime: time } = await getImageInfo(filePath);
+  return {
+    width,
+    height,
+    time,
+    thumbnail: "",
+  };
+}
+
+type VideoIndexingData = {
+  width: number;
+  height: number;
+  /** 비디오의 길이 (밀리초 단위) */
+  duration: number;
+  /** 비디오의 메타데이터에 기록된 시간 */
+  time?: Date;
+  /** DB에 저장할 WEBP 썸네일의 Base64 문자열 */
+  thumbnail: string;
+};
+/** 비디오 파일의 썸네일 비디오를 만들고, DB에 저장할 썸네일의 Base64 문자열을 포함한 비디오 인덱싱 정보를 반환한다.
+ * @param filePath 비디오 파일의 절대경로
+ * @param thumbnailPath 썸네일 저장할 절대경로 (WEBP 확장자)
+ * @returns 비디오 인덱싱 정보
+ */
+async function processVideoIndexing(
+  filePath: string,
+  thumbnailPath: string
+): Promise<VideoIndexingData> {
+  const { width, height, duration, taggedTime: time } = await getVideoInfo(filePath);
+  return {
+    width,
+    height,
+    duration,
+    time,
+    thumbnail: "",
+  };
+}
+
 interface GalleryModels {
   item: Models.ItemCtor;
   tag: Models.TagCtor;
@@ -238,65 +313,71 @@ export default class Gallery implements Disposable {
     const { join } = path;
 
     // 데이터베이스에 존재하는 모든 아이템 목록 얻기
-    const items = await Item.findAll({
+    const extingItems = await Item.findAll({
       attributes: ["id", "path", "mtime", "size", "hash"],
       raw: true,
     });
 
     // 모든 아이템 순회
-    let remaning = items.length;
+    let remaning = extingItems.length;
     let errorPaths: string[] = [];
     let lostPaths: string[] = [];
     reporter(0, 0, remaning);
-    for (const item of items) {
+    for (const extingItem of extingItems) {
       try {
-        const itemFullPath = join(galleryPath, item.path);
-        const { mtime: itemMtime, size: itemSize, hash: itemHash } = item;
-        const { mtime: fileMtime, size: fileSize } = await getFileInfo(itemFullPath);
-        let fileHash = compareHash ? await getFileHash(itemFullPath) : null;
+        const fullPath = join(galleryPath, extingItem.path);
+        const fileInfo = await getFileInfo(fullPath);
+        let hash = compareHash ? await getFileHash(fullPath) : null;
 
         // 갱신 필요하면 수행
-        const isMtimeOrSizeDifferent = itemMtime !== fileMtime || itemSize !== fileSize;
-        const shouldBeUpdated = isMtimeOrSizeDifferent || (compareHash && itemHash !== fileHash);
+        const isMtimeOrSizeDifferent =
+          extingItem.mtime !== fileInfo.mtime || extingItem.size !== fileInfo.size;
+        const shouldBeUpdated = isMtimeOrSizeDifferent || (compareHash && extingItem.hash !== hash);
         if (shouldBeUpdated) {
+          // 원래있는 썸네일 파일 삭제
+          const oldThumbPaths = buildThumbnailPathsForHash(galleryPath, extingItem.hash);
+          await fs.promises.rm(oldThumbPaths.image, { force: true });
+          await fs.promises.rm(oldThumbPaths.video, { force: true });
+
           // 데이터베이스 업데이트
-          if (!fileHash) fileHash = await getFileHash(itemFullPath);
-          let time: Date = fileMtime;
-          let width: number;
-          let height: number;
-          let duration = null;
-          switch (item.type) {
+          hash = hash || (await getFileHash(fullPath));
+          const updatingItem: Partial<Models.ItemAttributes> = {
+            ...fileInfo,
+            hash,
+            time: fileInfo.mtime,
+          };
+          const thumbnailPaths = buildThumbnailPathsForHash(galleryPath, hash);
+          if (!fs.existsSync(thumbnailPaths.directory)) {
+            await fs.promises.mkdir(thumbnailPaths.directory, { recursive: true });
+          }
+          switch (extingItem.type) {
             case "IMG":
-              const imageInfo = await getImageInfo(itemFullPath);
-              time = imageInfo.taggedTime || time;
-              width = imageInfo.width;
-              height = imageInfo.height;
+              const imageIndexingData = await processImageIndexing(fullPath, thumbnailPaths.image);
+              imageIndexingData.time = imageIndexingData.time || updatingItem.time;
+              Object.assign(updatingItem, imageIndexingData);
               break;
             case "VID":
-              const videoInfo = await getVideoInfo(itemFullPath);
-              time = videoInfo.taggedTime || time;
-              width = videoInfo.width;
-              height = videoInfo.height;
-              duration = videoInfo.duration;
+              const videoIndexingData = await processVideoIndexing(fullPath, thumbnailPaths.video);
+              videoIndexingData.time = videoIndexingData.time || updatingItem.time;
+              Object.assign(updatingItem, videoIndexingData);
               break;
+            default:
+              throw new Error();
           }
-          await Item.update(
-            { mtime: fileMtime, size: fileSize, hash: fileHash, time, width, height, duration },
-            { where: { id: item.id } }
-          );
+          await Item.update(updatingItem, { where: { id: extingItem.id } });
         }
       } catch (error) {
         if (error.code === "ENOENT") {
           // 유실
-          await Item.update({ lost: true }, { where: { id: item.id } });
-          lostPaths.push(item.path);
+          await Item.update({ lost: true }, { where: { id: extingItem.id } });
+          lostPaths.push(extingItem.path);
         } else {
           // 오류
-          errorPaths.push(item.path);
+          errorPaths.push(extingItem.path);
         }
       } finally {
         remaning--;
-        reporter(items.length - remaning, errorPaths.length, remaning);
+        reporter(extingItems.length - remaning, errorPaths.length, remaning);
       }
     }
   }
@@ -334,39 +415,39 @@ export default class Gallery implements Disposable {
         else if (checkPathIsVideo(path)) type = "VID";
         else continue;
 
-        const fullFilePath = join(galleryPath, path);
-        const { mtime, size } = await getFileInfo(fullFilePath);
-        const hash = await getFileHash(fullFilePath);
-        let width: number;
-        let height: number;
-        let duration: number;
-        let time = mtime;
+        const fullPath = join(galleryPath, path);
+        const fileInfo = await getFileInfo(fullPath);
+        const hash = await getFileHash(fullPath);
+        const newItem: Models.ItemCreationAttributes = {
+          ...fileInfo,
+          hash,
+          path,
+          type,
+          width: 0,
+          height: 0,
+          duration: 0,
+          time: fileInfo.mtime,
+          thumbnail: "",
+        };
+        const thumbnailPaths = buildThumbnailPathsForHash(galleryPath, hash);
+        if (!fs.existsSync(thumbnailPaths.directory)) {
+          await fs.promises.mkdir(thumbnailPaths.directory, { recursive: true });
+        }
         switch (type) {
           case "IMG":
-            const imageInfo = await getImageInfo(fullFilePath);
-            time = imageInfo.taggedTime || time;
-            width = imageInfo.width;
-            height = imageInfo.height;
+            const imageIndexingData = await processImageIndexing(fullPath, thumbnailPaths.image);
+            imageIndexingData.time = imageIndexingData.time || newItem.time;
+            Object.assign(newItem, imageIndexingData);
             break;
           case "VID":
-            const videoInfo = await getVideoInfo(fullFilePath);
-            time = videoInfo.taggedTime || time;
-            width = videoInfo.width;
-            height = videoInfo.height;
-            duration = videoInfo.duration;
+            const videoIndexingData = await processVideoIndexing(fullPath, thumbnailPaths.video);
+            videoIndexingData.time = videoIndexingData.time || newItem.time;
+            Object.assign(newItem, videoIndexingData);
             break;
+          default:
+            throw new Error();
         }
-        newItems.push({
-          type,
-          mtime,
-          size,
-          hash,
-          time,
-          path,
-          width,
-          height,
-          duration,
-        });
+        newItems.push(newItem);
       } catch (error) {
         // TODO: handle error
       } finally {
