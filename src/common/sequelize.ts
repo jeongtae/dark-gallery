@@ -57,7 +57,7 @@ export type ItemAttributes = {
   /** 미디어의 길이 (마이크로초 단위, 1/1000초) */
   duration: number;
   /** WEBP Base64로 인코딩된 썸네일 이미지 */
-  thumbnail: string;
+  thumbnailBase64: string;
 };
 export type RawItem = Raw<
   ItemAttributes & {

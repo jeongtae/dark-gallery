@@ -80,7 +80,7 @@ type ImageIndexingData = {
   /** 이미지의 메타데이터에 기록된 시간 */
   time?: Date;
   /** DB에 저장할 WEBP 썸네일의 Base64 문자열 */
-  thumbnail: string;
+  thumbnailBase64: string;
 };
 /** 이미지 파일의 썸네일 이미지를 만들고, DB에 저장할 썸네일의 Base64 문자열을 포함한 이미지 인덱싱 정보를 반환한다.
  * @param filePath 이미지 파일의 절대경로
@@ -109,13 +109,13 @@ async function processImageIndexing(
     smallThumbnailSize.height,
     50
   );
-  const thumbnail = thumbnailBuffer.toString("base64");
+  const thumbnailBase64 = thumbnailBuffer.toString("base64");
 
   return {
     width,
     height,
     time,
-    thumbnail,
+    thumbnailBase64,
   };
 }
 
@@ -127,7 +127,7 @@ type VideoIndexingData = {
   /** 비디오의 메타데이터에 기록된 시간 */
   time?: Date;
   /** DB에 저장할 WEBP 썸네일의 Base64 문자열 */
-  thumbnail: string;
+  thumbnailBase64: string;
 };
 /** 비디오 파일의 썸네일 비디오를 만들고, DB에 저장할 썸네일의 Base64 문자열을 포함한 비디오 인덱싱 정보를 반환한다.
  * @param filePath 비디오 파일의 절대경로
@@ -156,14 +156,14 @@ async function processVideoIndexing(
     smallThumbnailSize.height,
     50
   );
-  const thumbnail = thumbnailBuffer.toString("base64");
+  const thumbnailBase64 = thumbnailBuffer.toString("base64");
 
   return {
     width,
     height,
     duration,
     time,
-    thumbnail,
+    thumbnailBase64,
   };
 }
 
@@ -474,7 +474,7 @@ export default class Gallery implements Disposable {
           height: 0,
           duration: 0,
           time: fileInfo.mtime,
-          thumbnail: "",
+          thumbnailBase64: "",
         };
         const thumbnailPaths = buildThumbnailPathsForHash(galleryPath, hash);
         if (!fs.existsSync(thumbnailPaths.directory)) {
