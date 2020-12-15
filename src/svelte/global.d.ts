@@ -7,4 +7,5 @@ interface NodeRequire {
   (id: "electron/renderer"): typeof Electron.Renderer;
   (id: "custom-electron-titlebar"): typeof import("custom-electron-titlebar");
   (id: "electron-is"): typeof import("electron-is");
+  (id: "path"): typeof import("path");
 }
