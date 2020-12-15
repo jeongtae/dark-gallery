@@ -356,48 +356,49 @@ export default class Gallery implements Disposable {
     const { join } = path;
 
     // 데이터베이스에 존재하는 모든 아이템 목록 얻기
-    const extingItems = await Item.findAll({
+    const existingItems = await Item.findAll({
       attributes: ["id", "path", "mtime", "size", "hash"],
       raw: true,
     });
 
     // 모든 아이템 순회
-    let remaning = extingItems.length;
+    let remaning = existingItems.length;
     let errorPaths: string[] = [];
     let lostPaths: string[] = [];
     reporter(0, 0, remaning);
-    for (const extingItem of extingItems) {
+    for (const existingItem of existingItems) {
       try {
-        const fullPath = join(galleryPath, extingItem.path);
+        const fullPath = join(galleryPath, existingItem.path);
         const fileInfo = await getFileInfo(fullPath);
         let hash = compareHash ? await getFileHash(fullPath) : null;
 
         // 갱신 필요하면 수행
         const isMtimeOrSizeDifferent =
-          extingItem.mtime !== fileInfo.mtime || extingItem.size !== fileInfo.size;
-        const shouldBeUpdated = isMtimeOrSizeDifferent || (compareHash && extingItem.hash !== hash);
+          existingItem.mtime !== fileInfo.mtime || existingItem.size !== fileInfo.size;
+        const shouldBeUpdated =
+          isMtimeOrSizeDifferent || (compareHash && existingItem.hash !== hash);
         if (shouldBeUpdated) {
           // 원래있는 썸네일 파일 삭제
-          const oldThumbPaths = buildThumbnailPathsForHash(galleryPath, extingItem.hash);
           try {
-            fs.promises.unlink(oldThumbPaths.image);
+            fs.promises.unlink(path.join(galleryPath, existingItem.thumbnailPath));
           } catch {}
           try {
-            fs.promises.unlink(oldThumbPaths.video);
+            fs.promises.unlink(path.join(galleryPath, existingItem.previewVideoPath));
           } catch {}
 
           // 데이터베이스 업데이트
           hash = hash || (await getFileHash(fullPath));
+          const thumbnailPaths = buildThumbnailPathsForHash(galleryPath, hash);
           const updatingItem: Partial<Models.ItemAttributes> = {
             ...fileInfo,
             hash,
             time: fileInfo.mtime,
+            thumbnailPath: path.relative(galleryPath, thumbnailPaths.image),
           };
-          const thumbnailPaths = buildThumbnailPathsForHash(galleryPath, hash);
           if (!fs.existsSync(thumbnailPaths.directory)) {
             await fs.promises.mkdir(thumbnailPaths.directory, { recursive: true });
           }
-          switch (extingItem.type) {
+          switch (existingItem.type) {
             case "IMG":
               const imageIndexingData = await processImageIndexing(fullPath, thumbnailPaths.image);
               imageIndexingData.time = imageIndexingData.time || updatingItem.time;
@@ -411,20 +412,20 @@ export default class Gallery implements Disposable {
             default:
               throw new Error();
           }
-          await Item.update(updatingItem, { where: { id: extingItem.id } });
+          await Item.update(updatingItem, { where: { id: existingItem.id } });
         }
       } catch (error) {
         if (error.code === "ENOENT") {
           // 유실
-          await Item.update({ lost: true }, { where: { id: extingItem.id } });
-          lostPaths.push(extingItem.path);
+          await Item.update({ lost: true }, { where: { id: existingItem.id } });
+          lostPaths.push(existingItem.path);
         } else {
           // 오류
-          errorPaths.push(extingItem.path);
+          errorPaths.push(existingItem.path);
         }
       } finally {
         remaning--;
-        reporter(extingItems.length - remaning, errorPaths.length, remaning);
+        reporter(existingItems.length - remaning, errorPaths.length, remaning);
       }
     }
   }
@@ -438,7 +439,6 @@ export default class Gallery implements Disposable {
       models: { item: Item },
     } = this;
     const { reporter = () => {} } = options;
-    const { join } = path;
 
     // 새로운 파일 목록 얻기
     const allFilePaths = await getAllChildFilePath(galleryPath, {
@@ -455,28 +455,29 @@ export default class Gallery implements Disposable {
     let errorPaths: string[] = [];
     reporter(0, 0, remaning);
     const newItems: Models.ItemCreationAttributes[] = [];
-    for (const path of newFilePaths) {
+    for (const newFilePath of newFilePaths) {
       try {
         let type: Models.Item["type"];
-        if (checkPathIsImage(path)) type = "IMG";
-        else if (checkPathIsVideo(path)) type = "VID";
+        if (checkPathIsImage(newFilePath)) type = "IMG";
+        else if (checkPathIsVideo(newFilePath)) type = "VID";
         else continue;
 
-        const fullPath = join(galleryPath, path);
+        const fullPath = path.join(galleryPath, newFilePath);
         const fileInfo = await getFileInfo(fullPath);
         const hash = await getFileHash(fullPath);
+        const thumbnailPaths = buildThumbnailPathsForHash(galleryPath, hash);
         const newItem: Models.ItemCreationAttributes = {
           ...fileInfo,
           hash,
-          path,
+          path: newFilePath,
           type,
           width: 0,
           height: 0,
           duration: 0,
           time: fileInfo.mtime,
           thumbnailBase64: "",
+          thumbnailPath: path.relative(galleryPath, thumbnailPaths.image),
         };
-        const thumbnailPaths = buildThumbnailPathsForHash(galleryPath, hash);
         if (!fs.existsSync(thumbnailPaths.directory)) {
           await fs.promises.mkdir(thumbnailPaths.directory, { recursive: true });
         }

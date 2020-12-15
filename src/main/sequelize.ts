@@ -70,7 +70,10 @@ function defineModels(sequelize: Sequelize) {
     width: { type: DataTypes.SMALLINT, allowNull: false },
     height: { type: DataTypes.SMALLINT, allowNull: false },
     duration: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+
     thumbnailBase64: { type: DataTypes.TEXT, allowNull: false },
+    thumbnailPath: { type: DataTypes.STRING(256), allowNull: false },
+    previewVideoPath: DataTypes.STRING(256),
   });
 
   const Tag = sequelize.define<Models.Tag>("tag", {
