@@ -3,6 +3,7 @@
   import { tweened } from "svelte/motion";
 
   export let selected: boolean = false;
+  export let thumbnailContain: boolean = false;
 
   //#region 외부 프로퍼티
   /** Base64로 인코딩된 썸네일 문자열 */
@@ -20,12 +21,12 @@
   onMount(() => {
     const timeout = setTimeout(async () => {
       showThumbnail = true;
-    }, 200);
+    }, 350);
     return () => clearTimeout(timeout);
   });
 </script>
 
-<container bind:offsetWidth={containerWidth} on:click class:selected>
+<container on:click class:selected>
   <pad>
     {#if $thumbnailOpacity < 1}
       <base64-thumbnail style="background-image:url(data:image/webp;base64,{thumbnailBase64});" />
@@ -40,7 +41,10 @@
         src="file://{thumbnailPath}"
       />
     {/if}
-    <inner-border class:selected />
+    <inner-border
+      class:thick={selected && containerWidth >= 150}
+      class:thin={selected && containerWidth < 150}
+    />
   </pad>
 </container>
 
@@ -67,15 +71,11 @@
     height: 100%;
     background-size: cover;
     background-position: center;
+    background-repeat: no-repeat;
     z-index: 1;
-  }
-  thumbnail-blurer {
-    display: block;
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    background: transparent;
-    z-index: 2;
+    &.contain {
+      background-size: contain;
+    }
   }
   img.thumbnail {
     display: block;
@@ -86,6 +86,9 @@
     opacity: 0;
     will-change: opacity;
     z-index: 3;
+    &.contain {
+      object-fit: contain;
+    }
   }
   inner-border {
     display: block;
@@ -93,8 +96,11 @@
     width: 100%;
     height: 100%;
     z-index: 4;
-    &.selected {
-      box-shadow: 0 0 0 4px $oc-blue-6 inset, 0 0 0 5px black inset;
+    &.thick {
+      box-shadow: 0 0 0 4px $oc-blue-6 inset, 0 0 0 5px mix($oc-gray-9, $oc-black, 70%) inset;
+    }
+    &.thin {
+      box-shadow: 0 0 0 3px $oc-blue-6 inset, 0 0 0 4px mix($oc-gray-9, $oc-black, 70%) inset;
     }
   }
 </style>
