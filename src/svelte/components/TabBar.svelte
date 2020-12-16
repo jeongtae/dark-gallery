@@ -9,10 +9,10 @@
 </script>
 
 <script lang="ts">
-  import { onMount } from "svelte";
   import { difference, intersection } from "lodash";
-  import Icon from "./Icon.svelte";
-  import { lnrClose } from "../svg/linearicons";
+  import { onMount } from "svelte";
+  import { Icon } from "carbon-components-svelte";
+  import Close16 from "carbon-icons-svelte/lib/Close20";
 
   export let tabs: Tabs = {};
   export let selectedTabId: string = null;
@@ -135,7 +135,7 @@
           data-tabid={tabId}
           on:click|stopPropagation={handleTabClose}
         >
-          <Icon path={lnrClose} viewBoxSize={20} width={14} />
+          <Icon render={Close16} />
         </button>
       </button>
     {/each}
@@ -184,12 +184,12 @@
     }
     .close {
       display: none;
-      fill: $oc-gray-6;
+      color: $oc-gray-6;
       border-radius: 4px;
       width: 16px;
       height: 16px;
       :global(svg) {
-        transform: translateY(0.5px);
+        transform: translate(-2px, -2px) scale(0.875);
       }
       &:hover {
         background-color: $oc-gray-8;
@@ -216,7 +216,7 @@
       }
       .close {
         display: block;
-        fill: $oc-gray-4;
+        color: $oc-gray-4;
       }
     }
     &.dragover {

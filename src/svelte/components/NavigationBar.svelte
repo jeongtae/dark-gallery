@@ -1,8 +1,9 @@
 <script lang="ts">
-  import Icon from "./Icon.svelte";
+  import { Icon } from "carbon-components-svelte";
+  import Grid20 from "carbon-icons-svelte/lib/Grid20";
+  import Settings20 from "carbon-icons-svelte/lib/Settings20";
   import TabBar from "./TabBar.svelte";
   import type { Tabs } from "./TabBar.svelte";
-  import { lnrHome, lnrCog } from "../svg/linearicons";
 
   export let selectedMenu: "home" | "settings" | null;
   export let tabs: Tabs = {};
@@ -28,7 +29,7 @@
         selectedTabId = null;
       }}
     >
-      <Icon path={lnrHome} viewBoxSize={20} width={16} />
+      <Icon render={Grid20} />
     </button>
     <div class="tabbar">
       <TabBar bind:tabs bind:selectedTabId />
@@ -42,7 +43,7 @@
         selectedTabId = null;
       }}
     >
-      <Icon path={lnrCog} viewBoxSize={20} width={16} />
+      <Icon render={Settings20} />
     </button>
   </div>
 </template>
@@ -59,15 +60,15 @@
 
   button.menu {
     width: 40px;
-    fill: $oc-gray-6;
+    color: $oc-gray-6;
     position: relative;
     flex-shrink: 0;
     transition: box-shadow 70ms ease-in-out;
     :global(svg) {
-      transform: translateY(1px);
+      transform: translateY(1px) scale(0.9);
     }
     &.selected {
-      fill: $oc-gray-0;
+      color: $oc-gray-0;
       background-color: $oc-gray-9;
       &::before {
         content: "";
