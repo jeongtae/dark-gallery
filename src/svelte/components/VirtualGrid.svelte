@@ -6,7 +6,8 @@
   export let items: any[];
   export let itemKeyProp: string;
   export let height = "100%";
-  export let throttling = 20;
+  export let gap = 0;
+  export let throttlingTime = 20;
   //#endregion
 
   //#region 내부 바인딩 상태
@@ -26,29 +27,22 @@
   //#region 반응형 상태
   let itemSize: number;
   const refreshItemSize = throttle((containerWidth, itemsPerRow) => {
-    itemSize = Math.round(containerWidth / itemsPerRow);
+    itemSize = ~~((containerWidth + gap) / itemsPerRow - gap);
     if (mounted) handleScroll();
-  }, throttling);
+  }, throttlingTime);
   $: refreshItemSize(containerWidth, itemsPerRow);
-  $: scrollHeight = ~~(itemSize * Math.ceil(items.length / itemsPerRow));
-  $: visibleRows = chunk(items.slice(visibleItemStartIndex, visibleItemEndIndex), itemsPerRow).map(
-    (items, i) => {
-      return {
-        key: items[0][itemKeyProp],
-        items,
-        offsetY: (visibleItemStartIndex / itemsPerRow + i) * itemSize,
-      };
-    }
-  );
+  $: scrollHeight = Math.max(0, (itemSize + gap) * Math.ceil(items.length / itemsPerRow) - gap);
+  $: visibleItems = items.slice(visibleItemStartIndex, visibleItemEndIndex);
+  $: gridOffsetY = (visibleItemStartIndex / itemsPerRow) * (itemSize + gap);
   //#endregion
 
   //#region 이벤트 핸들러
   function handleScroll() {
     const { scrollTop } = containerRef;
-    const visibleRowStartIndex = ~~(scrollTop / itemSize);
-    const visibleRowEndIndex = ~~((scrollTop + containerHeight + 1) / itemSize);
-    visibleItemStartIndex = Math.max(0, (visibleRowStartIndex - 1) * itemsPerRow);
-    visibleItemEndIndex = (visibleRowEndIndex + 2) * itemsPerRow;
+    const visibleRowStartIndex = ~~(scrollTop / (itemSize + gap));
+    const visibleRowEndIndex = ~~((scrollTop + containerHeight + 1) / (itemSize + gap));
+    visibleItemStartIndex = Math.max(0, (visibleRowStartIndex - 2) * itemsPerRow);
+    visibleItemEndIndex = (visibleRowEndIndex + 3) * itemsPerRow;
   }
   const handleWheel = throttle<svelte.JSX.WheelEventHandler<HTMLDivElement>>(
     async e => {
@@ -71,7 +65,7 @@
   //#endregion
 </script>
 
-<container
+<vg-container
   bind:this={containerRef}
   bind:offsetWidth={containerWidth}
   bind:offsetHeight={containerHeight}
@@ -79,38 +73,43 @@
   on:wheel={handleWheel}
   style="height: {height};"
 >
-  <div style="height: {scrollHeight}px">
-    {#each visibleRows as { key, items, offsetY } (key)}
-      <row style="transform: translateY({offsetY}px)">
-        {#each items as item (item[itemKeyProp])}
-          <item
-            data-key={item[itemKeyProp]}
-            class="item-wrapper"
-            style="width: {itemSize}px; height: {itemSize}px;"
-          >
-            <slot {item} />
-          </item>
-        {/each}
-      </row>
-    {/each}
-  </div>
-</container>
+  <vg-scroll-area style="height: {scrollHeight}px">
+    <vg-grid
+      style="
+        grid: auto-flow {itemSize}px / repeat({itemsPerRow}, {itemSize}px);
+        gap: {gap}px;
+        transform: translateY({gridOffsetY}px);
+      "
+    >
+      {#each visibleItems as item (item[itemKeyProp])}
+        <vg-item-wrapper>
+          <slot {item} />
+        </vg-item-wrapper>
+      {/each}
+    </vg-grid>
+  </vg-scroll-area>
+</vg-container>
 
 <style>
-  container {
+  vg-container {
     display: block;
     position: relative;
     z-index: 1;
     overflow-y: scroll;
     overscroll-behavior-y: none;
+    user-select: none;
   }
-  row {
-    display: flex;
-    position: absolute;
-    will-change: transform;
+  vg-scroll-area {
+    display: block;
+    will-change: height;
   }
-  item {
+  vg-grid {
+    display: grid;
+    will-change: grid, transform;
+  }
+  vg-item-wrapper {
     display: block;
     will-change: width, height;
+    overflow: hidden;
   }
 </style>

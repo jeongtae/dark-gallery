@@ -26,15 +26,18 @@
   });
 </script>
 
-<container on:click class:selected>
+<container bind:offsetWidth={containerWidth} on:click class:selected>
   <pad>
     {#if $thumbnailOpacity < 1}
-      <base64-thumbnail style="background-image:url(data:image/webp;base64,{thumbnailBase64});" />
-      <thumbnail-blurer style="backdrop-filter: blur({~~(containerWidth / 20)}px);" />
+      <base64-thumbnail
+        class:contain={thumbnailContain}
+        style="background-image:url(data:image/webp;base64,{thumbnailBase64});"
+      />
     {/if}
     {#if showThumbnail}
       <img
         class="thumbnail"
+        class:contain={thumbnailContain}
         on:load={() => ($thumbnailOpacity = 1)}
         style="opacity: {$thumbnailOpacity}"
         alt=""
@@ -51,18 +54,16 @@
 <style lang="scss">
   @import "open-color/open-color";
 
-  $padding: 1px;
   container {
     display: block;
     height: 100%;
     position: relative;
-    padding: $padding;
     counter-reset: zindex;
   }
   pad {
     display: block;
-    width: calc(100% - #{$padding * 2});
-    height: calc(100% - #{$padding * 2});
+    width: 100%;
+    height: 100%;
     position: absolute;
   }
   base64-thumbnail {

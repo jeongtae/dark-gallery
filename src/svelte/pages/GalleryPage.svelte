@@ -26,7 +26,7 @@
     >Get Items</button>
   </div>
   <div class="main">
-    <VirtualGrid {items} itemKeyProp="id" let:item>
+    <VirtualGrid {items} itemKeyProp="id" gap={2} let:item>
       <GridItem
         on:click={() => {
           if (selectedItemKeys.has(item.id)) {
