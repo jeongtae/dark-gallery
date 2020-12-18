@@ -10,7 +10,7 @@
   import { debounce } from "lodash";
   import { Modal, TextInput, Button, InlineLoading, Icon } from "carbon-components-svelte";
   import Folder16 from "carbon-icons-svelte/lib/Folder16";
-  import ipc from "../../ipc";
+  import ipc from "../../../ipc";
 
   const dispatch = createEventDispatcher();
 

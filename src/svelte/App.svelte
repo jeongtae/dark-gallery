@@ -1,33 +1,58 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import oc from "open-color";
-  import ipc from "./ipc";
-  import TitleBar from "./components/TitleBar.svelte";
-  import NavigationBar from "./components/NavigationBar.svelte";
-  import type { Tabs } from "./components/TabBar.svelte";
+  import { onMount } from "svelte";
+  import type { SvelteComponent } from "svelte";
+  import Home20 from "carbon-icons-svelte/lib/Home20";
+  import Grid20 from "carbon-icons-svelte/lib/Grid20";
+  import Settings20 from "carbon-icons-svelte/lib/Settings20";
   import HomePage from "./pages/HomePage.svelte";
   import GalleryPage from "./pages/GalleryPage.svelte";
   import SettingsPage from "./pages/SettingsPage.svelte";
+  import CustomElectronTitlebar from "./components/CustomElectronTitlebar.svelte";
+  import TabBar from "./components/TabBar.svelte";
+  import type { Tab, FixedTab, FluidTab } from "./components/TabBar.svelte";
+  import ipc from "./ipc";
   import { currentGalleryInfoStore, environments } from "./stores";
+  import type { GalleryInfo } from "./stores";
 
-  let tabs: Tabs = {
-    apl: { title: "Apple", thumbnail: "apple.jpg" },
-    ban: { title: "Banana", thumbnail: "banana.jpg" },
-    grp: { title: "Grape", thumbnail: "grape.jpg" },
-    org: { title: "Orange", thumbnail: "orange.jpg" },
-    wtm: { title: "Watermelon", thumbnail: "watermelon.jpg" },
-    lmn: { title: "Lemon", thumbnail: "lemon.jpg" },
-    kwi: { title: "Kiwi", thumbnail: "kiwi.jpg" },
-    pch: { title: "Peach", thumbnail: "peach.jpg" },
-    per: { title: "Pear", thumbnail: "pear.jpg" },
+  type FixedTabId = "home" | "gallery" | "settings";
+  const fixedTabs: { [id in FixedTabId]: FixedTab } = {
+    home: { id: "home", title: "홈", icon: Home20 },
+    gallery: { id: "gallery", title: "갤러리", icon: Grid20 },
+    settings: { id: "settings", title: "설정", icon: Settings20 },
   };
-  let selectedTabId: string = null;
-  let selectedMenu: "home" | "settings" | null = "home";
+  const fixedTabPages: { [id in FixedTabId]: typeof SvelteComponent } = {
+    home: HomePage,
+    gallery: GalleryPage,
+    settings: SettingsPage,
+  };
+  let leftFixedTab = fixedTabs.home;
+  const rightFixedTab = fixedTabs.settings;
+  let centerFluidTabs: FluidTab[];
+  let selectedTabId = leftFixedTab.id;
+
+  $: handleCurrentGalleryChange($currentGalleryInfoStore);
+  $: updateTitle(environments.appName, selectedTab.title);
+  $: selectedTab = [leftFixedTab, rightFixedTab, ...centerFluidTabs].find(
+    tab => tab.id === selectedTabId
+  );
+
+  centerFluidTabs = [
+    { id: "apl", title: "Apple", thumbnail: "apple.jpg" },
+    { id: "ban", title: "Banana", thumbnail: "banana.jpg" },
+    { id: "grp", title: "Grape", thumbnail: "grape.jpg" },
+    { id: "org", title: "Orange", thumbnail: "orange.jpg" },
+    { id: "wtm", title: "Watermelon", thumbnail: "watermelon.jpg" },
+    { id: "lmn", title: "Lemon", thumbnail: "lemon.jpg" },
+    { id: "kwi", title: "Kiwi", thumbnail: "kiwi.jpg" },
+    { id: "pch", title: "Peach", thumbnail: "peach.jpg" },
+    { id: "per", title: "Pear", thumbnail: "pear.jpg" },
+  ];
 
   onMount(() => {
     ipc.on("clickMenu", (event, id) => {
       if (id === "openPreference") {
-        selectedMenu = "settings";
+        selectedTabId = fixedTabs.settings.id;
       }
     });
     ipc.on("openGallery", (event, { path, title }) => {
@@ -35,15 +60,19 @@
     });
   });
 
-  $: {
-    if (selectedMenu === "home") {
-      document.title = `홈 \u2500 ${environments.appName}`;
-    } else if (selectedMenu === "settings") {
-      document.title = `설정 \u2500 ${environments.appName}`;
-    } else if (selectedTabId) {
-      document.title = `${tabs[selectedTabId].title} \u2500 ${environments.appName}`;
+  function handleCurrentGalleryChange(currentGalleryInfo: GalleryInfo) {
+    const shouldRestore = selectedTabId === leftFixedTab.id;
+    leftFixedTab = currentGalleryInfo ? fixedTabs.gallery : fixedTabs.home;
+    if (shouldRestore) {
+      selectedTabId = leftFixedTab.id;
+    }
+  }
+
+  function updateTitle(main: string, sub: string) {
+    if (sub) {
+      document.title = `${sub} \u2500 ${main}`;
     } else {
-      document.title = environments.appName;
+      document.title = main;
     }
   }
 </script>
@@ -51,59 +80,55 @@
 <svelte:head>
   <title>{environments.appName}</title>
 </svelte:head>
-<template>
-  <TitleBar color={oc.gray[9]} />
-  <div class="container">
-    <NavigationBar bind:tabs bind:selectedTabId bind:selectedMenu />
-    <div class="pages-container">
-      <div class="page-wrapper" class:hidden={selectedMenu !== 'home'}>
-        {#if $currentGalleryInfoStore}
-          <GalleryPage />
-        {:else}
-          <HomePage />
-        {/if}
-      </div>
-      <div class="page-wrapper" class:hidden={selectedMenu !== 'settings'}>
-        <SettingsPage />
-      </div>
-    </div>
-  </div>
-</template>
+<CustomElectronTitlebar color={oc.gray[9]} />
+<app-container>
+  <TabBar {leftFixedTab} {rightFixedTab} bind:centerFluidTabs bind:selectedTabId />
+  <app-page-switcher>
+    <app-page-wrapper class:hidden={selectedTab !== leftFixedTab}>
+      <svelte:component this={fixedTabPages[leftFixedTab.id]} />
+    </app-page-wrapper>
+    <app-page-wrapper class:hidden={selectedTab !== rightFixedTab}>
+      <svelte:component this={fixedTabPages[rightFixedTab.id]} />
+    </app-page-wrapper>
+  </app-page-switcher>
+</app-container>
 
 <style lang="scss">
   @import "open-color/open-color";
   @import "./global";
 
-  .container {
+  app-container {
     height: 100%;
     display: flex;
     flex-direction: column;
   }
 
-  .pages-container {
+  app-page-switcher {
+    display: block;
     flex: 1;
     position: relative;
-  }
 
-  .page-wrapper {
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    overflow-y: auto;
-    &.hidden {
-      visibility: hidden;
-    }
-    &:focus {
-      outline: none;
-    }
-    &::-webkit-scrollbar {
-      width: 6px;
-      background-color: transparent;
-    }
-    &::-webkit-scrollbar-thumb {
-      background-color: $oc-gray-7;
+    app-page-wrapper {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+      &.hidden {
+        visibility: hidden;
+      }
+      &:focus {
+        outline: none;
+      }
+      &::-webkit-scrollbar {
+        width: 6px;
+        background-color: transparent;
+      }
+      &::-webkit-scrollbar-thumb {
+        background-color: $oc-gray-7;
+      }
     }
   }
 </style>

@@ -1,7 +1,7 @@
 <script lang="ts">
   import ipc from "../../ipc";
-  import DirectoryPickerModal from "./DirectoryPickerModal.svelte";
-  import type { PathValidator } from "./DirectoryPickerModal.svelte";
+  import DirectoryPickerModal from "./base/DirectoryPickerModal.svelte";
+  import type { PathValidator } from "./base/DirectoryPickerModal.svelte";
   export let open = false;
 
   const pathValidator: PathValidator = async (path, setMessage) => {

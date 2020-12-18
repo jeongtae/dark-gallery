@@ -7,7 +7,7 @@ const isDev: boolean = is.dev();
 const isMac: boolean = is.macOS();
 
 /** 갤러리 정보 인터페이스 */
-interface GalleryInfo {
+export interface GalleryInfo {
   title: string;
   path: string;
 }
