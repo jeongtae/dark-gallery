@@ -110,90 +110,84 @@
   }
 </script>
 
-<template>
-  <div class="container">
-    <h1>{environments.appName}</h1>
-    <p>{environments.appDescription}</p>
-    <h2>시작하기</h2>
-    <p>새 갤러리를 만들거나 기존 갤러리를 여세요.</p>
-    <div class="gallery-buttons-wrapper">
-      <Button
-        size="small"
-        icon={Add16}
-        kind="primary"
-        on:click={() => (creationModalIsOpen = true)}
-      >
-        새로 만들기
-      </Button>
-      <Button
-        size="small"
-        icon={Folder16}
-        kind="secondary"
-        on:click={() => (choiceModalIsOpen = true)}
-      >
-        기존 갤러리 열기
-      </Button>
-      {#if environments.isDev}
-        <OverflowMenu icon={Debug16}>
-          <OverflowMenuItem
-            text="개발용 갤러리 열기"
-            primaryFocus
-            on:click={handleClickOpenDevGallery}
-          />
-          <OverflowMenuItem
-            text="개발용 갤러리 초기화"
-            danger
-            on:click={handleClickResetDevGallery}
-          />
-        </OverflowMenu>
-      {/if}
-    </div>
-    {#if $recentGalleryInfoListStore.length}
-      <h2>최근 갤러리</h2>
-      <div class="recent-buttons-wrapper">
-        {#each $recentGalleryInfoListStore as info, idx (info.path)}
-          <div class="row">
-            <div class="primary-button-wrapper">
-              <Button
-                size="small"
-                kind="ghost"
-                on:click={handleClickRecentGallery}
-                data-path={info.path}
-              >
-                {info.title}
-              </Button>
-            </div>
-            <span class="path">{info.path}</span>
-            <div class="delete-button-wrapper">
-              <Button
-                size="small"
-                icon={Close16}
-                on:click={() => {
-                  recentGalleryInfoListStore.update(list => {
-                    list.splice(idx, 1);
-                    return list;
-                  });
-                }}
-                hasIconOnly
-                iconDescription="목록에서 제거"
-                tooltipPosition="right"
-                tooltipAlignment="center"
-              />
-            </div>
-          </div>
-        {/each}
-      </div>
+<Loading active={isLoading} />
+<GalleryCreationModal bind:open={creationModalIsOpen} on:submit={handleCreationSubmit} />
+<GalleryChoiceModal bind:open={choiceModalIsOpen} on:submit={handleChoiceSubmit} />
+<page-container>
+  <h1>{environments.appName}</h1>
+  <p>{environments.appDescription}</p>
+  <h2>시작하기</h2>
+  <p>새 갤러리를 만들거나 기존 갤러리를 여세요.</p>
+  <page-gallery-buttons-container>
+    <Button size="small" icon={Add16} kind="primary" on:click={() => (creationModalIsOpen = true)}>
+      새로 만들기
+    </Button>
+    <Button
+      size="small"
+      icon={Folder16}
+      kind="secondary"
+      on:click={() => (choiceModalIsOpen = true)}
+    >
+      기존 갤러리 열기
+    </Button>
+    {#if environments.isDev}
+      <OverflowMenu icon={Debug16}>
+        <OverflowMenuItem
+          text="개발용 갤러리 열기"
+          primaryFocus
+          on:click={handleClickOpenDevGallery}
+        />
+        <OverflowMenuItem
+          text="개발용 갤러리 초기화"
+          danger
+          on:click={handleClickResetDevGallery}
+        />
+      </OverflowMenu>
     {/if}
-  </div>
-  <GalleryCreationModal bind:open={creationModalIsOpen} on:submit={handleCreationSubmit} />
-  <GalleryChoiceModal bind:open={choiceModalIsOpen} on:submit={handleChoiceSubmit} />
-  <Loading active={isLoading} />
-</template>
+  </page-gallery-buttons-container>
+  {#if $recentGalleryInfoListStore.length}
+    <h2>최근 갤러리</h2>
+    <page-recent-buttons-wrapper>
+      {#each $recentGalleryInfoListStore as info, idx (info.path)}
+        <page-recent-gallery-row>
+          <page-primary-button-wrapper>
+            <Button
+              size="small"
+              kind="ghost"
+              on:click={handleClickRecentGallery}
+              data-path={info.path}
+            >
+              {info.title}
+            </Button>
+          </page-primary-button-wrapper>
+          <span class="path">{info.path}</span>
+          <page-delete-button-wrapper>
+            <Button
+              size="small"
+              icon={Close16}
+              on:click={() => {
+                recentGalleryInfoListStore.update(list => {
+                  list.splice(idx, 1);
+                  return list;
+                });
+              }}
+              hasIconOnly
+              iconDescription="목록에서 제거"
+              tooltipPosition="right"
+              tooltipAlignment="center"
+            />
+          </page-delete-button-wrapper>
+        </page-recent-gallery-row>
+      {/each}
+    </page-recent-buttons-wrapper>
+  {/if}
+</page-container>
 
 <style lang="scss">
   @import "open-color/open-color";
 
-  .container {
+  page-container {
+    display: block;
     max-width: 1000px;
     margin: 32px auto 24px;
     padding: 0 24px;
@@ -208,25 +202,32 @@
   p {
     margin: 0 8px;
   }
-  .gallery-buttons-wrapper > :global(button) {
-    margin: 12px 12px;
-    display: inline-flex;
-    &:first-child {
-      margin-right: 4px;
-    }
-    &:last-child {
-      margin-left: 4px;
+  page-gallery-buttons-container {
+    display: block;
+    :global(button) {
+      margin: 12px 12px;
+      display: inline-flex;
+      &:first-child {
+        margin-right: 4px;
+      }
+      &:last-child {
+        margin-left: 4px;
+      }
     }
   }
-  .recent-buttons-wrapper {
-    .row {
+  page-recent-buttons-wrapper {
+    display: block;
+    page-recent-gallery-row {
       margin: 1px 4px;
       display: flex;
       width: fit-content;
       align-items: center;
-      .primary-button-wrapper :global(button) {
-        margin: 0;
-        font-size: 1rem;
+      page-primary-button-wrapper {
+        display: block;
+        :global(button) {
+          margin: 0;
+          font-size: 1rem;
+        }
       }
       .path {
         margin-right: 12px;
@@ -237,17 +238,20 @@
         direction: rtl;
         max-width: 300px;
       }
-      .delete-button-wrapper :global(button) {
-        visibility: hidden;
-        background-color: transparent;
-        color: $oc-gray-4;
-        margin: 0;
-        padding: 2px 4px;
-        &:hover {
-          color: $oc-red-7;
+      page-delete-button-wrapper {
+        display: block;
+        :global(button) {
+          visibility: hidden;
+          background-color: transparent;
+          color: $oc-gray-4;
+          margin: 0;
+          padding: 2px 4px;
+          &:hover {
+            color: $oc-red-7;
+          }
         }
       }
-      &:hover .delete-button-wrapper :global(button) {
+      &:hover page-delete-button-wrapper :global(button) {
         visibility: visible;
       }
     }

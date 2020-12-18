@@ -13,53 +13,53 @@
   let galleryDescription = "동일한 효력을 범죄에 의하여 모든 시설기준과 국내법과 보장하기.";
 </script>
 
-<template>
-  <div class="container">
-    <h1>설정</h1>
+<page-container>
+  <h1>설정</h1>
 
-    <h2>애플리케이션 설정</h2>
-    <p>Dark Gallery 앱 자체에 대한 설정입니다.</p>
-    <div class="tile">
-      <h3>색상 테마</h3>
-      <Dropdown
-        titleText="색상 테마"
-        bind:selectedIndex={$globalSettingsStore.colorTheme}
-        items={['다크', '라이트', '자동 (시스템 설정에 따름)'].map((text, id) => ({
-          text,
-          id: id.toString(),
-        }))}
-      />
-    </div>
-    <div class="tile">
-      <h3>최근 갤러리 기억</h3>
-      <Slider
-        labelText="최근 갤러리 기억"
-        min={0}
-        max={10}
-        minLabel="안 함"
-        maxLabel="10개"
-        bind:value={$globalSettingsStore.maxRecentGalleriesCount}
-      />
-    </div>
+  <h2>애플리케이션 설정</h2>
+  <p>Dark Gallery 앱 자체에 대한 설정입니다.</p>
+  <page-tile>
+    <h3>색상 테마</h3>
+    <Dropdown
+      titleText="색상 테마"
+      bind:selectedIndex={$globalSettingsStore.colorTheme}
+      items={['다크', '라이트', '자동 (시스템 설정에 따름)'].map((text, id) => ({
+        text,
+        id: id.toString(),
+      }))}
+    />
+  </page-tile>
+  <page-tile>
+    <h3>최근 갤러리 기억</h3>
+    <Slider
+      labelText="최근 갤러리 기억"
+      min={0}
+      max={10}
+      minLabel="안 함"
+      maxLabel="10개"
+      bind:value={$globalSettingsStore.maxRecentGalleriesCount}
+    />
+  </page-tile>
 
-    {#if $currentGalleryInfoStore}
-      <h2>{galleryName} 갤러리 설정</h2>
-      <p>현재 열려있는 갤러리에 대한 설정입니다.</p>
-      <div class="tile">
-        <h3>제목</h3>
-        <TextInput labelText="제목" bind:value={galleryName} />
-      </div>
-      <div class="tile">
-        <h3>설명</h3>
-        <TextArea labelText="설명" bind:value={galleryDescription} />
-      </div>
-    {/if}
-  </div></template>
+  {#if $currentGalleryInfoStore}
+    <h2>{galleryName} 갤러리 설정</h2>
+    <p>현재 열려있는 갤러리에 대한 설정입니다.</p>
+    <page-tile>
+      <h3>제목</h3>
+      <TextInput labelText="제목" bind:value={galleryName} />
+    </page-tile>
+    <page-tile>
+      <h3>설명</h3>
+      <TextArea labelText="설명" bind:value={galleryDescription} />
+    </page-tile>
+  {/if}
+</page-container>
 
 <style lang="scss">
   @import "open-color/open-color";
 
-  .container {
+  page-container {
+    display: block;
     max-width: 1000px;
     margin: 32px auto 24px;
     padding: 0 24px;
@@ -83,7 +83,8 @@
     font-size: 1.3rem;
     display: none;
   }
-  .tile {
+  page-tile {
+    display: block;
     background-color: mix($oc-gray-8, $oc-gray-9);
     margin: 10px 12px;
     padding: 16px 24px;
