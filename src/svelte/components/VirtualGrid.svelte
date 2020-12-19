@@ -1,61 +1,72 @@
 <script lang="ts">
-  import { chunk, throttle } from "lodash";
+  import { throttle } from "lodash";
   import { onMount, tick } from "svelte";
 
   //#region 외부 프로퍼티
   export let items: any[];
   export let itemKeyProp: string;
   export let height = "100%";
+  export let paddingSide = 0;
+  export let paddingTop = 0;
+  export let paddingBottom = 0;
   export let gap = 0;
-  export let throttlingTime = 20;
   //#endregion
 
-  //#region 내부 바인딩 상태
+  //#region 외부 바인드 프로퍼티
+  export let itemsPerRow = 7;
+  export let minItemsPerRow = 5;
+  export let maxItemsPerRow = 8;
+  //#endregion
+
+  //#region 로컬 바인드 상태
   let containerRef: HTMLDivElement;
   let containerWidth: number;
   let containerHeight: number;
   //#endregion
 
-  //#region 내부 상태
-  let itemsPerRow = 7;
+  //#region 로컬 상태
   let visibleItemStartIndex = 0;
   let visibleItemEndIndex = 0;
   let mounted: boolean;
-  onMount(async () => (mounted = true));
   //#endregion
 
+  onMount(async () => (mounted = true));
+
   //#region 반응형 상태
-  let itemSize: number;
-  const refreshItemSize = throttle((containerWidth, itemsPerRow) => {
-    itemSize = ~~((containerWidth + gap) / itemsPerRow - gap);
-    if (mounted) handleScroll();
-  }, throttlingTime);
-  $: refreshItemSize(containerWidth, itemsPerRow);
-  $: scrollHeight = Math.max(0, (itemSize + gap) * Math.ceil(items.length / itemsPerRow) - gap);
+  $: if (mounted && itemSize) handleScroll();
+  $: itemSize = (containerWidth - paddingSide * 2 + gap) / itemsPerRow - gap;
+  $: scrollAreaHeight =
+    Math.max(0, (itemSize + gap) * Math.ceil(items.length / itemsPerRow) - gap) +
+    paddingTop +
+    paddingBottom;
+  $: scrollEnd = scrollAreaHeight - containerHeight;
   $: visibleItems = items.slice(visibleItemStartIndex, visibleItemEndIndex);
-  $: gridOffsetY = (visibleItemStartIndex / itemsPerRow) * (itemSize + gap);
+  $: gridTranslateY = (visibleItemStartIndex / itemsPerRow) * (itemSize + gap) + paddingTop;
   //#endregion
 
   //#region 이벤트 핸들러
   function handleScroll() {
     const { scrollTop } = containerRef;
-    const visibleRowStartIndex = ~~(scrollTop / (itemSize + gap));
-    const visibleRowEndIndex = ~~((scrollTop + containerHeight + 1) / (itemSize + gap));
-    visibleItemStartIndex = Math.max(0, (visibleRowStartIndex - 2) * itemsPerRow);
-    visibleItemEndIndex = (visibleRowEndIndex + 3) * itemsPerRow;
+    const visibleRowStartIndex = ~~((scrollTop - paddingTop) / (itemSize + gap));
+    const visibleRowEndIndex = ~~(
+      (scrollTop - paddingTop + containerHeight + 1) /
+      (itemSize + gap)
+    );
+    visibleItemStartIndex = Math.max(0, (visibleRowStartIndex - 3) * itemsPerRow);
+    visibleItemEndIndex = (visibleRowEndIndex + 4) * itemsPerRow;
   }
   const handleWheel = throttle<svelte.JSX.WheelEventHandler<HTMLDivElement>>(
-    async e => {
-      if (e.ctrlKey) {
-        const ratio = containerRef.scrollTop / (scrollHeight - containerHeight);
-        if (e.deltaY < 0 && itemsPerRow > 5) {
+    async ({ ctrlKey, deltaY }) => {
+      if (ctrlKey) {
+        const ratio = containerRef.scrollTop / scrollEnd;
+        if (deltaY < 0 && itemsPerRow > minItemsPerRow) {
           itemsPerRow -= 1;
           await tick();
-          containerRef.scrollTop = ratio * (scrollHeight - containerHeight);
-        } else if (e.deltaY > 0 && itemsPerRow < 9) {
+          containerRef.scrollTop = ratio * scrollEnd;
+        } else if (deltaY > 0 && itemsPerRow < maxItemsPerRow) {
           itemsPerRow += 1;
           await tick();
-          containerRef.scrollTop = ratio * (scrollHeight - containerHeight);
+          containerRef.scrollTop = ratio * scrollEnd;
         }
       }
     },
@@ -73,12 +84,12 @@
   on:wheel={handleWheel}
   style="height: {height};"
 >
-  <vg-scroll-area style="height: {scrollHeight}px">
+  <vg-scroll-area style="height: {scrollAreaHeight}px;">
     <vg-grid
       style="
         grid: auto-flow {itemSize}px / repeat({itemsPerRow}, {itemSize}px);
         gap: {gap}px;
-        transform: translateY({gridOffsetY}px);
+        transform: translate({paddingSide}px, {gridTranslateY}px);
       "
     >
       {#each visibleItems as item (item[itemKeyProp])}
@@ -101,6 +112,7 @@
   }
   vg-scroll-area {
     display: block;
+    width: 0;
     will-change: height;
   }
   vg-grid {
