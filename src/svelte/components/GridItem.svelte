@@ -1,53 +1,79 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { tweened } from "svelte/motion";
+  import { cubicOut } from "svelte/easing";
+  import { fade } from "svelte/transition";
 
-  export let selected: boolean = false;
-  export let thumbnailContain: boolean = false;
+  const FADE_IN_DURATION = 150;
+  const LOAD_DELAY = 350;
+  const LOAD_FINISH_FADE_DURATION = 150;
+  const FIT_CHANGING_DURATION = 150;
 
   //#region 외부 프로퍼티
-  /** Base64로 인코딩된 썸네일 문자열 */
+  /** 선택 상태 */
+  export let selected: boolean = false;
+  /** 선택 상태의 테두리 두께*/
+  export let selectedBorderMode: "normal" | "thin" | "thick" = "normal";
+  /** WEBP Base64로 인코딩된 썸네일 문자열 */
   export let thumbnailBase64: string;
   /** 썸네일 이미지의 절대경로 */
   export let thumbnailPath: string;
+  /** 썸네일 이미지의 비율 *(W/H)* */
+  export let thumbnailAspect: number;
+  /** 썸네일의 피팅 모드 */
+  export let thumbnailFitMode: "contain" | "cover" = "contain";
+  //#endregion
+
+  //#region 반응형 구문
+  $: thumbnailScale.set(thumbnailFitMode === "cover" ? getCoverScale(thumbnailAspect) : 1);
   //#endregion
 
   //#region 내부 상태
-  let containerWidth: number;
   let showThumbnail: boolean = false;
-  let thumbnailOpacity = tweened(0, { duration: 300 });
+  let thumbnailOpacity = tweened(0, { duration: LOAD_FINISH_FADE_DURATION });
+  let thumbnailScale = tweened(thumbnailFitMode === "cover" ? getCoverScale(thumbnailAspect) : 1, {
+    duration: FIT_CHANGING_DURATION,
+    easing: cubicOut,
+  });
   //#endregion
+
+  function getCoverScale(aspect: number) {
+    return aspect < 1 ? 1 / aspect : aspect;
+  }
 
   onMount(() => {
     const timeout = setTimeout(async () => {
       showThumbnail = true;
-    }, 350);
+    }, LOAD_DELAY);
     return () => clearTimeout(timeout);
   });
 </script>
 
-<container bind:offsetWidth={containerWidth} on:click class:selected>
+<container in:fade={{ duration: FADE_IN_DURATION }} on:click class:selected>
   <pad>
     {#if $thumbnailOpacity < 1}
       <base64-thumbnail
-        class:contain={thumbnailContain}
-        style="background-image:url(data:image/webp;base64,{thumbnailBase64});"
+        style="
+          transform: scale({$thumbnailScale * 1.02});
+          background-image:url(data:image/webp;base64,{thumbnailBase64});"
       />
     {/if}
     {#if showThumbnail}
       <img
         class="thumbnail"
-        class:contain={thumbnailContain}
         on:load={() => ($thumbnailOpacity = 1)}
-        style="opacity: {$thumbnailOpacity}"
+        class:definitely-cover={$thumbnailScale === getCoverScale(thumbnailAspect)}
+        style="transform: scale({$thumbnailScale}); opacity: {$thumbnailOpacity};"
         alt=""
         src="file://{thumbnailPath}"
       />
     {/if}
-    <inner-border
-      class:thick={selected && containerWidth >= 150}
-      class:thin={selected && containerWidth < 150}
-    />
+    {#if selected}
+      <inner-border
+        class:thick={selectedBorderMode === 'thick'}
+        class:thin={selectedBorderMode === 'thin'}
+      />
+    {/if}
   </pad>
 </container>
 
@@ -70,25 +96,24 @@
     position: absolute;
     width: 100%;
     height: 100%;
-    background-size: cover;
+    background-size: contain;
     background-position: center;
     background-repeat: no-repeat;
+    will-change: transform;
     z-index: 1;
-    &.contain {
-      background-size: contain;
-    }
   }
   img.thumbnail {
     display: block;
     position: absolute;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     opacity: 0;
-    will-change: opacity;
+    will-change: transform, opacity;
     z-index: 3;
-    &.contain {
-      object-fit: contain;
+    &.definitely-cover {
+      object-fit: cover;
+      transform: unset !important;
     }
   }
   inner-border {
@@ -97,11 +122,12 @@
     width: 100%;
     height: 100%;
     z-index: 4;
-    &.thick {
-      box-shadow: 0 0 0 4px $oc-blue-6 inset, 0 0 0 5px mix($oc-gray-9, $oc-black, 70%) inset;
-    }
+    box-shadow: 0 0 0 4px $oc-blue-6 inset, 0 0 0 5px mix($oc-gray-9, $oc-black, 70%) inset;
     &.thin {
       box-shadow: 0 0 0 3px $oc-blue-6 inset, 0 0 0 4px mix($oc-gray-9, $oc-black, 70%) inset;
+    }
+    &.thick {
+      box-shadow: 0 0 0 5px $oc-blue-6 inset, 0 0 0 5px mix($oc-gray-9, $oc-black, 70%) inset;
     }
   }
 </style>
