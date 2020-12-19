@@ -13,7 +13,7 @@
   /** 선택 상태 */
   export let selected: boolean = false;
   /** 선택 상태의 테두리 두께*/
-  export let selectedBorderMode: "normal" | "thin" | "thick" = "normal";
+  export let selectedItemBorderMode: "normal" | "thin" | "thick" = "normal";
   /** WEBP Base64로 인코딩된 썸네일 문자열 */
   export let thumbnailBase64: string;
   /** 썸네일 이미지의 절대경로 */
@@ -70,8 +70,8 @@
     {/if}
     {#if selected}
       <inner-border
-        class:thick={selectedBorderMode === 'thick'}
-        class:thin={selectedBorderMode === 'thin'}
+        class:thick={selectedItemBorderMode === 'thick'}
+        class:thin={selectedItemBorderMode === 'thin'}
       />
     {/if}
   </pad>
