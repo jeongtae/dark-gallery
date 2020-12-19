@@ -5,7 +5,7 @@ import { isDev } from "./environments";
 
 export function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
-    minWidth: 820,
+    minWidth: 900,
     minHeight: 600,
     width: 960,
     height: 640,
