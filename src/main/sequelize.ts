@@ -26,7 +26,7 @@ export function createSequelize(sqlitePath: string): Sequelize {
 function defineModels(sequelize: Sequelize) {
   const id: ModelAttributeColumnOptions = {
     primaryKey: true,
-    type: DataTypes.INTEGER.UNSIGNED,
+    type: DataTypes.INTEGER,
   };
   const createdAt = DataTypes.DATE;
   const updatedAt = DataTypes.DATE;
