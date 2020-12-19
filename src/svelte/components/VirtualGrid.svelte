@@ -92,9 +92,9 @@
         transform: translate({paddingSide}px, {gridTranslateY}px);
       "
     >
-      {#each visibleItems as item (item[itemKeyProp])}
+      {#each visibleItems as item, i (item[itemKeyProp])}
         <vg-item-wrapper>
-          <slot {item} />
+          <slot {item} index={visibleItemStartIndex + i} />
         </vg-item-wrapper>
       {/each}
     </vg-grid>
