@@ -32,7 +32,7 @@
   let selectedTabId = leftFixedTab.id;
 
   $: handleCurrentGalleryChange($currentGalleryInfoStore);
-  $: updateTitle(environments.appName, selectedTab.title);
+  $: updateTitle($currentGalleryInfoStore?.title ?? environments.appName, selectedTab.title);
   $: selectedTab = [leftFixedTab, rightFixedTab, ...centerFluidTabs].find(
     tab => tab.id === selectedTabId
   );
