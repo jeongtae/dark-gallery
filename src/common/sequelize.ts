@@ -178,7 +178,9 @@ export type KeyValueStoreAttributes = {
 export type RawKeyValueStore = Raw<KeyValueStoreAttributes>;
 export type KeyValueStore = Model<KeyValueStoreAttributes> & KeyValueStoreAttributes;
 export type KeyValueStoreCtor = ModelCtor<KeyValueStore>;
+//#endregion
 
+//#region 아이템 - 태그 다대다 모델
 export type ItemToTagAttributes = {
   itemId: number;
   tagId: number;
