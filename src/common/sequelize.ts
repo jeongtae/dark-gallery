@@ -170,14 +170,14 @@ export type TagGroupCtor = ModelCtor<TagGroup> & {
 };
 //#endregion
 
-//#region 키-밸류 스토어 모델
-export type KeyValueStoreAttributes = {
+//#region 콘픽 모델
+export type ConfigAttributes = {
   key: string;
   value: string;
 };
-export type RawKeyValueStore = Raw<KeyValueStoreAttributes>;
-export type KeyValueStore = Model<KeyValueStoreAttributes> & KeyValueStoreAttributes;
-export type KeyValueStoreCtor = ModelCtor<KeyValueStore>;
+export type RawConfig = Raw<ConfigAttributes>;
+export type Config = Model<ConfigAttributes> & ConfigAttributes;
+export type ConfigCtor = ModelCtor<Config>;
 //#endregion
 
 //#region 아이템 - 태그 다대다 모델

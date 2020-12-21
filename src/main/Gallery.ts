@@ -171,7 +171,7 @@ interface GalleryModels {
   item: Models.ItemCtor;
   tag: Models.TagCtor;
   tagGroup: Models.TagGroupCtor;
-  keyValueStore: Models.KeyValueStoreCtor;
+  config: Models.ConfigCtor;
 }
 
 interface IndexingOptions {
@@ -217,8 +217,8 @@ export default class Gallery implements Disposable {
    * @param key 설정 키
    */
   async getConfig<K extends keyof GalleryConfigs>(key: K): Promise<GalleryConfigs[K]> {
-    const { keyValueStore } = this.#models;
-    const row = await keyValueStore.findByPk(key);
+    const { config } = this.#models;
+    const row = await config.findByPk(key);
     if (!row) {
       return null;
     } else {
@@ -232,13 +232,13 @@ export default class Gallery implements Disposable {
    * @param value 설정 값
    */
   async setConfig<K extends keyof GalleryConfigs>(key: K, value: GalleryConfigs[K]) {
-    const { keyValueStore } = this.#models;
-    const existingRow = await keyValueStore.findByPk(key);
+    const { config } = this.#models;
+    const existingRow = await config.findByPk(key);
     const jsonValue = JSON.stringify(value);
     if (existingRow) {
-      await keyValueStore.update({ value: jsonValue }, { where: { key } });
+      await config.update({ value: jsonValue }, { where: { key } });
     } else {
-      await keyValueStore.create({ key, value: jsonValue });
+      await config.create({ key, value: jsonValue });
     }
   }
 
@@ -342,7 +342,7 @@ export default class Gallery implements Disposable {
 
     const sqlitePath = buildSqliteFilePath(this.path);
     const sequelize = createSequelize(sqlitePath);
-    const { item, tag, tagGroup, keyValueStore } = sequelize.models as any;
+    const { item, tag, tagGroup, config } = sequelize.models as any;
     if (this.isNew) {
       await sequelize.sync();
       const title = path.basename(this.path);
@@ -353,7 +353,7 @@ export default class Gallery implements Disposable {
       item,
       tag,
       tagGroup,
-      keyValueStore,
+      config,
     };
     this.sequelize = sequelize;
   }

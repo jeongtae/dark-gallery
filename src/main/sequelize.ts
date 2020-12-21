@@ -95,8 +95,8 @@ function defineModels(sequelize: Sequelize) {
     icon: DataTypes.TEXT,
   });
 
-  const KeyValueStore = sequelize.define<Models.KeyValueStore>(
-    "keyValueStore",
+  const Config = sequelize.define<Models.Config>(
+    "config",
     {
       key: { type: DataTypes.STRING, primaryKey: true, allowNull: false },
       value: { type: DataTypes.TEXT, allowNull: false },
