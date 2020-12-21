@@ -1,6 +1,6 @@
 import { BrowserWindow, ipcMain, IpcMainEvent } from "electron";
 import type { TypedIpcMain } from "electron-typed-ipc";
-import type { Events, Commands, GalleryPathInfo } from "../common/ipc";
+import type { Events, Commands, GalleryPathInfo, GalleryConfigs } from "../common/ipc";
 
 declare type OptionalPromise<T> = T | Promise<T>;
 
@@ -21,4 +21,4 @@ export type IpcHandlers = {
   ) => OptionalPromise<ReturnType<Commands[C]>>;
 };
 
-export type { GalleryPathInfo };
+export type { GalleryPathInfo, GalleryConfigs };

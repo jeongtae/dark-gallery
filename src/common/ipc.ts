@@ -1,5 +1,10 @@
 import type { RawItem } from "./sequelize";
 
+//#region Electron Types
+export type MenuItemId = "newWindow" | "openPreference" | "closeWindow" | "closeTab" | "help";
+//#endregion
+
+//#region Gallery Types
 export interface GalleryPathInfo {
   /** 경로가 존재합니다. */
   exists: boolean;
@@ -20,16 +25,22 @@ export interface GalleryPathInfo {
   /** 갤러리 데이터베이스 파일에 쓰기 권한이 있습니다. */
   sqliteFileHasWritePermission?: boolean;
 }
+export type GalleryConfigs = {
+  /** 갤러리의 제목 */
+  title: string;
+  /** 갤러리 생성일시 */
+  createdAt: Date;
+};
+//#endregion
 
-export type MenuItemId = "newWindow" | "openPreference" | "closeWindow" | "closeTab" | "help";
-
-/** Main -> Renderer */
+//#region IPC Events (Main -> Renderer)
 export type Events = {
   clickMenu: (id: MenuItemId) => void;
   openGallery: (args: { path: string; title: string }) => void;
 };
+//#endregion
 
-/** Renderer -> Main */
+//#region IPC Commands (Renderer -> Main)
 export type Commands = {
   pickDirectory: (args: { title?: string; buttonLabel?: string }) => string;
   checkGalleryPath: (args: { path: string }) => GalleryPathInfo;
@@ -39,5 +50,8 @@ export type Commands = {
   resetDevGallery: () => boolean;
   setMenuEnabled: (id: MenuItemId, enabled: boolean) => void;
   startIndexing: () => void;
+  getConfig: <K extends keyof GalleryConfigs>(key: K) => GalleryConfigs[K];
+  setConfig: <K extends keyof GalleryConfigs>(key: K, value: GalleryConfigs[K]) => void;
   getItems: () => RawItem[];
 };
+//#endregion

@@ -110,7 +110,7 @@ export default class Main {
   async onWindowDidFinishLoad(window: BrowserWindow) {
     const gallery = this.galleries[window.id];
     if (gallery) {
-      const title = await gallery.getTitle();
+      const title = await gallery.getConfig("title");
       const { path } = gallery;
       sendEvent(window, "openGallery", { path, title });
     }
@@ -171,7 +171,7 @@ export default class Main {
     const gallery = new Gallery(path, true);
     try {
       await gallery.open();
-      const title = await gallery.getTitle();
+      const title = await gallery.getConfig("title");
       this.galleries[frameId] = gallery;
       return title;
     } catch {
@@ -199,7 +199,7 @@ export default class Main {
     const gallery = new Gallery(path, isNew);
     try {
       await gallery.open();
-      const title = await gallery.getTitle();
+      const title = await gallery.getConfig("title");
       await this.galleries[frameId]?.dispose();
       this.galleries[frameId] = gallery;
       return title;
@@ -248,6 +248,14 @@ export default class Main {
       models: { item: Item },
     } = this.galleries[frameId];
     return Item.findAll({ raw: true });
+  };
+  onIpcGetConfig: IpcHandlers["getConfig"] = async ({ frameId }, key) => {
+    const gallery = this.galleries[frameId];
+    return await gallery.getConfig(key);
+  };
+  onIpcSetConfig: IpcHandlers["setConfig"] = async ({ frameId }, key, value) => {
+    const gallery = this.galleries[frameId];
+    await gallery.setConfig(key, value);
   };
   //#endregion
 }

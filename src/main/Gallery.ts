@@ -3,7 +3,7 @@ import fs from "fs";
 import { difference, union } from "lodash";
 import { Sequelize } from "sequelize/types";
 import { createSequelize, Models } from "./sequelize";
-import { GalleryPathInfo } from "./ipc";
+import { GalleryPathInfo, GalleryConfigs } from "./ipc";
 import {
   getAllChildFilePath,
   getFileHash,
@@ -213,19 +213,33 @@ export default class Gallery implements Disposable {
     return this.#models;
   }
 
-  /** 데이터베이스에 기록된 갤러리 제목을 가져옵니다.
-   * @returns 갤러리 제목
+  /** 데이터베이스에 기록된 설정을 가져옵니다.
+   * @param key 설정 키
    */
-  async getTitle() {
-    const row = await this.#models.keyValueStore.findByPk("title");
-    return row.value;
+  async getConfig<K extends keyof GalleryConfigs>(key: K): Promise<GalleryConfigs[K]> {
+    const { keyValueStore } = this.#models;
+    const row = await keyValueStore.findByPk(key);
+    if (!row) {
+      return null;
+    } else {
+      const jsonValue = row.value;
+      return JSON.parse(jsonValue);
+    }
   }
 
-  /** 새로운 갤러리 제목을 데이터베이스에 기록합니다.
-   * @param value 새로운 갤러리 제목
+  /** 데이터베이스에 설정을 기록합니다.
+   * @param key 설정 키
+   * @param value 설정 값
    */
-  async setTitle(value: string) {
-    await this.#models.keyValueStore.update({ value: value }, { where: { key: "title" } });
+  async setConfig<K extends keyof GalleryConfigs>(key: K, value: GalleryConfigs[K]) {
+    const { keyValueStore } = this.#models;
+    const existingRow = await keyValueStore.findByPk(key);
+    const jsonValue = JSON.stringify(value);
+    if (existingRow) {
+      await keyValueStore.update({ value: jsonValue }, { where: { key } });
+    } else {
+      await keyValueStore.create({ key, value: jsonValue });
+    }
   }
 
   /** 주어진 경로를 갤러리의 관점에서 조사합니다.
@@ -332,7 +346,8 @@ export default class Gallery implements Disposable {
     if (this.isNew) {
       await sequelize.sync();
       const title = path.basename(this.path);
-      await (keyValueStore as Models.KeyValueStoreCtor).create({ key: "title", value: title });
+      await this.setConfig("title", title);
+      await this.setConfig("createdAt", new Date());
     }
     this.#models = {
       item,
