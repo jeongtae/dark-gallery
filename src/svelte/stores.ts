@@ -12,12 +12,12 @@ interface GlobalSettings {
   colorTheme?: ColorTheme;
   maxRecentGalleriesCount?: number;
 }
-/** 기본 전역 설정 객체 */
+/** 앱 전역 설정 기본값 객체 */
 export const defaultGlobalSettings: Readonly<GlobalSettings> = {
   colorTheme: ColorTheme.Dark,
   maxRecentGalleriesCount: 5,
 };
-/** 앱 전역 설정 스토어 */
+/** 앱 전역 설정 스토어 *(`storageWritable`)* */
 export const globalSettingsStore = storageWritable<GlobalSettings>("global-settings", {});
 globalSettingsStore.update(settings => ({ ...defaultGlobalSettings, ...settings }));
 
@@ -26,9 +26,9 @@ export interface GalleryInfo {
   title: string;
   path: string;
 }
-/** 현재 열린 갤러리 정보 스토어 */
+/** 현재 열린 갤러리 정보 스토어 *(`writable`)* */
 export const currentGalleryInfoStore = writable<GalleryInfo>(null);
-/** 최근 열어본 갤러리 정보 스토어 */
+/** 최근 열어본 갤러리 정보 스토어 *(`storageWritable`)* */
 export const recentGalleryInfoListStore = storageWritable<GalleryInfo[]>(
   "recent-gallery-info-list",
   []

@@ -1,3 +1,8 @@
+<script context="module" lang="ts">
+  /** 고정탭 ID 유니언타입 */
+  type FixedTabId = "home" | "gallery" | "settings";
+</script>
+
 <script lang="ts">
   import oc from "open-color";
   import { onMount } from "svelte";
@@ -16,28 +21,59 @@
   import { appName } from "./environments";
   import type { GalleryInfo } from "./stores";
 
-  type FixedTabId = "home" | "gallery" | "settings";
+  //#region 내부 상태
+
+  /** 고정탭 모음객체*/
   const fixedTabs: { [id in FixedTabId]: FixedTab } = {
     home: { id: "home", title: "홈", icon: Home20 },
     gallery: { id: "gallery", title: "갤러리", icon: Grid20 },
     settings: { id: "settings", title: "설정", icon: Settings20 },
   };
+
+  /** 고정탭 ID 별 페이지 모음객체 */
   const fixedTabPages: { [id in FixedTabId]: typeof SvelteComponent } = {
     home: HomePage,
     gallery: GalleryPage,
     settings: SettingsPage,
   };
-  let leftFixedTab = fixedTabs.home;
-  const rightFixedTab = fixedTabs.settings;
+
+  /** 좌측 고정탭 객체 */
+  let leftFixedTab: FixedTab = fixedTabs.home;
+  /** 우측 고정탭 객체 */
+  const rightFixedTab: FixedTab = fixedTabs.settings;
+  /** 중앙 유동탭 목록 */
   let centerFluidTabs: FluidTab[];
+
+  /** 선택된 탭 ID (고정탭 또는 유동탭) */
   let selectedTabId = leftFixedTab.id;
+
+  //#endregion
+
+  //#region 반응형 구문 및 선언
 
   $: handleCurrentGalleryChange($currentGalleryInfoStore);
   $: updateTitle($currentGalleryInfoStore?.title ?? appName, selectedTab.title);
   $: selectedTab = [leftFixedTab, rightFixedTab, ...centerFluidTabs].find(
     tab => tab.id === selectedTabId
   );
+  function handleCurrentGalleryChange(currentGalleryInfo: GalleryInfo) {
+    const shouldRestore = selectedTabId === leftFixedTab.id;
+    leftFixedTab = currentGalleryInfo ? fixedTabs.gallery : fixedTabs.home;
+    if (shouldRestore) {
+      selectedTabId = leftFixedTab.id;
+    }
+  }
+  function updateTitle(main: string, sub: string) {
+    if (sub) {
+      document.title = `${sub} \u2500 ${main}`;
+    } else {
+      document.title = main;
+    }
+  }
 
+  //#endregion
+
+  // 디버그용 유동탭 할당
   centerFluidTabs = [
     { id: "apl", title: "Apple", thumbnail: "apple.jpg" },
     { id: "ban", title: "Banana", thumbnail: "banana.jpg" },
@@ -60,22 +96,6 @@
       $currentGalleryInfoStore = { path, title };
     });
   });
-
-  function handleCurrentGalleryChange(currentGalleryInfo: GalleryInfo) {
-    const shouldRestore = selectedTabId === leftFixedTab.id;
-    leftFixedTab = currentGalleryInfo ? fixedTabs.gallery : fixedTabs.home;
-    if (shouldRestore) {
-      selectedTabId = leftFixedTab.id;
-    }
-  }
-
-  function updateTitle(main: string, sub: string) {
-    if (sub) {
-      document.title = `${sub} \u2500 ${main}`;
-    } else {
-      document.title = main;
-    }
-  }
 </script>
 
 <svelte:head>
