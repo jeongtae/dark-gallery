@@ -1,8 +1,15 @@
+import { throttle } from "lodash";
 import { writable } from "svelte/store";
+
+const getLocalStorage: (key: string) => string = localStorage.getItem.bind(localStorage);
+const setLocalStorage: (key: string, value: string) => void = throttle(
+  localStorage.setItem.bind(localStorage),
+  500
+);
 
 const storage = {
   get(key: string) {
-    const value = localStorage.getItem(key);
+    const value = getLocalStorage(key);
     if (value) {
       return JSON.parse(value);
     } else {
@@ -10,7 +17,7 @@ const storage = {
     }
   },
   set(key: string, value: any) {
-    localStorage.setItem(key, JSON.stringify(value));
+    setLocalStorage(key, JSON.stringify(value));
   },
 };
 
