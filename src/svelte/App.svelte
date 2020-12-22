@@ -12,7 +12,8 @@
   import TabBar from "./components/TabBar.svelte";
   import type { Tab, FixedTab, FluidTab } from "./components/TabBar.svelte";
   import ipc from "./ipc";
-  import { currentGalleryInfoStore, environments } from "./stores";
+  import { currentGalleryInfoStore } from "./stores";
+  import { appName } from "./environments";
   import type { GalleryInfo } from "./stores";
 
   type FixedTabId = "home" | "gallery" | "settings";
@@ -32,7 +33,7 @@
   let selectedTabId = leftFixedTab.id;
 
   $: handleCurrentGalleryChange($currentGalleryInfoStore);
-  $: updateTitle($currentGalleryInfoStore?.title ?? environments.appName, selectedTab.title);
+  $: updateTitle($currentGalleryInfoStore?.title ?? appName, selectedTab.title);
   $: selectedTab = [leftFixedTab, rightFixedTab, ...centerFluidTabs].find(
     tab => tab.id === selectedTabId
   );
@@ -78,7 +79,7 @@
 </script>
 
 <svelte:head>
-  <title>{environments.appName}</title>
+  <title>{appName}</title>
 </svelte:head>
 <CustomElectronTitlebar color={oc.gray[9]} />
 <app-container>

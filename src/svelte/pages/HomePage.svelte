@@ -9,8 +9,8 @@
     recentGalleryInfoListStore,
     pushRecentGalleryInfo,
     currentGalleryInfoStore,
-    environments,
   } from "../stores";
+  import { appName, appDescription, isDev } from "../environments";
   import GalleryCreationModal from "../components/modals/GalleryCreationModal.svelte";
   import GalleryChoiceModal from "../components/modals/GalleryChoiceModal.svelte";
 
@@ -86,8 +86,8 @@
 <GalleryCreationModal bind:open={creationModalIsOpen} on:submit={handleGalleryModalSubmit} />
 <GalleryChoiceModal bind:open={choiceModalIsOpen} on:submit={handleGalleryModalSubmit} />
 <page-container>
-  <h1>{environments.appName}</h1>
-  <p>{environments.appDescription}</p>
+  <h1>{appName}</h1>
+  <p>{appDescription}</p>
   <h2>시작하기</h2>
   <p>새 갤러리를 만들거나 기존 갤러리를 여세요.</p>
   <page-gallery-buttons-container>
@@ -102,7 +102,7 @@
     >
       기존 갤러리 열기
     </Button>
-    {#if environments.isDev}
+    {#if isDev}
       <OverflowMenu icon={Debug16}>
         <OverflowMenuItem
           text="개발용 갤러리 열기"

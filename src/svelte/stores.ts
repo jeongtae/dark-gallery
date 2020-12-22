@@ -1,16 +1,5 @@
 import { writable } from "svelte/store";
-import { productName, description } from "../../package.json";
 import { storageWritable } from "./storage";
-
-const is = require("electron-is");
-const isDev: boolean = is.dev();
-const isMac: boolean = is.macOS();
-
-/** 갤러리 정보 인터페이스 */
-export interface GalleryInfo {
-  title: string;
-  path: string;
-}
 
 /** 색상 테마 열거형 */
 enum ColorTheme {
@@ -18,47 +7,32 @@ enum ColorTheme {
   Light,
   Auto,
 }
-
-/** 전역 설정 인터페이스 */
+/** 앱 전역 설정 인터페이스 */
 interface GlobalSettings {
   colorTheme?: ColorTheme;
   maxRecentGalleriesCount?: number;
 }
-
-/** 실행 환경 인터페이스 */
-interface Environments {
-  isDev: boolean;
-  isMac: boolean;
-  appName: string;
-  appDescription: string;
-}
-
 /** 기본 전역 설정 객체 */
 export const defaultGlobalSettings: Readonly<GlobalSettings> = {
   colorTheme: ColorTheme.Dark,
   maxRecentGalleriesCount: 5,
 };
+/** 앱 전역 설정 스토어 */
+export const globalSettingsStore = storageWritable<GlobalSettings>("global-settings", {});
+globalSettingsStore.update(settings => ({ ...defaultGlobalSettings, ...settings }));
 
+/** 갤러리 정보 인터페이스 */
+export interface GalleryInfo {
+  title: string;
+  path: string;
+}
 /** 현재 열린 갤러리 정보 스토어 */
 export const currentGalleryInfoStore = writable<GalleryInfo>(null);
-
 /** 최근 열어본 갤러리 정보 스토어 */
 export const recentGalleryInfoListStore = storageWritable<GalleryInfo[]>(
   "recent-gallery-info-list",
   []
 );
-
-/** 전역 설정 스토어 */
-export const globalSettingsStore = storageWritable<GlobalSettings>("global-settings", {});
-globalSettingsStore.update(settings => ({ ...defaultGlobalSettings, ...settings }));
-
-/** 실행 환경 */
-export const environments: Readonly<Environments> = {
-  isDev,
-  isMac,
-  appName: productName,
-  appDescription: description,
-};
 
 /** `recentGalleryInfoListStore`에 갤러리 정보 하나를 푸시합니다. */
 export const pushRecentGalleryInfo = (function () {

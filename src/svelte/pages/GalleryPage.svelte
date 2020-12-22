@@ -1,5 +1,4 @@
 <script lang="ts">
-  const path = require("path");
   import type { RawItem } from "../../common/sequelize";
   import oc from "open-color";
   import { onMount } from "svelte";
@@ -19,6 +18,7 @@
   import Favorite24 from "carbon-icons-svelte/lib/Favorite24";
   import Close24 from "carbon-icons-svelte/lib/Close24";
   import ipc from "../ipc";
+  import { path as nodePath } from "../node";
   import { currentGalleryInfoStore } from "../stores";
   import VirtualGrid from "../components/VirtualGrid.svelte";
   import GridItem from "../components/GridItem.svelte";
@@ -233,7 +233,7 @@
             selected={selectedItemKeys.has(item.id)}
             selectedItemBorderMode={gridItemsPerRow > 5 ? 'thin' : 'normal'}
             thumbnailBase64={item.thumbnailBase64}
-            thumbnailPath={path.join($currentGalleryInfoStore.path, item.thumbnailPath)}
+            thumbnailPath={nodePath.join($currentGalleryInfoStore.path, item.thumbnailPath)}
             thumbnailAspect={item.width / item.height}
             thumbnailFitMode={gridItemFitCoverMode ? 'cover' : 'contain'}
           />
