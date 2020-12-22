@@ -1,5 +1,7 @@
 import nodePath from "path";
 import nodeFs from "fs";
+import { promisify } from "util";
+import rimraf from "rimraf";
 import { difference, union } from "lodash";
 import { Sequelize } from "sequelize/types";
 import { createSequelize, Models } from "./sequelize";
@@ -19,12 +21,13 @@ import {
 
 const IMAGE_EXTENSIONS: readonly string[] = ["jpg", "jpeg", "gif", "png", "bmp", "webp"];
 const VIDEO_EXTENSIONS: readonly string[] = ["webm", "mp4", "mov", "avi"];
+const DEFAULT_CONFIGS: Readonly<GalleryConfigs> = { title: "Untitled", createdAt: new Date(0) };
 
 /** 갤러리 인덱싱 폴더의 절대경로를 얻습니다.
  * @param galleryPath 갤러리의 절대경로
  * @returns 인덱싱 폴더의 절대경로
  */
-export function buildIndexDirectoryPath(galleryPath: string) {
+function buildIndexDirectoryPath(galleryPath: string) {
   return nodePath.join(galleryPath, ".darkgallery");
 }
 
@@ -32,7 +35,7 @@ export function buildIndexDirectoryPath(galleryPath: string) {
  * @param galleryPath 갤러리의 절대경로
  * @returns 데이터베이스 파일의 절대경로
  */
-export function buildSqliteFilePath(galleryPath: string) {
+function buildSqliteFilePath(galleryPath: string) {
   return nodePath.join(galleryPath, ".darkgallery", "db.sqlite");
 }
 
@@ -201,9 +204,9 @@ export default class Gallery implements Disposable {
   private sequelize: Sequelize = null;
 
   /** 기본 설정 객체 */
-  private defaultConfigs: GalleryConfigs = {
-    title: nodePath.basename(this.path),
-    createdAt: new Date(0),
+  private readonly defaultConfigs: Readonly<GalleryConfigs> = {
+    ...DEFAULT_CONFIGS,
+    title: nodePath.basename(this.path) || DEFAULT_CONFIGS.title,
   };
 
   /** Sequelize 인스턴스가 생성되었는지 여부 (데이터베이스 연결 여부) */
@@ -250,6 +253,18 @@ export default class Gallery implements Disposable {
     } else {
       await Config.create({ key, value: jsonValue });
     }
+  }
+
+  /** 갤러리의 인덱스 폴더를 삭제하여, 갤러리를 초기화합니다.
+   * @returns 초기화 작업의 성공 여부
+   */
+  static async resetGallery(galleryPath: string): Promise<boolean> {
+    try {
+      const galleryIndexPath = buildIndexDirectoryPath(galleryPath);
+      await promisify(rimraf)(galleryIndexPath);
+      return true;
+    } catch {}
+    return false;
   }
 
   /** 주어진 경로를 갤러리의 관점에서 조사합니다.
@@ -317,48 +332,60 @@ export default class Gallery implements Disposable {
     return result;
   }
 
-  /** 주어진 경로의 갤러리 인스턴스를 생성합니다. 사용하기 전에 `open()`메서드를 호출하여 데이터베이스 파일에 연결되어야합니다.
-   * @param galleryPath 갤러리의 경로
-   * @param isNew `true`인 경우, 데이터베이스를 새로 생성하겠다고 표시하는 것입니다.
+  /** 주어진 경로의 갤러리 인스턴스를 생성합니다.
+   * 사용하기 전에 `open()`메서드를 호출하여 데이터베이스 파일에 연결되어야합니다.
+   * @param path 갤러리의 경로 (상대경로 허용)
    */
-  constructor(readonly path: string, private readonly isNew: boolean = false) {}
+  constructor(readonly path: string) {
+    this.path = nodePath.resolve(path);
+  }
 
   /** 갤러리 데이터베이스 파일을 열어서 연결합니다. */
   async open() {
     if (this.isOpened) {
       return;
     }
+
+    // 열 수 있는 갤러리인지 확인
     const pathInfo = await Gallery.checkGalleryPath(this.path);
-    if (this.isNew) {
-      if (
-        !pathInfo.exists ||
-        pathInfo.isDirectory === false ||
-        pathInfo.isGallery ||
-        pathInfo.directoryHasWritePermission === false
-      ) {
-        throw new Error();
-      }
-      const indexPath = buildIndexDirectoryPath(this.path);
-      await nodeFs.promises.mkdir(indexPath, { recursive: true });
-    } else {
-      if (
-        !pathInfo.exists ||
-        pathInfo.isGallery === false ||
-        pathInfo.sqliteFileHasWritePermission === false
-      ) {
-        throw new Error();
+    if (
+      !pathInfo.exists ||
+      pathInfo.isDirectory === false ||
+      !pathInfo.directoryHasWritePermission
+    ) {
+      throw new Error();
+    }
+
+    // SQLite 파일 없으면 새로 생성하는 갤러리라고 가정
+    let isNew = false;
+    const sqlitePath = buildSqliteFilePath(this.path);
+    try {
+      await nodeFs.promises.access(sqlitePath);
+    } catch (error) {
+      if (error.code === "ENOENT") {
+        isNew = true;
+      } else {
+        throw error;
       }
     }
 
-    const sqlitePath = buildSqliteFilePath(this.path);
+    // 새로 생성하는 갤러리인데, 인덱싱 폴더가 없으면 생성
+    if (isNew) {
+      const indexPath = buildIndexDirectoryPath(this.path);
+      try {
+        nodeFs.promises.access(indexPath);
+      } catch (error) {
+        if (error.code === "ENOENT") {
+          await nodeFs.promises.mkdir(indexPath, { recursive: true });
+        } else {
+          throw error;
+        }
+      }
+    }
+
+    // Sequelize 객체 생성
     const sequelize = createSequelize(sqlitePath);
     const { item, tag, tagGroup, config } = sequelize.models as any;
-    if (this.isNew) {
-      await sequelize.sync();
-      const { title, createdAt } = this.defaultConfigs;
-      await this.setConfig("title", title);
-      await this.setConfig("createdAt", createdAt);
-    }
     this.#models = {
       item,
       tag,
@@ -366,6 +393,14 @@ export default class Gallery implements Disposable {
       config,
     };
     this.sequelize = sequelize;
+
+    // 새로 생성하는 갤러리면 Sequelize 객체를 Sync 호출하고 데이터베이스에 기본설정값 입력
+    if (isNew) {
+      await sequelize.sync();
+      const { title, createdAt } = this.defaultConfigs;
+      await this.setConfig("title", title);
+      await this.setConfig("createdAt", createdAt);
+    }
   }
 
   /** 데이터베이스에 인덱싱된 아이템을 실제 파일 시스템에 존재하는 것과 비교하여 업데이트합니다.

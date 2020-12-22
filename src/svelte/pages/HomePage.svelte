@@ -18,51 +18,22 @@
   let choiceModalIsOpen = false;
   let isLoading = false;
 
-  /** 디렉터리를 갤러리로 만들고 연다.
-   * @param path 갤러리로 만들 절대경로
+  /** 로딩 모달을 표시하고, 갤러리를 여는 IPC를 요청한다.
+   * 성공 시, 현재 갤러리 스토어를 수정하고 최근 갤러리 목록 스토어에 푸시한다.
+   * @param path 갤러리의 경로
    * @returns 성공 여부 */
-  async function createAndOpenGallery(path: string) {
-    const title = await ipc.invoke("createAndOpenGallery", { path });
+  async function openGallery(path: string) {
+    const title = await ipc.invoke("openGallery", { path });
     if (title) {
       $currentGalleryInfoStore = { path, title };
       pushRecentGalleryInfo({ path, title });
-    }
-    return !!title;
-  }
-
-  /** 로딩 모달을 표시하고, 갤러리를 여는 IPC를 요청한다.
-   * 성공 시, 현재 갤러리 스토어를 수정하고 최근 갤러리 목록 스토어에 푸시한다.
-   * @param path 갤러리의 절대경로, 미지정시 개발용 갤러리를 연다.
-   * @returns 성공 여부 */
-  async function openGallery(path?: string) {
-    const isDevGallery = !path;
-    if (isDevGallery && !environments.isDev) {
+      return true;
+    } else {
       return false;
     }
-    const title = await ipc.invoke("openGallery", { path });
-    if (isDevGallery) {
-      path = await ipc.invoke("getDevGalleryPath");
-    }
-    console.log(path, title);
-    $currentGalleryInfoStore = { path, title };
-    if (!isDevGallery) {
-      pushRecentGalleryInfo({ path, title });
-    }
-    return !!title;
   }
 
-  async function handleCreationSubmit({ detail: path }) {
-    try {
-      isLoading = true;
-      const opened = await createAndOpenGallery(path);
-      if (!opened) throw new Error();
-    } catch {
-      // TODO: push error toast
-    } finally {
-      isLoading = false;
-    }
-  }
-  async function handleChoiceSubmit({ detail: path }) {
+  async function handleGalleryModalSubmit({ detail: path }) {
     try {
       isLoading = true;
       const opened = await openGallery(path);
@@ -88,7 +59,8 @@
   async function handleClickOpenDevGallery() {
     try {
       isLoading = true;
-      const opened = await openGallery();
+      const devGalleryPath = await ipc.invoke("getDevGalleryPath");
+      const opened = await openGallery(devGalleryPath);
       if (!opened) throw new Error();
     } catch {
       // TODO: push error toast
@@ -111,8 +83,8 @@
 </script>
 
 <Loading active={isLoading} />
-<GalleryCreationModal bind:open={creationModalIsOpen} on:submit={handleCreationSubmit} />
-<GalleryChoiceModal bind:open={choiceModalIsOpen} on:submit={handleChoiceSubmit} />
+<GalleryCreationModal bind:open={creationModalIsOpen} on:submit={handleGalleryModalSubmit} />
+<GalleryChoiceModal bind:open={choiceModalIsOpen} on:submit={handleGalleryModalSubmit} />
 <page-container>
   <h1>{environments.appName}</h1>
   <p>{environments.appDescription}</p>

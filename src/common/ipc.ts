@@ -44,7 +44,6 @@ export type Events = {
 export type Commands = {
   pickDirectory: (args: { title?: string; buttonLabel?: string }) => string;
   checkGalleryPath: (args: { path: string }) => GalleryPathInfo;
-  createAndOpenGallery: (args: { path: string }) => string;
   getDevGalleryPath: () => string;
   openGallery: (args: { path: string }) => string;
   resetDevGallery: () => boolean;

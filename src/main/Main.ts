@@ -1,14 +1,13 @@
 import path from "path";
-import fs from "fs";
-import { promisify } from "util";
-import rimraf from "rimraf";
 import { app, BrowserWindow, dialog, Menu, shell } from "electron";
 import { MenuItemId } from "../common/ipc";
 import { isSquirrelStartup, isDev, isMac, appPath } from "./environments";
 import { ipc, IpcHandlers, sendEvent } from "./ipc";
 import { getMenu, addMenuClickHandler, setMenuItemEnabled } from "./menu";
 import { createWindow, getAllWindows, getWindow } from "./window";
-import Gallery, { buildIndexDirectoryPath, buildSqliteFilePath } from "./Gallery";
+import Gallery from "./Gallery";
+
+const DEV_GALLERY_PATH = path.join(app.getAppPath(), "dev-gallery");
 
 /** 이 애플리케이션의 진입 클래스 */
 export default class Main {
@@ -49,7 +48,6 @@ export default class Main {
     // 일렉트론 ipcMain 이벤트 핸들러 등록
     ipc.handle("pickDirectory", this.onIpcPickDirectory.bind(this));
     ipc.handle("checkGalleryPath", this.onIpcCheckGalleryPath.bind(this));
-    ipc.handle("createAndOpenGallery", this.onIpcCreateAndOpenGallery.bind(this));
     ipc.handle("openGallery", this.onIpcOpenGallery.bind(this));
     ipc.handle("getDevGalleryPath", this.onIpcGetDevGalleryPath.bind(this));
     ipc.handle("resetDevGallery", this.onIpcResetDevGallery.bind(this));
@@ -143,6 +141,12 @@ export default class Main {
   //#endregion
 
   //#region ipc 이벤트 핸들러
+  onIpcGetDevGalleryPath: IpcHandlers["getDevGalleryPath"] = () => {
+    return isDev ? DEV_GALLERY_PATH : null;
+  };
+  onIpcResetDevGallery: IpcHandlers["resetDevGallery"] = async () => {
+    return isDev ? Gallery.resetGallery(DEV_GALLERY_PATH) : false;
+  };
   onIpcPickDirectory: IpcHandlers["pickDirectory"] = async (
     { frameId },
     { title, buttonLabel }
@@ -164,39 +168,8 @@ export default class Main {
   onIpcCheckGalleryPath: IpcHandlers["checkGalleryPath"] = async (event, { path }) => {
     return await Gallery.checkGalleryPath(path);
   };
-  onIpcCreateAndOpenGallery: IpcHandlers["createAndOpenGallery"] = async (
-    { frameId },
-    { path }
-  ) => {
-    const gallery = new Gallery(path, true);
-    try {
-      await gallery.open();
-      const title = await gallery.getConfig("title");
-      this.galleries[frameId] = gallery;
-      return title;
-    } catch {
-      await gallery.dispose();
-      return null;
-    }
-  };
   onIpcOpenGallery: IpcHandlers["openGallery"] = async ({ frameId }, { path }) => {
-    const isDevGallery = !path;
-    let isNew = false;
-    if (isDevGallery) {
-      if (!isDev) {
-        return null;
-      }
-      path = this.onIpcGetDevGalleryPath(null) as string;
-      try {
-        const sqlitePath = buildSqliteFilePath(path);
-        await fs.promises.access(sqlitePath);
-      } catch {
-        const indexPath = buildIndexDirectoryPath(path);
-        await fs.promises.mkdir(indexPath, { recursive: true });
-        isNew = true;
-      }
-    }
-    const gallery = new Gallery(path, isNew);
+    const gallery = new Gallery(path);
     try {
       await gallery.open();
       const title = await gallery.getConfig("title");
@@ -205,26 +178,10 @@ export default class Main {
       return title;
     } catch {
       await gallery.dispose();
-      return null;
     }
+    return null;
   };
-  onIpcGetDevGalleryPath: IpcHandlers["getDevGalleryPath"] = () => {
-    return path.join(app.getAppPath(), "dev-gallery");
-  };
-  onIpcResetDevGallery: IpcHandlers["resetDevGallery"] = async () => {
-    if (!isDev) {
-      return false;
-    }
-    try {
-      const galleryPath = path.join(app.getAppPath(), "dev-gallery");
-      const indexPath = buildIndexDirectoryPath(galleryPath);
-      await fs.promises.access(indexPath);
-      await promisify(rimraf)(indexPath);
-      return true;
-    } catch {
-      return false;
-    }
-  };
+
   onIpcSetMenuEnabled: IpcHandlers["setMenuEnabled"] = (event, id, enabled) => {
     // TODO: 윈도우 id별로 상태 저장하고, 윈도우 focus될 때 메뉴에 적용시키는 매커니즘이 필요하다.
     setMenuItemEnabled(id, enabled);
