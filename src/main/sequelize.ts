@@ -6,6 +6,11 @@ import type * as Models from "../common/sequelize";
 export type { Models };
 export type { Sequelize };
 
+/** 주어진 경로의 SQLite 파일에 연결되는 Sequelize 객체를 생성하고,
+ * 갤러리와 관련된 모델을 정의합니다.
+ * @param sqlitePath SQLite 파일의 경로
+ * @return `Sequelize` 객체
+ */
 export function createSequelize(sqlitePath: string): Sequelize {
   const sequelize = new Sequelize({
     dialect: "sqlite",

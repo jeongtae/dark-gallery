@@ -3,8 +3,7 @@ import nodeFs from "fs";
 import { promisify } from "util";
 import rimraf from "rimraf";
 import { difference, union } from "lodash";
-import { Sequelize } from "sequelize/types";
-import { createSequelize, Models } from "./sequelize";
+import { createSequelize, Models, Sequelize } from "./sequelize";
 import { GalleryPathInfo, GalleryConfigs } from "./ipc";
 import {
   getAllChildFilePath,
