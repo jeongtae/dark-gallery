@@ -1,5 +1,5 @@
-import path from "path";
-import fs from "fs";
+import nodePath from "path";
+import nodeFs from "fs";
 import { difference, union } from "lodash";
 import { Sequelize } from "sequelize/types";
 import { createSequelize, Models } from "./sequelize";
@@ -25,7 +25,7 @@ const VIDEO_EXTENSIONS: readonly string[] = ["webm", "mp4", "mov", "avi"];
  * @returns 인덱싱 폴더의 절대경로
  */
 export function buildIndexDirectoryPath(galleryPath: string) {
-  return path.join(galleryPath, ".darkgallery");
+  return nodePath.join(galleryPath, ".darkgallery");
 }
 
 /** 갤러리 데이터베이스 파일의 절대경로를 얻습니다.
@@ -33,7 +33,7 @@ export function buildIndexDirectoryPath(galleryPath: string) {
  * @returns 데이터베이스 파일의 절대경로
  */
 export function buildSqliteFilePath(galleryPath: string) {
-  return path.join(galleryPath, ".darkgallery", "db.sqlite");
+  return nodePath.join(galleryPath, ".darkgallery", "db.sqlite");
 }
 
 /** 주어진 파일 경로의 확장자가 이미지인지 확인합니다.
@@ -41,7 +41,7 @@ export function buildSqliteFilePath(galleryPath: string) {
  * @returns 이미지 여부
  */
 function checkPathIsImage(filePath: string) {
-  const ext = path.extname(filePath).substring(1).toLowerCase();
+  const ext = nodePath.extname(filePath).substring(1).toLowerCase();
   return IMAGE_EXTENSIONS.includes(ext);
 }
 
@@ -50,7 +50,7 @@ function checkPathIsImage(filePath: string) {
  * @returns 비디오 여부
  */
 function checkPathIsVideo(filePath: string) {
-  const ext = path.extname(filePath).substring(1).toLowerCase();
+  const ext = nodePath.extname(filePath).substring(1).toLowerCase();
   return VIDEO_EXTENSIONS.includes(ext);
 }
 
@@ -66,11 +66,11 @@ type ThumbnailPaths = {
  */
 function buildThumbnailPathsForHash(galleryPath: string, hash: string): ThumbnailPaths {
   const indexPath = buildIndexDirectoryPath(galleryPath);
-  const dirPath = path.join(indexPath, "thumbs", hash[0]);
+  const dirPath = nodePath.join(indexPath, "thumbs", hash[0]);
   return {
     directory: dirPath,
-    image: path.join(dirPath, hash + ".webp"),
-    video: path.join(dirPath, hash + ".webm"),
+    image: nodePath.join(dirPath, hash + ".webp"),
+    video: nodePath.join(dirPath, hash + ".webm"),
   };
 }
 
@@ -192,9 +192,19 @@ interface IndexExistingItemsOptions extends IndexingOptions {
 }
 interface IndexNewItemsOptions extends IndexingOptions {}
 
-/** 갤러리 폴더와 데이터베이스를 다루는 클래스 */
+/**
+ * 갤러리 폴더와 데이터베이스를 다루는 클래스
+ * @implements {Disposable}
+ */
 export default class Gallery implements Disposable {
+  /** 이 갤러리의 SQLite 데이터베이스 파일과 연결된 Sequelize 객체 */
   private sequelize: Sequelize = null;
+
+  /** 기본 설정 객체 */
+  private defaultConfigs: GalleryConfigs = {
+    title: nodePath.basename(this.path),
+    createdAt: new Date(0),
+  };
 
   /** Sequelize 인스턴스가 생성되었는지 여부 (데이터베이스 연결 여부) */
   get isOpened(): boolean {
@@ -202,7 +212,7 @@ export default class Gallery implements Disposable {
   }
 
   #models: Readonly<GalleryModels>;
-  /** 갤러리 데이터베이스에 접근할 수 있는 모델의 목록입니다.
+  /** 갤러리 데이터베이스에 접근할 수 있는 Sequelize 모델 객체 모음
    * @throws 갤러리 인스턴스를 생성하면 처음 사용하기 전에 `open()` 메서드를 반드시 한 번 실행해야 합니다.
    *         그렇지 않고 이 프로퍼티에 접근하는 경우 에러가 발생합니다.
    */
@@ -217,12 +227,12 @@ export default class Gallery implements Disposable {
    * @param key 설정 키
    */
   async getConfig<K extends keyof GalleryConfigs>(key: K): Promise<GalleryConfigs[K]> {
-    const { config } = this.#models;
-    const row = await config.findByPk(key);
-    if (!row) {
-      return null;
+    const { config: Config } = this.models;
+    const config = await Config.findByPk(key);
+    if (!config) {
+      return this.defaultConfigs[key];
     } else {
-      const jsonValue = row.value;
+      const jsonValue = config.value;
       return JSON.parse(jsonValue);
     }
   }
@@ -232,13 +242,13 @@ export default class Gallery implements Disposable {
    * @param value 설정 값
    */
   async setConfig<K extends keyof GalleryConfigs>(key: K, value: GalleryConfigs[K]) {
-    const { config } = this.#models;
-    const existingRow = await config.findByPk(key);
+    const { config: Config } = this.models;
+    const existingConfig = await Config.findByPk(key);
     const jsonValue = JSON.stringify(value);
-    if (existingRow) {
-      await config.update({ value: jsonValue }, { where: { key } });
+    if (existingConfig) {
+      await Config.update({ value: jsonValue }, { where: { key } });
     } else {
-      await config.create({ key, value: jsonValue });
+      await Config.create({ key, value: jsonValue });
     }
   }
 
@@ -246,22 +256,22 @@ export default class Gallery implements Disposable {
    * @returns 조사 결과
    */
   static async checkGalleryPath(galleryPath: string): Promise<GalleryPathInfo> {
-    const { R_OK, W_OK } = fs.constants;
+    const { R_OK, W_OK } = nodeFs.constants;
     const result: GalleryPathInfo = {
-      isAbsolute: path.isAbsolute(galleryPath),
+      isAbsolute: nodePath.isAbsolute(galleryPath),
       exists: false,
     };
 
     // 존재하는지 확인
     try {
-      await fs.promises.access(galleryPath);
+      await nodeFs.promises.access(galleryPath);
       result.exists = true;
     } catch {
       return result;
     }
 
     // 디렉터리인지 확인
-    const galleryPathStat = await fs.promises.lstat(galleryPath);
+    const galleryPathStat = await nodeFs.promises.lstat(galleryPath);
     result.isDirectory = galleryPathStat.isDirectory();
     if (!result.isDirectory) {
       return result;
@@ -270,23 +280,23 @@ export default class Gallery implements Disposable {
     // 디렉터리의 권한 확인
     try {
       result.directoryHasReadPermission = false;
-      await fs.promises.access(galleryPath, R_OK);
+      await nodeFs.promises.access(galleryPath, R_OK);
       result.directoryHasReadPermission = true;
 
       result.directoryHasWritePermission = false;
-      await fs.promises.access(galleryPath, W_OK);
+      await nodeFs.promises.access(galleryPath, W_OK);
       result.directoryHasWritePermission = true;
     } catch {}
 
     // 다른 갤러리의 자식 디렉터리인지 확인
     if (result.isAbsolute) {
-      const upper = (p: string) => path.join(p, "..");
+      const upper = (p: string) => nodePath.join(p, "..");
       let upperLevelPath = galleryPath;
       while (upperLevelPath !== upper(upperLevelPath)) {
         upperLevelPath = upper(upperLevelPath);
         const sqlitePath = buildSqliteFilePath(upperLevelPath);
         try {
-          await fs.promises.access(sqlitePath);
+          await nodeFs.promises.access(sqlitePath);
           result.isDecendantDirectoryOfGallery = true;
           break;
         } catch {}
@@ -296,11 +306,11 @@ export default class Gallery implements Disposable {
     // DB 파일의 존재 및 권한 확인
     const sqlitePath = buildSqliteFilePath(galleryPath);
     try {
-      await fs.promises.access(sqlitePath);
+      await nodeFs.promises.access(sqlitePath);
       result.isGallery = true;
-      await fs.promises.access(sqlitePath, R_OK);
+      await nodeFs.promises.access(sqlitePath, R_OK);
       result.sqliteFileHasReadPermission = true;
-      await fs.promises.access(sqlitePath, W_OK);
+      await nodeFs.promises.access(sqlitePath, W_OK);
       result.sqliteFileHasWritePermission = true;
     } catch {}
 
@@ -329,7 +339,7 @@ export default class Gallery implements Disposable {
         throw new Error();
       }
       const indexPath = buildIndexDirectoryPath(this.path);
-      await fs.promises.mkdir(indexPath, { recursive: true });
+      await nodeFs.promises.mkdir(indexPath, { recursive: true });
     } else {
       if (
         !pathInfo.exists ||
@@ -345,9 +355,9 @@ export default class Gallery implements Disposable {
     const { item, tag, tagGroup, config } = sequelize.models as any;
     if (this.isNew) {
       await sequelize.sync();
-      const title = path.basename(this.path);
+      const { title, createdAt } = this.defaultConfigs;
       await this.setConfig("title", title);
-      await this.setConfig("createdAt", new Date());
+      await this.setConfig("createdAt", createdAt);
     }
     this.#models = {
       item,
@@ -368,7 +378,6 @@ export default class Gallery implements Disposable {
       models: { item: Item },
     } = this;
     const { reporter = () => {}, compareHash = false } = options;
-    const { join } = path;
 
     // 데이터베이스에 존재하는 모든 아이템 목록 얻기
     const existingItems = await Item.findAll({
@@ -383,7 +392,7 @@ export default class Gallery implements Disposable {
     reporter(0, 0, remaning);
     for (const existingItem of existingItems) {
       try {
-        const fullPath = join(galleryPath, existingItem.path);
+        const fullPath = nodePath.join(galleryPath, existingItem.path);
         const fileInfo = await getFileInfo(fullPath);
         let hash = compareHash ? await getFileHash(fullPath) : null;
 
@@ -395,10 +404,10 @@ export default class Gallery implements Disposable {
         if (shouldBeUpdated) {
           // 원래있는 썸네일 파일 삭제
           try {
-            fs.promises.unlink(path.join(galleryPath, existingItem.thumbnailPath));
+            nodeFs.promises.unlink(nodePath.join(galleryPath, existingItem.thumbnailPath));
           } catch {}
           try {
-            fs.promises.unlink(path.join(galleryPath, existingItem.previewVideoPath));
+            nodeFs.promises.unlink(nodePath.join(galleryPath, existingItem.previewVideoPath));
           } catch {}
 
           // 데이터베이스 업데이트
@@ -408,10 +417,10 @@ export default class Gallery implements Disposable {
             ...fileInfo,
             hash,
             time: fileInfo.mtime,
-            thumbnailPath: path.relative(galleryPath, thumbnailPaths.image),
+            thumbnailPath: nodePath.relative(galleryPath, thumbnailPaths.image),
           };
-          if (!fs.existsSync(thumbnailPaths.directory)) {
-            await fs.promises.mkdir(thumbnailPaths.directory, { recursive: true });
+          if (!nodeFs.existsSync(thumbnailPaths.directory)) {
+            await nodeFs.promises.mkdir(thumbnailPaths.directory, { recursive: true });
           }
           switch (existingItem.type) {
             case "IMG":
@@ -477,7 +486,7 @@ export default class Gallery implements Disposable {
         else if (checkPathIsVideo(newFilePath)) type = "VID";
         else continue;
 
-        const fullPath = path.join(galleryPath, newFilePath);
+        const fullPath = nodePath.join(galleryPath, newFilePath);
         const fileInfo = await getFileInfo(fullPath);
         const hash = await getFileHash(fullPath);
         const thumbnailPaths = buildThumbnailPathsForHash(galleryPath, hash);
@@ -491,10 +500,10 @@ export default class Gallery implements Disposable {
           duration: 0,
           time: fileInfo.mtime,
           thumbnailBase64: "",
-          thumbnailPath: path.relative(galleryPath, thumbnailPaths.image),
+          thumbnailPath: nodePath.relative(galleryPath, thumbnailPaths.image),
         };
-        if (!fs.existsSync(thumbnailPaths.directory)) {
-          await fs.promises.mkdir(thumbnailPaths.directory, { recursive: true });
+        if (!nodeFs.existsSync(thumbnailPaths.directory)) {
+          await nodeFs.promises.mkdir(thumbnailPaths.directory, { recursive: true });
         }
         switch (type) {
           case "IMG":
