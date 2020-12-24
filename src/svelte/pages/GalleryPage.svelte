@@ -17,6 +17,8 @@
   import TrashCan24 from "carbon-icons-svelte/lib/TrashCan24";
   import Favorite24 from "carbon-icons-svelte/lib/Favorite24";
   import Close24 from "carbon-icons-svelte/lib/Close24";
+  import Renew20 from "carbon-icons-svelte/lib/Renew20";
+  import ChevronRight20 from "carbon-icons-svelte/lib/ChevronRight20";
   import ipc from "../ipc";
   import { path as nodePath } from "../node";
   import { galleryPathStore } from "../stores";
@@ -113,7 +115,7 @@
   <page-split-main>
     <!-- MAIN - CONTROL BAR -->
     <page-control-bar class="top" in:fade={{ delay: 500, duration: 200 }}>
-      <page-flex style="justify-content: space-between; padding: 8px 0;">
+      <page-flex style="justify-content: space-between">
         <!-- CONTROL BAR - LEFT SIDE -->
         <page-flex>
           {#if !showFilterSidebar}
@@ -240,6 +242,27 @@
         />
       </VirtualGrid>
     </div>
+    <!-- MAIN - CONTROL BAR -->
+    <page-control-bar class="bottom" in:fade={{ delay: 500, duration: 200 }}>
+      <page-flex style="width: 100%; justify-content: center;">
+        <page-control-strip>
+          <button
+            class="flex-style"
+            style="padding: 0 4px 0 10px"
+            in:fade={{ delay: 1000, duration: 200 }}
+            out:fade={{ delay: 200, duration: 200 }}
+          >
+            <page-flex class="spin" style="align-items: center">
+              <Icon render={Renew20} />
+            </page-flex>
+            <!-- TODO: Renew에 돌아가는 클래스 추가 또는 스벨트 애니메이션 추가 -->
+            <!-- TODO: 이 버튼에 등장 애니메이션 추가 -->
+            <span style="margin-left: 6px">파일 인덱싱 중</span>
+            <Icon render={ChevronRight20} />
+          </button>
+        </page-control-strip>
+      </page-flex>
+    </page-control-bar>
   </page-split-main>
   <!-- DETAIL SIDEBAR-->
   {#if showDetailSidebar}
@@ -290,6 +313,7 @@
     right: 0;
     height: 100px;
     z-index: 5;
+    padding: 8px 0;
     background-blend-mode: darken;
     pointer-events: none;
     &.top {
@@ -298,12 +322,12 @@
       height: 100px;
       background: linear-gradient(rgba($grid-back-color, 50%), transparent 50%);
     }
-    // &.bottom {
-    //   display: flex;
-    //   align-items: flex-end;
-    //   bottom: 0;
-    //   background: linear-gradient(transparent 50%, rgba($grid-back-color, 50%));
-    // }
+    &.bottom {
+      display: flex;
+      align-items: flex-end;
+      bottom: 0;
+      background: linear-gradient(transparent 50%, rgba($grid-back-color, 50%));
+    }
   }
 
   page-control-strip {
@@ -323,14 +347,22 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      width: 34px;
       height: 34px;
+      padding: 0 12px;
+      font-weight: 600;
       color: $oc-gray-0;
       background-color: $button-back-color;
       transition: background-color $transition-duration ease-in-out;
     }
     > button {
+      width: 34px;
+      padding: 0;
       position: relative;
+      &.flex-style {
+        display: flex;
+        align-items: center;
+        width: unset;
+      }
       .not-hover,
       .hover {
         position: absolute;
@@ -349,13 +381,9 @@
         }
       }
     }
-    > span {
-      width: unset;
-      padding: 0 12px;
-      font-weight: 600;
-    }
     > page-control-strip-split {
       width: 1px;
+      padding: 0;
       background-color: scale-color($button-back-color, $alpha: -50%);
     }
     &.transparent {
@@ -397,5 +425,17 @@
 
   page-flex {
     display: flex;
+  }
+
+  .spin {
+    animation: spin infinite 2.5s linear;
+    @keyframes spin {
+      from {
+        transform: rotate(360deg);
+      }
+      to {
+        transform: rotate(0deg);
+      }
+    }
   }
 </style>
