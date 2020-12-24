@@ -90,174 +90,171 @@
   }
 </script>
 
-<page-container>
-  <page-split-view>
-    <!-- FILTER SIDEBAR-->
-    {#if showFilterSidebar}
-      <page-split-side style="width: 250px" in:fly={{ x: -250 }}>
-        <page-filter-sidebar>
-          <page-sidebar-header>
-            <page-flex style="align-items: center;">
-              <Icon render={Filter24} />
-              <span style="margin: 0 4px; font-weight: 500; font-size: 1.4rem;">필터</span>
-            </page-flex>
-            <button class="close" on:click={filterSidebarButtonClickHandlers.close}>
-              <Icon render={PageFirst24} />
-            </button>
-          </page-sidebar-header>
-          <button on:click={startIndexing}>START INDEXING</button>
-          <button on:click={getItems}>GET ITEMS</button>
-          CONTENTS AREA
-        </page-filter-sidebar>
-      </page-split-side>
-    {/if}
-    <page-split-main>
-      <!-- MAIN - CONTROL BAR -->
-      <page-control-bar class="top" in:fade={{ delay: 500, duration: 200 }}>
-        <page-flex style="justify-content: space-between; padding: 8px 0;">
-          <!-- CONTROL BAR - LEFT SIDE -->
-          <page-flex>
-            {#if !showFilterSidebar}
-              <page-control-strip class="left-collapsed">
-                <button
-                  style="width: auto; padding-left: 5px;"
-                  on:click={controlButtonClickHandlers.openFilterSidebar}
-                >
-                  <Icon render={Filter24} />
-                  <Icon render={CaretRight16} />
-                </button>
-              </page-control-strip>
-            {/if}
-            <page-control-strip style="margin-left: 12px">
-              <button on:click={controlButtonClickHandlers.zoomOut}>
-                <Icon render={ZoomOut24} />
-              </button>
-              <page-control-strip-split />
-              <button on:click={controlButtonClickHandlers.zoomIn}>
-                <Icon render={ZoomIn24} />
+<page-split-view>
+  <!-- FILTER SIDEBAR-->
+  {#if showFilterSidebar}
+    <page-split-side style="width: 250px" in:fly={{ x: -250 }}>
+      <page-filter-sidebar>
+        <page-sidebar-header>
+          <page-flex style="align-items: center;">
+            <Icon render={Filter24} />
+            <span style="margin: 0 4px; font-weight: 500; font-size: 1.4rem;">필터</span>
+          </page-flex>
+          <button class="close" on:click={filterSidebarButtonClickHandlers.close}>
+            <Icon render={PageFirst24} />
+          </button>
+        </page-sidebar-header>
+        <button on:click={startIndexing}>START INDEXING</button>
+        <button on:click={getItems}>GET ITEMS</button>
+        CONTENTS AREA
+      </page-filter-sidebar>
+    </page-split-side>
+  {/if}
+  <page-split-main>
+    <!-- MAIN - CONTROL BAR -->
+    <page-control-bar class="top" in:fade={{ delay: 500, duration: 200 }}>
+      <page-flex style="justify-content: space-between; padding: 8px 0;">
+        <!-- CONTROL BAR - LEFT SIDE -->
+        <page-flex>
+          {#if !showFilterSidebar}
+            <page-control-strip class="left-collapsed">
+              <button
+                style="width: auto; padding-left: 5px;"
+                on:click={controlButtonClickHandlers.openFilterSidebar}
+              >
+                <Icon render={Filter24} />
+                <Icon render={CaretRight16} />
               </button>
             </page-control-strip>
-            <page-control-strip style="margin-left: 12px; position: relative;">
-              <button on:click={controlButtonClickHandlers.toggleFitCover}>
-                <div
-                  style="
+          {/if}
+          <page-control-strip style="margin-left: 12px">
+            <button on:click={controlButtonClickHandlers.zoomOut}>
+              <Icon render={ZoomOut24} />
+            </button>
+            <page-control-strip-split />
+            <button on:click={controlButtonClickHandlers.zoomIn}>
+              <Icon render={ZoomIn24} />
+            </button>
+          </page-control-strip>
+          <page-control-strip style="margin-left: 12px; position: relative;">
+            <button on:click={controlButtonClickHandlers.toggleFitCover}>
+              <div
+                style="
                     position: absolute;
                     box-shadow: 0 0 0 1.5px {oc.white};
                     border-radius: 1.5px;
                     width: {57}%; height: {57}%;"
-                />
-                <Icon render={gridItemFitCoverMode ? Minimize16 : Maximize16} />
-              </button>
-            </page-control-strip>
-          </page-flex>
-          <!-- CONTROL BAR - RIGHT SIDE -->
-          <page-flex style="flex: 1; justify-content: flex-end;">
-            <div style="position: relative; flex: 1;">
-              {#if selectedItemKeys && selectedItemKeys.size > 0}
-                <page-control-strip
-                  style="position: absolute; right: 12px;"
-                  in:fade={{ delay: 200, duration: 200 }}
-                  out:fade={{ duration: 200 }}
-                >
-                  <span>{selectedItemKeys.size}개 선택됨</span>
-                  <page-control-strip-split />
-                  <button on:click={controlButtonClickHandlers.toggleSelectedItemsFavorite}>
-                    <div class="not-hover">
-                      <Icon render={Favorite24} />
-                    </div>
-                    <div class="hover" style="color: {oc.pink[6]};">
-                      <Icon render={Favorite24} />
-                    </div>
-                  </button>
-                  <page-control-strip-split />
-                  <button on:click={controlButtonClickHandlers.deleteSelectedItems}>
-                    <div class="not-hover">
-                      <Icon render={TrashCan24} />
-                    </div>
-                    <div class="hover" style="color: {oc.red[7]};">
-                      <Icon render={TrashCan24} />
-                    </div>
-                  </button>
-                  <page-control-strip-split />
-                  <button on:click={controlButtonClickHandlers.deselectAllItem}>
-                    <Icon render={Close24} />
-                  </button>
-                </page-control-strip>
-              {:else}
-                <page-control-strip
-                  class="transparent"
-                  style="position: absolute; right: 12px; pointer-events: none;"
-                  in:fade={{ delay: 200, duration: 200 }}
-                  out:fade={{ duration: 200 }}
-                >
-                  <span>{items?.length ?? 0}개의 항목</span>
-                </page-control-strip>
-              {/if}
-            </div>
-            {#if !showDetailSidebar}
-              <page-control-strip class="right-collapsed">
-                <button
-                  style="width: auto; padding-right: 5px;"
-                  on:click={controlButtonClickHandlers.openDetailSidebar}
-                >
-                  <Icon render={CaretLeft16} />
-                  <Icon render={InformationSquare24} />
+              />
+              <Icon render={gridItemFitCoverMode ? Minimize16 : Maximize16} />
+            </button>
+          </page-control-strip>
+        </page-flex>
+        <!-- CONTROL BAR - RIGHT SIDE -->
+        <page-flex style="flex: 1; justify-content: flex-end;">
+          <div style="position: relative; flex: 1;">
+            {#if selectedItemKeys && selectedItemKeys.size > 0}
+              <page-control-strip
+                style="position: absolute; right: 12px;"
+                in:fade={{ delay: 200, duration: 200 }}
+                out:fade={{ duration: 200 }}
+              >
+                <span>{selectedItemKeys.size}개 선택됨</span>
+                <page-control-strip-split />
+                <button on:click={controlButtonClickHandlers.toggleSelectedItemsFavorite}>
+                  <div class="not-hover">
+                    <Icon render={Favorite24} />
+                  </div>
+                  <div class="hover" style="color: {oc.pink[6]};">
+                    <Icon render={Favorite24} />
+                  </div>
+                </button>
+                <page-control-strip-split />
+                <button on:click={controlButtonClickHandlers.deleteSelectedItems}>
+                  <div class="not-hover">
+                    <Icon render={TrashCan24} />
+                  </div>
+                  <div class="hover" style="color: {oc.red[7]};">
+                    <Icon render={TrashCan24} />
+                  </div>
+                </button>
+                <page-control-strip-split />
+                <button on:click={controlButtonClickHandlers.deselectAllItem}>
+                  <Icon render={Close24} />
                 </button>
               </page-control-strip>
+            {:else}
+              <page-control-strip
+                class="transparent"
+                style="position: absolute; right: 12px; pointer-events: none;"
+                in:fade={{ delay: 200, duration: 200 }}
+                out:fade={{ duration: 200 }}
+              >
+                <span>{#if items?.length}{items.length}개의 항목{:else}항목 없음{/if}</span>
+              </page-control-strip>
             {/if}
-          </page-flex>
+          </div>
+          {#if !showDetailSidebar}
+            <page-control-strip class="right-collapsed">
+              <button
+                style="width: auto; padding-right: 5px;"
+                on:click={controlButtonClickHandlers.openDetailSidebar}
+              >
+                <Icon render={CaretLeft16} />
+                <Icon render={InformationSquare24} />
+              </button>
+            </page-control-strip>
+          {/if}
         </page-flex>
-      </page-control-bar>
-      <!-- MAIN - GALLERY GRID -->
-      <div style="height: 100%">
-        <VirtualGrid
-          {items}
-          itemKeyProp="id"
-          gap={2}
-          bind:itemsPerRow={gridItemsPerRow}
-          minItemsPerRow={gridItemsPerRowMin}
-          maxItemsPerRow={gridItemsPerRowMax}
-          paddingSide={2}
-          paddingTop={50}
-          paddingBottom={2}
-          let:item
-        >
-          <GridItem
-            on:click={() => {
-              if (selectedItemKeys.has(item.id)) {
-                selectedItemKeys.delete(item.id);
-                selectedItemKeys = selectedItemKeys;
-              } else {
-                selectedItemKeys = selectedItemKeys;
-                selectedItemKeys.add(item.id);
-              }
-            }}
-            selected={selectedItemKeys.has(item.id)}
-            selectedItemBorderMode={gridItemsPerRow > 5 ? 'thin' : 'normal'}
-            thumbnailBase64={item.thumbnailBase64}
-            thumbnailPath={nodePath.join($galleryPathStore, item.thumbnailPath)}
-            thumbnailAspect={item.width / item.height}
-            thumbnailFitMode={gridItemFitCoverMode ? 'cover' : 'contain'}
-          />
-        </VirtualGrid>
-      </div>
-    </page-split-main>
-    <!-- DETAIL SIDEBAR-->
-    {#if showDetailSidebar}
-      <page-split-side class="dark" style="width: 250px" in:fly={{ x: 250 }}>
-        <page-detail-sidebar>
-          <page-sidebar-header>
-            <button class="close" on:click={detailSidebarButtonClickHandlers.close}>
-              <Icon render={PageLast24} />
-            </button>
-          </page-sidebar-header>
-          CONTENTS AREA
-        </page-detail-sidebar>
-      </page-split-side>
-    {/if}
-  </page-split-view>
-  <page-status-bar>STATUS BAR AREA</page-status-bar>
-</page-container>
+      </page-flex>
+    </page-control-bar>
+    <!-- MAIN - GALLERY GRID -->
+    <div style="height: 100%">
+      <VirtualGrid
+        {items}
+        itemKeyProp="id"
+        gap={2}
+        bind:itemsPerRow={gridItemsPerRow}
+        minItemsPerRow={gridItemsPerRowMin}
+        maxItemsPerRow={gridItemsPerRowMax}
+        paddingSide={2}
+        paddingTop={50}
+        paddingBottom={2}
+        let:item
+      >
+        <GridItem
+          on:click={() => {
+            if (selectedItemKeys.has(item.id)) {
+              selectedItemKeys.delete(item.id);
+              selectedItemKeys = selectedItemKeys;
+            } else {
+              selectedItemKeys = selectedItemKeys;
+              selectedItemKeys.add(item.id);
+            }
+          }}
+          selected={selectedItemKeys.has(item.id)}
+          selectedItemBorderMode={gridItemsPerRow > 5 ? 'thin' : 'normal'}
+          thumbnailBase64={item.thumbnailBase64}
+          thumbnailPath={nodePath.join($galleryPathStore, item.thumbnailPath)}
+          thumbnailAspect={item.width / item.height}
+          thumbnailFitMode={gridItemFitCoverMode ? 'cover' : 'contain'}
+        />
+      </VirtualGrid>
+    </div>
+  </page-split-main>
+  <!-- DETAIL SIDEBAR-->
+  {#if showDetailSidebar}
+    <page-split-side class="dark" style="width: 250px" in:fly={{ x: 250 }}>
+      <page-detail-sidebar>
+        <page-sidebar-header>
+          <button class="close" on:click={detailSidebarButtonClickHandlers.close}>
+            <Icon render={PageLast24} />
+          </button>
+        </page-sidebar-header>
+        CONTENTS AREA
+      </page-detail-sidebar>
+    </page-split-side>
+  {/if}
+</page-split-view>
 
 <style lang="scss">
   @import "open-color/open-color";
@@ -268,14 +265,8 @@
   $button-back-color: rgba($grid-back-color, 50%);
   $button-back-color-hover: rgba(scale-color($grid-back-color, $lightness: 50%), 25%);
 
-  page-container {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-  }
-
   page-split-view {
-    flex: 1;
+    height: 100%;
     overflow: hidden;
     display: flex;
     background-color: $grid-back-color;
@@ -402,14 +393,6 @@
   }
 
   page-detail-sidebar {
-  }
-
-  page-status-bar {
-    display: flex;
-    align-items: center;
-    height: 24px;
-    padding: 0 12px;
-    background-color: $oc-gray-8;
   }
 
   page-flex {
