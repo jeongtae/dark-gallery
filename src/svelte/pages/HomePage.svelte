@@ -6,9 +6,9 @@
   import Debug16 from "carbon-icons-svelte/lib/Debug16";
   import ipc from "../ipc";
   import {
-    recentGalleryInfoListStore,
-    pushRecentGalleryInfo,
-    currentGalleryInfoStore,
+    recentlyOpenedGalleryInfoListStore,
+    pushRecentlyOpenedGalleryInfo,
+    galleryPathStore,
   } from "../stores";
   import { appName, appDescription, isDev } from "../environments";
   import GalleryCreationModal from "../components/modals/GalleryCreationModal.svelte";
@@ -25,8 +25,8 @@
   async function openGallery(path: string) {
     const title = await ipc.invoke("openGallery", { path });
     if (title) {
-      $currentGalleryInfoStore = { path, title };
-      pushRecentGalleryInfo({ path, title });
+      $galleryPathStore = path;
+      pushRecentlyOpenedGalleryInfo({ path, title });
       return true;
     } else {
       return false;
@@ -117,10 +117,10 @@
       </OverflowMenu>
     {/if}
   </page-gallery-buttons-container>
-  {#if $recentGalleryInfoListStore.length}
+  {#if $recentlyOpenedGalleryInfoListStore.length}
     <h2>최근 갤러리</h2>
     <page-recent-buttons-wrapper>
-      {#each $recentGalleryInfoListStore as info, idx (info.path)}
+      {#each $recentlyOpenedGalleryInfoListStore as info, idx (info.path)}
         <page-recent-gallery-row>
           <page-primary-button-wrapper>
             <Button
@@ -138,7 +138,7 @@
               size="small"
               icon={Close16}
               on:click={() => {
-                recentGalleryInfoListStore.update(list => {
+                recentlyOpenedGalleryInfoListStore.update(list => {
                   list.splice(idx, 1);
                   return list;
                 });

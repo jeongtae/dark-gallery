@@ -2,7 +2,7 @@ import nodePath from "path";
 import nodeFs from "fs";
 import { promisify } from "util";
 import rimraf from "rimraf";
-import { difference, union } from "lodash";
+import { difference, union, cloneDeep } from "lodash";
 import { createSequelize, Models, Sequelize } from "./sequelize";
 import { GalleryPathInfo, GalleryConfigs } from "./ipc";
 import {
@@ -225,16 +225,32 @@ export default class Gallery implements Disposable {
     return this.#models;
   }
 
+  /** 데이터베이스에 기록된 설정을 모두 가져옵니다.
+   * @param key 설정 키
+   * @returns 설정 객체
+   */
+  async getAllConfig(): Promise<GalleryConfigs> {
+    const { config: Config } = this.models;
+    const configs = cloneDeep(this.defaultConfigs);
+    const rows = await Config.findAll();
+    for (const { key, value: jsonValue } of rows) {
+      const value = JSON.parse(jsonValue);
+      (<any>configs)[key] = value;
+    }
+    return configs;
+  }
+
   /** 데이터베이스에 기록된 설정을 가져옵니다.
    * @param key 설정 키
+   * @returns 설정 값
    */
   async getConfig<K extends keyof GalleryConfigs>(key: K): Promise<GalleryConfigs[K]> {
     const { config: Config } = this.models;
-    const config = await Config.findByPk(key);
-    if (!config) {
+    const row = await Config.findByPk(key);
+    if (!row) {
       return this.defaultConfigs[key];
     } else {
-      const jsonValue = config.value;
+      const jsonValue = row.value;
       return JSON.parse(jsonValue);
     }
   }
@@ -245,9 +261,9 @@ export default class Gallery implements Disposable {
    */
   async setConfig<K extends keyof GalleryConfigs>(key: K, value: GalleryConfigs[K]) {
     const { config: Config } = this.models;
-    const existingConfig = await Config.findByPk(key);
+    const existingRow = await Config.findByPk(key);
     const jsonValue = JSON.stringify(value);
-    if (existingConfig) {
+    if (existingRow) {
       await Config.update({ value: jsonValue }, { where: { key } });
     } else {
       await Config.create({ key, value: jsonValue });

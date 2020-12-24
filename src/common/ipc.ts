@@ -49,6 +49,7 @@ export type Commands = {
   resetDevGallery: () => boolean;
   setMenuEnabled: (id: MenuItemId, enabled: boolean) => void;
   startIndexing: () => void;
+  getAllConfig: () => GalleryConfigs;
   getConfig: <K extends keyof GalleryConfigs>(key: K) => GalleryConfigs[K];
   setConfig: <K extends keyof GalleryConfigs>(key: K, value: GalleryConfigs[K]) => void;
   getItems: () => RawItem[];

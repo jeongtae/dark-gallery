@@ -19,7 +19,7 @@
   import Close24 from "carbon-icons-svelte/lib/Close24";
   import ipc from "../ipc";
   import { path as nodePath } from "../node";
-  import { currentGalleryInfoStore } from "../stores";
+  import { galleryPathStore } from "../stores";
   import VirtualGrid from "../components/VirtualGrid.svelte";
   import GridItem from "../components/GridItem.svelte";
 
@@ -105,6 +105,8 @@
               <Icon render={PageFirst24} />
             </button>
           </page-sidebar-header>
+          <button on:click={startIndexing}>START INDEXING</button>
+          <button on:click={getItems}>GET ITEMS</button>
           CONTENTS AREA
         </page-filter-sidebar>
       </page-split-side>
@@ -233,7 +235,7 @@
             selected={selectedItemKeys.has(item.id)}
             selectedItemBorderMode={gridItemsPerRow > 5 ? 'thin' : 'normal'}
             thumbnailBase64={item.thumbnailBase64}
-            thumbnailPath={nodePath.join($currentGalleryInfoStore.path, item.thumbnailPath)}
+            thumbnailPath={nodePath.join($galleryPathStore, item.thumbnailPath)}
             thumbnailAspect={item.width / item.height}
             thumbnailFitMode={gridItemFitCoverMode ? 'cover' : 'contain'}
           />

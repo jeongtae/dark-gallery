@@ -17,9 +17,8 @@
   import TabBar from "./components/TabBar.svelte";
   import type { Tab, FixedTab, FluidTab } from "./components/TabBar.svelte";
   import ipc from "./ipc";
-  import { currentGalleryInfoStore } from "./stores";
+  import { galleryPathStore, galleryConfigStores } from "./stores";
   import { appName } from "./environments";
-  import type { GalleryInfo } from "./stores";
 
   //#region 내부 상태
 
@@ -49,16 +48,20 @@
 
   //#endregion
 
+  //#region 스토어
+  const { title: galleryTitleStore } = galleryConfigStores;
+  //#endregion
+
   //#region 반응형 구문 및 선언
 
-  $: handleCurrentGalleryChange($currentGalleryInfoStore);
-  $: updateTitle($currentGalleryInfoStore?.title ?? appName, selectedTab.title);
+  $: handleCurrentGalleryChange($galleryPathStore);
+  $: updateTitle($galleryTitleStore ?? appName, selectedTab.title);
   $: selectedTab = [leftFixedTab, rightFixedTab, ...centerFluidTabs].find(
     tab => tab.id === selectedTabId
   );
-  function handleCurrentGalleryChange(currentGalleryInfo: GalleryInfo) {
+  function handleCurrentGalleryChange(galleryPath: string) {
     const shouldRestore = selectedTabId === leftFixedTab.id;
-    leftFixedTab = currentGalleryInfo ? fixedTabs.gallery : fixedTabs.home;
+    leftFixedTab = galleryPath ? fixedTabs.gallery : fixedTabs.home;
     if (shouldRestore) {
       selectedTabId = leftFixedTab.id;
     }
@@ -93,7 +96,7 @@
       }
     });
     ipc.on("openGallery", (event, { path, title }) => {
-      $currentGalleryInfoStore = { path, title };
+      $galleryPathStore = path;
     });
   });
 </script>

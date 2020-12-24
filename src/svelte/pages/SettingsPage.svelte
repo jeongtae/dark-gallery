@@ -7,10 +7,11 @@
     SelectItem,
     TextArea,
   } from "carbon-components-svelte";
-  import { currentGalleryInfoStore, globalSettingsStore } from "../stores";
+  import { galleryPathStore, galleryConfigStores, globalSettingsStore } from "../stores";
 
-  let galleryName = "Oranges";
   let galleryDescription = "동일한 효력을 범죄에 의하여 모든 시설기준과 국내법과 보장하기.";
+
+  const { title: galleryTitleStore } = galleryConfigStores;
 </script>
 
 <page-container>
@@ -41,12 +42,12 @@
     />
   </page-tile>
 
-  {#if $currentGalleryInfoStore}
-    <h2>{galleryName} 갤러리 설정</h2>
+  {#if $galleryPathStore}
+    <h2>{$galleryTitleStore} 갤러리 설정</h2>
     <p>현재 열려있는 갤러리에 대한 설정입니다.</p>
     <page-tile>
       <h3>제목</h3>
-      <TextInput labelText="제목" bind:value={galleryName} />
+      <TextInput labelText="제목" bind:value={$galleryTitleStore} />
     </page-tile>
     <page-tile>
       <h3>설명</h3>

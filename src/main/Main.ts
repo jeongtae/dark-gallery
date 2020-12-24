@@ -46,13 +46,16 @@ export default class Main {
     app.on("quit", this.onAppQuit.bind(this));
 
     // 일렉트론 ipcMain 이벤트 핸들러 등록
+    ipc.handle("getDevGalleryPath", this.onIpcGetDevGalleryPath.bind(this));
+    ipc.handle("resetDevGallery", this.onIpcResetDevGallery.bind(this));
     ipc.handle("pickDirectory", this.onIpcPickDirectory.bind(this));
     ipc.handle("checkGalleryPath", this.onIpcCheckGalleryPath.bind(this));
     ipc.handle("openGallery", this.onIpcOpenGallery.bind(this));
-    ipc.handle("getDevGalleryPath", this.onIpcGetDevGalleryPath.bind(this));
-    ipc.handle("resetDevGallery", this.onIpcResetDevGallery.bind(this));
     ipc.handle("setMenuEnabled", this.onIpcSetMenuEnabled.bind(this));
     ipc.handle("startIndexing", this.onIpcStartIndexing.bind(this));
+    ipc.handle("getAllConfig", this.onIpcGetAllConfig.bind(this));
+    ipc.handle("getConfig", this.onIpcGetConfig.bind(this));
+    ipc.handle("setConfig", this.onIpcSetConfig.bind(this));
     ipc.handle("getItems", this.onIpcGetItems.bind(this));
   }
 
@@ -205,6 +208,10 @@ export default class Main {
       models: { item: Item },
     } = this.galleries[frameId];
     return Item.findAll({ raw: true });
+  };
+  onIpcGetAllConfig: IpcHandlers["getAllConfig"] = async ({ frameId }) => {
+    const gallery = this.galleries[frameId];
+    return await gallery.getAllConfig();
   };
   onIpcGetConfig: IpcHandlers["getConfig"] = async ({ frameId }, key) => {
     const gallery = this.galleries[frameId];
