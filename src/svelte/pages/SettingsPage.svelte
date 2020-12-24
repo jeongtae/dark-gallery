@@ -7,11 +7,15 @@
     SelectItem,
     TextArea,
   } from "carbon-components-svelte";
-  import { galleryPathStore, galleryConfigStores, globalSettingsStore } from "../stores";
+  import { galleryPathStore, galleryConfigStores, appSettingStores } from "../stores";
 
   let galleryDescription = "동일한 효력을 범죄에 의하여 모든 시설기준과 국내법과 보장하기.";
 
   const { title: galleryTitleStore } = galleryConfigStores;
+  const {
+    colorTheme: appColorThemeStore,
+    maxRecentlyOpenedGalleriesCount: appMaxRecentlyOpenedGalleriesCountStore,
+  } = appSettingStores;
 </script>
 
 <page-container>
@@ -23,7 +27,7 @@
     <h3>색상 테마</h3>
     <Dropdown
       titleText="색상 테마"
-      bind:selectedIndex={$globalSettingsStore.colorTheme}
+      bind:selectedIndex={$appColorThemeStore}
       items={['다크', '라이트', '자동 (시스템 설정에 따름)'].map((text, id) => ({
         text,
         id: id.toString(),
@@ -38,7 +42,7 @@
       max={10}
       minLabel="안 함"
       maxLabel="10개"
-      bind:value={$globalSettingsStore.maxRecentGalleriesCount}
+      bind:value={$appMaxRecentlyOpenedGalleriesCountStore}
     />
   </page-tile>
 
