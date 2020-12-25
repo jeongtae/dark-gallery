@@ -19,7 +19,7 @@
   import Close24 from "carbon-icons-svelte/lib/Close24";
   import Renew20 from "carbon-icons-svelte/lib/Renew20";
   import ChevronRight20 from "carbon-icons-svelte/lib/ChevronRight20";
-  import ipc from "../ipc";
+  import { ipc } from "../ipc";
   import { path as nodePath } from "../node";
   import { galleryPathStore } from "../stores";
   import VirtualGrid from "../components/VirtualGrid.svelte";

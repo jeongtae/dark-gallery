@@ -1,9 +1,8 @@
 const { ipcRenderer } = require("electron");
 import type { TypedIpcRenderer } from "electron-typed-ipc";
-import type { Commands, Events, GalleryConfigs } from "../common/ipc";
+import type { Commands, Events } from "../common/ipc";
 
-const ipc = ipcRenderer as TypedIpcRenderer<Events, Commands>;
+export type { GalleryConfigs } from "../common/ipc";
 
-export default ipc;
-
-export type { GalleryConfigs };
+/** 타이핑 적용된 ipcRenderer 객체 */
+export const ipc = ipcRenderer as TypedIpcRenderer<Events, Commands>;

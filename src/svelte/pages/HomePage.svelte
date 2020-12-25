@@ -4,7 +4,7 @@
   import Folder16 from "carbon-icons-svelte/lib/Folder16";
   import Close16 from "carbon-icons-svelte/lib/Close16";
   import Debug16 from "carbon-icons-svelte/lib/Debug16";
-  import ipc from "../ipc";
+  import { ipc } from "../ipc";
   import {
     recentlyOpenedGalleryInfoListStore,
     pushRecentlyOpenedGalleryInfo,

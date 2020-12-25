@@ -1,6 +1,6 @@
 import { throttle } from "lodash";
 import { writable, Readable, readable } from "svelte/store";
-import ipc, { GalleryConfigs } from "../ipc";
+import { ipc, GalleryConfigs } from "../ipc";
 
 async function getGalleryConfig<K extends keyof GalleryConfigs>(
   key: K

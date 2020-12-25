@@ -16,7 +16,7 @@
   import CustomElectronTitlebar from "./components/CustomElectronTitlebar.svelte";
   import TabBar from "./components/TabBar.svelte";
   import type { Tab, FixedTab, FluidTab } from "./components/TabBar.svelte";
-  import ipc from "./ipc";
+  import { ipc } from "./ipc";
   import { galleryPathStore, galleryConfigStores } from "./stores";
   import { appName } from "./environments";
 
