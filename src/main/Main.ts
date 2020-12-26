@@ -49,15 +49,15 @@ export default class Main {
     // 일렉트론 ipcMain 이벤트 핸들러 등록
     ipc.handle("getDevGalleryPath", this.onIpcGetDevGalleryPath.bind(this));
     ipc.handle("resetDevGallery", this.onIpcResetDevGallery.bind(this));
-    ipc.handle("pickDirectory", this.onIpcPickDirectory.bind(this));
-    ipc.handle("checkGalleryPath", this.onIpcCheckGalleryPath.bind(this));
+    ipc.handle("openDirectoryPickingDialog", this.onIpcOpenDirectoryPickingDialog.bind(this));
+    ipc.handle("getGalleryPathInfo", this.onIpcGetGalleryPathInfo.bind(this));
     ipc.handle("openGallery", this.onIpcOpenGallery.bind(this));
     ipc.handle("setMenuEnabled", this.onIpcSetMenuEnabled.bind(this));
-    ipc.handle("startBackgroundIndexing", this.onIpcStartBackgroundIndexing.bind(this));
-    ipc.handle("abortBackgroundIndexing", this.onIpcStartBackgroundIndexing.bind(this));
-    ipc.handle("getAllConfig", this.onIpcGetAllConfig.bind(this));
-    ipc.handle("getConfig", this.onIpcGetConfig.bind(this));
-    ipc.handle("setConfig", this.onIpcSetConfig.bind(this));
+    ipc.handle("startGalleryIndexing", this.onIpcStartGalleryIndexing.bind(this));
+    ipc.handle("abortGalleryIndexing", this.onIpcStartGalleryIndexing.bind(this));
+    ipc.handle("getAllGalleryConfigs", this.onIpcGetAllGalleryConfigs.bind(this));
+    ipc.handle("getGalleryConfig", this.onIpcGetGalleryConfig.bind(this));
+    ipc.handle("setGalleryConfig", this.onIpcSetGalleryConfig.bind(this));
     ipc.handle("getItems", this.onIpcGetItems.bind(this));
   }
 
@@ -152,7 +152,7 @@ export default class Main {
   onIpcResetDevGallery: IpcHandlers["resetDevGallery"] = async () => {
     return isDev ? Gallery.resetGallery(DEV_GALLERY_PATH) : false;
   };
-  onIpcPickDirectory: IpcHandlers["pickDirectory"] = async (
+  onIpcOpenDirectoryPickingDialog: IpcHandlers["openDirectoryPickingDialog"] = async (
     { frameId },
     { title, buttonLabel }
   ) => {
@@ -170,8 +170,8 @@ export default class Main {
       return null;
     }
   };
-  onIpcCheckGalleryPath: IpcHandlers["checkGalleryPath"] = async (event, { path }) => {
-    return await Gallery.checkGalleryPath(path);
+  onIpcGetGalleryPathInfo: IpcHandlers["getGalleryPathInfo"] = async (event, { path }) => {
+    return await Gallery.getGalleryPathInfo(path);
   };
   onIpcOpenGallery: IpcHandlers["openGallery"] = async ({ frameId }, { path }) => {
     const gallery = new Gallery(path);
@@ -191,10 +191,10 @@ export default class Main {
     // TODO: 윈도우 id별로 상태 저장하고, 윈도우 focus될 때 메뉴에 적용시키는 매커니즘이 필요하다.
     setMenuItemEnabled(id, enabled);
   };
-  onIpcStartBackgroundIndexing: IpcHandlers["startBackgroundIndexing"] = async ({ frameId }) => {
+  onIpcStartGalleryIndexing: IpcHandlers["startGalleryIndexing"] = async ({ frameId }) => {
     const window = BrowserWindow.fromId(frameId);
     const sendProgressReport = (progress: IndexingProgress) =>
-      sendEvent(window, "reportBackgroundIndexingProgress", progress);
+      sendEvent(window, "reportGalleryIndexingProgress", progress);
     const sendProgressReportThrottled = throttle(sendProgressReport, 1000, { trailing: false });
 
     // 시작보고
@@ -241,7 +241,7 @@ export default class Main {
       newlyLostList,
     });
   };
-  onIpcAbortBackgroundIndexing: IpcHandlers["abortBackgroundIndexing"] = async ({ frameId }) => {
+  onIpcAbortGalleryIndexing: IpcHandlers["abortGalleryIndexing"] = async ({ frameId }) => {
     // TODO: 구현하기
   };
   onIpcGetItems: IpcHandlers["getItems"] = async ({ frameId }) => {
@@ -250,15 +250,15 @@ export default class Main {
     } = this.galleries[frameId];
     return Item.findAll({ raw: true });
   };
-  onIpcGetAllConfig: IpcHandlers["getAllConfig"] = async ({ frameId }) => {
+  onIpcGetAllGalleryConfigs: IpcHandlers["getAllGalleryConfigs"] = async ({ frameId }) => {
     const gallery = this.galleries[frameId];
-    return await gallery.getAllConfig();
+    return await gallery.getAllConfigs();
   };
-  onIpcGetConfig: IpcHandlers["getConfig"] = async ({ frameId }, key) => {
+  onIpcGetGalleryConfig: IpcHandlers["getGalleryConfig"] = async ({ frameId }, key) => {
     const gallery = this.galleries[frameId];
     return await gallery.getConfig(key);
   };
-  onIpcSetConfig: IpcHandlers["setConfig"] = async ({ frameId }, key, value) => {
+  onIpcSetGalleryConfig: IpcHandlers["setGalleryConfig"] = async ({ frameId }, key, value) => {
     const gallery = this.galleries[frameId];
     await gallery.setConfig(key, value);
   };

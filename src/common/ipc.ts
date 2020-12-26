@@ -55,23 +55,23 @@ export type IndexingProgress = {
 export type Events = {
   clickMenu: (id: MenuItemId) => void;
   openGallery: (args: { path: string; title: string }) => void;
-  reportBackgroundIndexingProgress: (progress: IndexingProgress) => void;
+  reportGalleryIndexingProgress: (progress: IndexingProgress) => void;
 };
 //#endregion
 
 //#region IPC Commands (Renderer -> Main)
 export type Commands = {
-  pickDirectory: (args: { title?: string; buttonLabel?: string }) => string;
-  checkGalleryPath: (args: { path: string }) => GalleryPathInfo;
   getDevGalleryPath: () => string;
-  openGallery: (args: { path: string }) => string;
   resetDevGallery: () => boolean;
+  openDirectoryPickingDialog: (args: { title?: string; buttonLabel?: string }) => string;
+  getGalleryPathInfo: (args: { path: string }) => GalleryPathInfo;
+  openGallery: (args: { path: string }) => string;
   setMenuEnabled: (id: MenuItemId, enabled: boolean) => void;
-  startBackgroundIndexing: () => void;
-  abortBackgroundIndexing: () => void;
-  getAllConfig: () => GalleryConfigs;
-  getConfig: <K extends keyof GalleryConfigs>(key: K) => GalleryConfigs[K];
-  setConfig: <K extends keyof GalleryConfigs>(key: K, value: GalleryConfigs[K]) => void;
+  startGalleryIndexing: () => void;
+  abortGalleryIndexing: () => void;
+  getAllGalleryConfigs: () => GalleryConfigs;
+  getGalleryConfig: <K extends keyof GalleryConfigs>(key: K) => GalleryConfigs[K];
+  setGalleryConfig: <K extends keyof GalleryConfigs>(key: K, value: GalleryConfigs[K]) => void;
   getItems: () => RawItem[];
 };
 //#endregion

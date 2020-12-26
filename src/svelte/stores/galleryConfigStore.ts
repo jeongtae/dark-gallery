@@ -5,15 +5,15 @@ import { ipc, GalleryConfigs } from "../ipc";
 async function getGalleryConfig<K extends keyof GalleryConfigs>(
   key: K
 ): Promise<GalleryConfigs[K]> {
-  const value = await ipc.invoke("getConfig", key);
+  const value = await ipc.invoke("getGalleryConfig", key);
   return value as GalleryConfigs[K];
 }
 
-async function setGalleryConfig<K extends WritableKeysOf<GalleryConfigs>>(
+async function setGalleryConfig<K extends keyof GalleryConfigs>(
   key: K,
   value: GalleryConfigs[K]
-) {
-  await ipc.invoke("setConfig", key, value);
+): Promise<void> {
+  await ipc.invoke("setGalleryConfig", key, value);
 }
 
 export function galleryConfigReadable<K extends keyof GalleryConfigs>(

@@ -9,7 +9,7 @@ import _getImageSize from "image-size";
 const ffprobe = promisify<string, FfprobeData>(_ffprobe);
 const getImageSize = promisify(_getImageSize);
 
-type GetAllChildFilePathOptions = {
+type GetAllChildFilePathsOptions = {
   /** 무시할 디렉터리 이름의 배열입니다. */
   ignoreDirectories?: string[];
   /** 무시할 파일 이름의 배열입니다. */
@@ -22,9 +22,9 @@ type GetAllChildFilePathOptions = {
  * @param options 탐색 옵션입니다. (*각 옵션에서 Glob 패턴은 허용하지 않습니다.*)
  * @returns 파일 경로의 배열을 반환하며, 각 경로는 매개변수로 제공한 기반 경로에 대한 상대 경로입니다.
  */
-export async function getAllChildFilePath(
+export async function getAllChildFilePaths(
   basePath: string,
-  options: GetAllChildFilePathOptions = {}
+  options: GetAllChildFilePathsOptions = {}
 ) {
   const { ignoreDirectories, ignoreFiles, acceptingExtensions } = options;
   const result: string[] = [];

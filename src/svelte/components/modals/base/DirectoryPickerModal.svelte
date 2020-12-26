@@ -79,7 +79,7 @@
   }
   async function handleFindButtonClick() {
     findButtonDisabled = true;
-    const path = await ipc.invoke("pickDirectory", {
+    const path = await ipc.invoke("openDirectoryPickingDialog", {
       title: label,
       buttonLabel: "선택",
     });

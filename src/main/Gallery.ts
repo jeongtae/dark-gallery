@@ -7,7 +7,7 @@ import type { PromiseValue } from "type-fest";
 import { createSequelize, Models, Sequelize } from "./sequelize";
 import { GalleryPathInfo, GalleryConfigs } from "./ipc";
 import {
-  getAllChildFilePath,
+  getAllChildFilePaths,
   getFileHash,
   getFileInfo,
   getImageInfo,
@@ -246,7 +246,7 @@ export default class Gallery implements Disposable {
    * @param key 설정 키
    * @returns 설정 객체
    */
-  async getAllConfig(): Promise<GalleryConfigs> {
+  async getAllConfigs(): Promise<GalleryConfigs> {
     const { config: Config } = this.models;
     const configs = cloneDeep(this.defaultConfigs);
     const rows = await Config.findAll();
@@ -302,7 +302,7 @@ export default class Gallery implements Disposable {
   /** 주어진 경로를 갤러리의 관점에서 조사합니다.
    * @returns 조사 결과
    */
-  static async checkGalleryPath(galleryPath: string): Promise<GalleryPathInfo> {
+  static async getGalleryPathInfo(galleryPath: string): Promise<GalleryPathInfo> {
     const { R_OK, W_OK } = nodeFs.constants;
     const result: GalleryPathInfo = {
       isAbsolute: nodePath.isAbsolute(galleryPath),
@@ -379,7 +379,7 @@ export default class Gallery implements Disposable {
     }
 
     // 열 수 있는 갤러리인지 확인
-    const pathInfo = await Gallery.checkGalleryPath(this.path);
+    const pathInfo = await Gallery.getGalleryPathInfo(this.path);
     if (
       !pathInfo.exists ||
       pathInfo.isDirectory === false ||
@@ -465,7 +465,7 @@ export default class Gallery implements Disposable {
     });
 
     // 인덱싱되지 않은 새로운 파일 목록 얻기
-    const allFilePaths = await getAllChildFilePath(galleryPath, {
+    const allFilePaths = await getAllChildFilePaths(galleryPath, {
       ignoreDirectories: [".darkgallery"],
       acceptingExtensions: [...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS],
     });
@@ -731,7 +731,7 @@ export default class Gallery implements Disposable {
     const { reporter = () => {} } = options;
 
     // 새로운 파일 목록 얻기
-    const allFilePaths = await getAllChildFilePath(galleryPath, {
+    const allFilePaths = await getAllChildFilePaths(galleryPath, {
       ignoreDirectories: [".darkgallery"],
       acceptingExtensions: union(IMAGE_EXTENSIONS, VIDEO_EXTENSIONS),
     });
