@@ -5,11 +5,7 @@
   import Close16 from "carbon-icons-svelte/lib/Close16";
   import Debug16 from "carbon-icons-svelte/lib/Debug16";
   import { ipc } from "../ipc";
-  import {
-    recentlyOpenedGalleryInfoListStore,
-    pushRecentlyOpenedGalleryInfo,
-    galleryPathStore,
-  } from "../stores";
+  import { appSettingStores, pushRecentlyOpenedGalleryInfo, galleryPathStore } from "../stores";
   import { appName, appDescription, isDev } from "../environments";
   import GalleryCreationModal from "../components/modals/GalleryCreationModal.svelte";
   import GalleryChoiceModal from "../components/modals/GalleryChoiceModal.svelte";
@@ -17,6 +13,8 @@
   let creationModalIsOpen = false;
   let choiceModalIsOpen = false;
   let isLoading = false;
+
+  const { recentlyOpenedGalleryInfoList: recentlyOpenedGalleryInfoListStore } = appSettingStores;
 
   /** 로딩 모달을 표시하고, 갤러리를 여는 IPC를 요청한다.
    * 성공 시, 현재 갤러리 스토어를 수정하고 최근 갤러리 목록 스토어에 푸시한다.
