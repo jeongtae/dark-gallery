@@ -14,7 +14,8 @@ const DEV_GALLERY_PATH = path.join(app.getAppPath(), "dev-gallery");
 export default class Main {
   private static initialized: boolean = false;
 
-  galleries: { [frameId: number]: Gallery } = {};
+  /** 윈도우 Frame ID별 열려있는 갤러리 모음객체 */
+  private galleries: { [frameId: number]: Gallery } = {};
 
   constructor(readonly argv?: string[]) {
     // 단일 인스턴스만 허용
@@ -47,22 +48,13 @@ export default class Main {
     app.on("quit", this.onAppQuit.bind(this));
 
     // 일렉트론 ipcMain 이벤트 핸들러 등록
-    ipc.handle("getDevGalleryPath", this.onIpcGetDevGalleryPath.bind(this));
-    ipc.handle("resetDevGallery", this.onIpcResetDevGallery.bind(this));
-    ipc.handle("openDirectoryPickingDialog", this.onIpcOpenDirectoryPickingDialog.bind(this));
-    ipc.handle("getGalleryPathInfo", this.onIpcGetGalleryPathInfo.bind(this));
-    ipc.handle("openGallery", this.onIpcOpenGallery.bind(this));
-    ipc.handle("setMenuEnabled", this.onIpcSetMenuEnabled.bind(this));
-    ipc.handle("startGalleryIndexing", this.onIpcStartGalleryIndexing.bind(this));
-    ipc.handle("abortGalleryIndexing", this.onIpcStartGalleryIndexing.bind(this));
-    ipc.handle("getAllGalleryConfigs", this.onIpcGetAllGalleryConfigs.bind(this));
-    ipc.handle("getGalleryConfig", this.onIpcGetGalleryConfig.bind(this));
-    ipc.handle("setGalleryConfig", this.onIpcSetGalleryConfig.bind(this));
-    ipc.handle("getItems", this.onIpcGetItems.bind(this));
+    for (const [key, handler] of Object.entries(this.ipcHandlers)) {
+      ipc.handle(key as any, handler.bind(this));
+    }
   }
 
-  /** 새 윈도우 생성 */
-  createWindow() {
+  /** 새 윈도우를 생성합니다. */
+  private createWindow() {
     const window = createWindow();
     const { id } = window;
     window.on("closed", async () => await this.onWindowClosed(id));
@@ -145,122 +137,115 @@ export default class Main {
   }
   //#endregion
 
-  //#region ipc 이벤트 핸들러
-  onIpcGetDevGalleryPath: IpcHandlers["getDevGalleryPath"] = () => {
-    return isDev ? DEV_GALLERY_PATH : null;
-  };
-  onIpcResetDevGallery: IpcHandlers["resetDevGallery"] = async () => {
-    return isDev ? Gallery.resetGallery(DEV_GALLERY_PATH) : false;
-  };
-  onIpcOpenDirectoryPickingDialog: IpcHandlers["openDirectoryPickingDialog"] = async (
-    { frameId },
-    { title, buttonLabel }
-  ) => {
-    const window = getWindow(frameId);
-    const result = await dialog.showOpenDialog(window, {
-      properties: ["openDirectory"],
-      title,
-      message: title,
-      buttonLabel,
-      securityScopedBookmarks: true,
-    });
-    if (result.filePaths.length) {
-      return result.filePaths[0].normalize();
-    } else {
-      return null;
-    }
-  };
-  onIpcGetGalleryPathInfo: IpcHandlers["getGalleryPathInfo"] = async (event, { path }) => {
-    return await Gallery.getGalleryPathInfo(path);
-  };
-  onIpcOpenGallery: IpcHandlers["openGallery"] = async ({ frameId }, { path }) => {
-    const gallery = new Gallery(path);
-    try {
-      await gallery.open();
-      const title = await gallery.getConfig("title");
-      await this.galleries[frameId]?.dispose();
-      this.galleries[frameId] = gallery;
-      return title;
-    } catch {
-      await gallery.dispose();
-    }
-    return null;
-  };
-
-  onIpcSetMenuEnabled: IpcHandlers["setMenuEnabled"] = (event, id, enabled) => {
-    // TODO: 윈도우 id별로 상태 저장하고, 윈도우 focus될 때 메뉴에 적용시키는 매커니즘이 필요하다.
-    setMenuItemEnabled(id, enabled);
-  };
-  onIpcStartGalleryIndexing: IpcHandlers["startGalleryIndexing"] = async ({ frameId }) => {
-    const window = BrowserWindow.fromId(frameId);
-    const sendProgressReport = (progress: IndexingProgress) =>
-      sendEvent(window, "reportGalleryIndexingProgress", progress);
-    const sendProgressReportThrottled = throttle(sendProgressReport, 1000, { trailing: false });
-
-    // 시작보고
-    const gallery = this.galleries[frameId];
-    const generator = gallery.generateIndexingSequence({ compareHash: true });
-    const indexingStepFirst = (await generator.next()).value as IndexingStep;
-    let newlyLostList: string[] = [];
-    let errorList: string[] = [];
-    await sendProgressReport({
-      phase: "started",
-      totalCount: indexingStepFirst.total,
-      leftCount: indexingStepFirst.total,
-      newlyLostList,
-      errorList,
-    });
-
-    // 본격 인덱싱하며 계속 중간보고
-    for await (const step of generator) {
-      console.log(step);
-      const { result, path } = step.processed;
-      switch (result) {
-        case "newlyLost":
-          newlyLostList.push(path);
-          break;
-        case "error":
-          errorList.push(path);
-          break;
+  //#region IPC 이벤트 핸들러
+  /** IPC 이벤트 핸들러 모음객체 */
+  private ipcHandlers: IpcHandlers = {
+    getDevGalleryPath: () => (isDev ? DEV_GALLERY_PATH : null),
+    resetDevGallery: () => (isDev ? Gallery.resetGallery(DEV_GALLERY_PATH) : false),
+    openDirectoryPickingDialog: async ({ frameId }, { title, buttonLabel }) => {
+      const window = getWindow(frameId);
+      const result = await dialog.showOpenDialog(window, {
+        properties: ["openDirectory"],
+        title,
+        message: title,
+        buttonLabel,
+        securityScopedBookmarks: true,
+      });
+      if (result.filePaths.length) {
+        return result.filePaths[0].normalize();
+      } else {
+        return null;
       }
-      await sendProgressReportThrottled({
-        phase: "processing",
-        totalCount: step.total,
-        leftCount: step.left,
+    },
+    getGalleryPathInfo: async (event, { path }) => await Gallery.getGalleryPathInfo(path),
+    openGallery: async ({ frameId }, { path }) => {
+      const gallery = new Gallery(path);
+      try {
+        await gallery.open();
+        const title = await gallery.getConfig("title");
+        await this.galleries[frameId]?.dispose();
+        this.galleries[frameId] = gallery;
+        return title;
+      } catch {
+        await gallery.dispose();
+      }
+      return null;
+    },
+    setMenuEnabled: async ({ frameId }, id, enabled) => {
+      // TODO: 윈도우 id별로 상태 저장하고, 윈도우 focus될 때 메뉴에 적용시키는 매커니즘이 필요하다.
+      setMenuItemEnabled(id, enabled);
+    },
+    startGalleryIndexing: async ({ frameId }) => {
+      const window = BrowserWindow.fromId(frameId);
+      const sendProgressReport = (progress: IndexingProgress) =>
+        sendEvent(window, "reportGalleryIndexingProgress", progress);
+      const sendProgressReportThrottled = throttle(sendProgressReport, 1000, { trailing: false });
+
+      // 시작보고
+      const gallery = this.galleries[frameId];
+      const generator = gallery.generateIndexingSequence({ compareHash: true });
+      const indexingStepFirst = (await generator.next()).value as IndexingStep;
+      let newlyLostList: string[] = [];
+      let errorList: string[] = [];
+      await sendProgressReport({
+        phase: "started",
+        totalCount: indexingStepFirst.total,
+        leftCount: indexingStepFirst.total,
         newlyLostList,
         errorList,
       });
-    }
 
-    // 완료 보고
-    await sendProgressReport({
-      phase: "ended",
-      totalCount: indexingStepFirst.total,
-      leftCount: 0,
-      errorList,
-      newlyLostList,
-    });
-  };
-  onIpcAbortGalleryIndexing: IpcHandlers["abortGalleryIndexing"] = async ({ frameId }) => {
-    // TODO: 구현하기
-  };
-  onIpcGetItems: IpcHandlers["getItems"] = async ({ frameId }) => {
-    const {
-      models: { item: Item },
-    } = this.galleries[frameId];
-    return Item.findAll({ raw: true });
-  };
-  onIpcGetAllGalleryConfigs: IpcHandlers["getAllGalleryConfigs"] = async ({ frameId }) => {
-    const gallery = this.galleries[frameId];
-    return await gallery.getAllConfigs();
-  };
-  onIpcGetGalleryConfig: IpcHandlers["getGalleryConfig"] = async ({ frameId }, key) => {
-    const gallery = this.galleries[frameId];
-    return await gallery.getConfig(key);
-  };
-  onIpcSetGalleryConfig: IpcHandlers["setGalleryConfig"] = async ({ frameId }, key, value) => {
-    const gallery = this.galleries[frameId];
-    await gallery.setConfig(key, value);
+      // 본격 인덱싱하며 계속 중간보고
+      for await (const step of generator) {
+        console.log(step);
+        const { result, path } = step.processed;
+        switch (result) {
+          case "newlyLost":
+            newlyLostList.push(path);
+            break;
+          case "error":
+            errorList.push(path);
+            break;
+        }
+        await sendProgressReportThrottled({
+          phase: "processing",
+          totalCount: step.total,
+          leftCount: step.left,
+          newlyLostList,
+          errorList,
+        });
+      }
+
+      // 완료 보고
+      await sendProgressReport({
+        phase: "ended",
+        totalCount: indexingStepFirst.total,
+        leftCount: 0,
+        errorList,
+        newlyLostList,
+      });
+    },
+    abortGalleryIndexing: async ({ frameId }) => {
+      // TODO: 구현하기
+    },
+    getItems: async ({ frameId }) => {
+      const {
+        models: { item: Item },
+      } = this.galleries[frameId];
+      return Item.findAll({ raw: true });
+    },
+    getAllGalleryConfigs: async ({ frameId }) => {
+      const gallery = this.galleries[frameId];
+      return await gallery.getAllConfigs();
+    },
+    getGalleryConfig: async ({ frameId }, key) => {
+      const gallery = this.galleries[frameId];
+      return await gallery.getConfig(key);
+    },
+    setGalleryConfig: async ({ frameId }, key, value) => {
+      const gallery = this.galleries[frameId];
+      await gallery.setConfig(key, value);
+    },
   };
   //#endregion
 }
