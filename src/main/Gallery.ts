@@ -57,8 +57,11 @@ function checkPathIsVideo(filePath: string) {
 }
 
 type ThumbnailPaths = {
+  /** 썸네일이 저장되어야할 디렉터리 절대경로 */
   directory: string;
+  /** WEBP 이미지 썸네일의 절대 경로 */
   image: string;
+  /** WEBM 프리뷰 비디오의 절대 경로 */
   video: string;
 };
 /** 갤러리 아이템 썸네일 파일의 절대경로 목록을 얻습니다.
@@ -116,8 +119,8 @@ async function processImageIndexing(
   return {
     width,
     height,
-    time,
     thumbnailBase64,
+    ...(time && { time }),
   };
 }
 
@@ -164,8 +167,8 @@ async function processVideoIndexing(
     width,
     height,
     duration,
-    time,
     thumbnailBase64,
+    ...(time && { time }),
   };
 }
 
@@ -193,6 +196,19 @@ interface IndexExistingItemsOptions extends IndexingOptions {
   compareHash?: boolean;
 }
 interface IndexNewItemsOptions extends IndexingOptions {}
+
+export interface IndexingStep {
+  /** 작업할 전체 항목 수 */
+  total: number;
+  /** 남은 항목 수 */
+  left: number;
+  /** 지금 작업한 항목 정보 (처음엔 null) */
+  processed?: {
+    result: "done" | "keepLost" | "newlyLost" | "error";
+    path: string;
+    errorMessage?: string;
+  };
+}
 
 /**
  * 갤러리 폴더와 데이터베이스를 다루는 클래스
@@ -418,9 +434,207 @@ export default class Gallery implements Disposable {
     }
   }
 
+  /** 인덱싱을 한 파일씩 수행하는 제너레이터를 반환합니다.
+   * 열거할 때, 처음 나오는 항목은 total과 left만 포함합니다.
+   * @example
+   * for (const { total, left, processed } of generateIndexingSequence()) {
+   *   ...
+   * }
+   */
+  async *generateIndexingSequence(options: { compareHash: boolean }): AsyncGenerator<IndexingStep> {
+    const {
+      path: galleryPath,
+      models: { item: Item },
+    } = this;
+    const { compareHash = true } = options;
+
+    // 기존에 인덱싱되어있던 모든 아이템 목록 얻기
+    const existingItems = await Item.findAll({
+      attributes: [
+        "id",
+        "path",
+        "mtime",
+        "size",
+        "hash",
+        "lost",
+        "thumbnailPath",
+        "previewVideoPath",
+      ],
+      raw: true,
+    });
+
+    // 인덱싱되지 않은 새로운 파일 목록 얻기
+    const allFilePaths = await getAllChildFilePath(galleryPath, {
+      ignoreDirectories: [".darkgallery"],
+      acceptingExtensions: [...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS],
+    });
+    const allItemPaths = existingItems.map(item => item.path);
+    const newFilePaths = difference(allFilePaths, allItemPaths);
+
+    // 작업 시작 보고
+    const total = existingItems.length + newFilePaths.length;
+    let left = total;
+    yield { total, left };
+
+    // 기존 모든 아이템 순회
+    for (const existingItem of existingItems) {
+      left -= 1;
+
+      const { id, path, type } = existingItem;
+      const fullPath = nodePath.join(galleryPath, path);
+      let fileInfo: Await<ReturnType<typeof getFileInfo>>;
+      let fileHash: string;
+      try {
+        fileInfo = await getFileInfo(fullPath);
+        fileHash = compareHash ? await getFileHash(fullPath) : null;
+      } catch (error) {
+        if (error.code === "ENOENT") {
+          // 파일이 없음
+          if (existingItem.lost) {
+            // 원래 없음
+            yield { total, left, processed: { path, result: "keepLost" } };
+          } else {
+            // 이번에 갑자기 없음
+            await Item.update({ lost: true }, { where: { id } });
+            yield { total, left, processed: { path, result: "newlyLost" } };
+          }
+        } else {
+          // 예기치 못한 오류
+          yield {
+            total,
+            left,
+            processed: { path, result: "error", errorMessage: error.toString() },
+          };
+        }
+        continue;
+      }
+      // 갱신 필요하면 수행
+      const isMtimeOrSizeDifferent =
+        existingItem.mtime !== fileInfo.mtime || existingItem.size !== fileInfo.size;
+      const shouldBeUpdated =
+        isMtimeOrSizeDifferent || (compareHash && existingItem.hash !== fileHash);
+      if (shouldBeUpdated) {
+        // 업데이트할 데이터 준비
+        const thumbnailFullPaths = buildThumbnailPathsForHash(galleryPath, fileHash);
+        const updatingItem: Partial<Models.ItemAttributes> = {
+          ...fileInfo,
+          hash: fileHash || (await getFileHash(fullPath)),
+          time: fileInfo.mtime,
+          thumbnailPath: nodePath.relative(galleryPath, thumbnailFullPaths.image),
+          lost: false,
+        };
+        if (!nodeFs.existsSync(thumbnailFullPaths.directory)) {
+          await nodeFs.promises.mkdir(thumbnailFullPaths.directory, { recursive: true });
+        }
+        // 새로운 썸네일 생성 및 메타데이터의 시간 할당
+        try {
+          switch (type) {
+            case "IMG":
+              const imageIndexingData = await processImageIndexing(
+                fullPath,
+                thumbnailFullPaths.image
+              );
+              // if (imageIndexingData.time) imageIndexingData.time = imageIndexingData.time;
+              Object.assign(updatingItem, imageIndexingData);
+              break;
+            case "VID":
+              const videoIndexingData = await processVideoIndexing(
+                fullPath,
+                thumbnailFullPaths.video
+              );
+              // videoIndexingData.time = videoIndexingData.time || updatingItem.time;
+              Object.assign(updatingItem, videoIndexingData);
+              break;
+            default:
+              throw new Error();
+          }
+        } catch (error) {
+          yield {
+            total,
+            left,
+            processed: { path, result: "error", errorMessage: error.toString() },
+          };
+          continue;
+        }
+        // DB에 반영
+        await Item.update(updatingItem, { where: { id } });
+        // 기존의 썸네일 파일은 삭제
+        if (existingItem.thumbnailPath) {
+          try {
+            nodeFs.promises.unlink(nodePath.join(galleryPath, existingItem.thumbnailPath));
+          } catch {}
+        }
+        if (existingItem.previewVideoPath) {
+          try {
+            nodeFs.promises.unlink(nodePath.join(galleryPath, existingItem.previewVideoPath));
+          } catch {}
+        }
+        // 성공 보고
+        yield { total, left, processed: { path, result: "done" } };
+      }
+    }
+
+    // 새로운 파일 목록 순회
+    for (const path of newFilePaths) {
+      left -= 1;
+      try {
+        let type: Models.Item["type"];
+        if (checkPathIsImage(path)) type = "IMG";
+        else if (checkPathIsVideo(path)) type = "VID";
+        else continue;
+
+        const fullPath = nodePath.join(galleryPath, path);
+        const fileInfo = await getFileInfo(fullPath);
+        const hash = await getFileHash(fullPath);
+        const thumbnailFullPaths = buildThumbnailPathsForHash(galleryPath, hash);
+        const newItem: Models.ItemCreationAttributes = {
+          ...fileInfo,
+          hash,
+          path,
+          type,
+          width: 0,
+          height: 0,
+          duration: 0,
+          time: fileInfo.mtime,
+          thumbnailBase64: "",
+          thumbnailPath: nodePath.relative(galleryPath, thumbnailFullPaths.image),
+        };
+        if (!nodeFs.existsSync(thumbnailFullPaths.directory)) {
+          await nodeFs.promises.mkdir(thumbnailFullPaths.directory, { recursive: true });
+        }
+        switch (type) {
+          case "IMG":
+            const imageIndexingData = await processImageIndexing(
+              fullPath,
+              thumbnailFullPaths.image
+            );
+            // imageIndexingData.time = imageIndexingData.time || newItem.time;
+            Object.assign(newItem, imageIndexingData);
+            break;
+          case "VID":
+            const videoIndexingData = await processVideoIndexing(
+              fullPath,
+              thumbnailFullPaths.image
+            );
+            // videoIndexingData.time = videoIndexingData.time || newItem.time;
+            Object.assign(newItem, videoIndexingData);
+            break;
+          default:
+            throw new Error();
+        }
+        await Item.create(newItem);
+        yield { total, left, processed: { path, result: "done" } };
+      } catch (error) {
+        yield { total, left, processed: { path, result: "error", errorMessage: error.toString() } };
+        continue;
+      }
+    }
+  }
+
   /** 데이터베이스에 인덱싱된 아이템을 실제 파일 시스템에 존재하는 것과 비교하여 업데이트합니다.
    * 기본적으로 파일의 수정한 날짜, 바이트 단위의 파일 크기를 비교하여 차이를 감지합니다.
    * @param options 인덱싱 옵션입니다.
+   * @deprecated Use `generateIndexingSequence` instead.
    */
   async indexExistingItems(options: IndexExistingItemsOptions = {}) {
     const {
@@ -506,6 +720,7 @@ export default class Gallery implements Disposable {
 
   /** 파일 시스템에서 데이터베이스에 인덱싱되지 않은 새로운 파일을 찾아 데이터베이스에 추가합니다.
    * @param options 인덱싱 옵션입니다.
+   * @deprecated Use `generateIndexingSequence` instead.
    */
   async indexNewItems(options: IndexNewItemsOptions = {}) {
     const {

@@ -83,7 +83,7 @@
     },
   };
   function startIndexing() {
-    ipc.invoke("startIndexing");
+    ipc.invoke("startBackgroundIndexing");
   }
 
   async function getItems() {

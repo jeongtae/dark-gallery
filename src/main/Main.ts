@@ -1,11 +1,12 @@
 import path from "path";
+import { throttle } from "lodash";
 import { app, BrowserWindow, dialog, Menu, shell } from "electron";
-import { MenuItemId } from "../common/ipc";
+import { IndexingProgress, MenuItemId } from "../common/ipc";
 import { isSquirrelStartup, isDev, isMac, appPath } from "./environments";
 import { ipc, IpcHandlers, sendEvent } from "./ipc";
 import { getMenu, addMenuClickHandler, setMenuItemEnabled } from "./menu";
 import { createWindow, getAllWindows, getWindow } from "./window";
-import Gallery from "./Gallery";
+import Gallery, { IndexingStep } from "./Gallery";
 
 const DEV_GALLERY_PATH = path.join(app.getAppPath(), "dev-gallery");
 
@@ -52,7 +53,8 @@ export default class Main {
     ipc.handle("checkGalleryPath", this.onIpcCheckGalleryPath.bind(this));
     ipc.handle("openGallery", this.onIpcOpenGallery.bind(this));
     ipc.handle("setMenuEnabled", this.onIpcSetMenuEnabled.bind(this));
-    ipc.handle("startIndexing", this.onIpcStartIndexing.bind(this));
+    ipc.handle("startBackgroundIndexing", this.onIpcStartBackgroundIndexing.bind(this));
+    ipc.handle("abortBackgroundIndexing", this.onIpcStartBackgroundIndexing.bind(this));
     ipc.handle("getAllConfig", this.onIpcGetAllConfig.bind(this));
     ipc.handle("getConfig", this.onIpcGetConfig.bind(this));
     ipc.handle("setConfig", this.onIpcSetConfig.bind(this));
@@ -189,19 +191,58 @@ export default class Main {
     // TODO: 윈도우 id별로 상태 저장하고, 윈도우 focus될 때 메뉴에 적용시키는 매커니즘이 필요하다.
     setMenuItemEnabled(id, enabled);
   };
-  onIpcStartIndexing: IpcHandlers["startIndexing"] = async ({ frameId }) => {
-    await this.galleries[frameId].indexExistingItems({
-      compareHash: true,
-      reporter(d, e, r) {
-        // TODO: 여기서 이벤트 보고
-      },
+  onIpcStartBackgroundIndexing: IpcHandlers["startBackgroundIndexing"] = async ({ frameId }) => {
+    const window = BrowserWindow.fromId(frameId);
+    const sendProgressReport = (progress: IndexingProgress) =>
+      sendEvent(window, "reportBackgroundIndexingProgress", progress);
+    const sendProgressReportThrottled = throttle(sendProgressReport, 1000, { trailing: false });
+
+    // 시작보고
+    const gallery = this.galleries[frameId];
+    const generator = gallery.generateIndexingSequence({ compareHash: true });
+    const indexingStepFirst = (await generator.next()).value as IndexingStep;
+    let newlyLostList: string[] = [];
+    let errorList: string[] = [];
+    await sendProgressReport({
+      phase: "started",
+      totalCount: indexingStepFirst.total,
+      leftCount: indexingStepFirst.total,
+      newlyLostList,
+      errorList,
     });
-    await this.galleries[frameId].indexNewItems({
-      reporter(d, e, r) {
-        // TODO: 여기서 이벤트 보고
-      },
+
+    // 본격 인덱싱하며 계속 중간보고
+    for await (const step of generator) {
+      console.log(step);
+      const { result, path } = step.processed;
+      switch (result) {
+        case "newlyLost":
+          newlyLostList.push(path);
+          break;
+        case "error":
+          errorList.push(path);
+          break;
+      }
+      await sendProgressReportThrottled({
+        phase: "processing",
+        totalCount: step.total,
+        leftCount: step.left,
+        newlyLostList,
+        errorList,
+      });
+    }
+
+    // 완료 보고
+    await sendProgressReport({
+      phase: "ended",
+      totalCount: indexingStepFirst.total,
+      leftCount: 0,
+      errorList,
+      newlyLostList,
     });
-    // TODO: 여기서 이벤트 보고
+  };
+  onIpcAbortBackgroundIndexing: IpcHandlers["abortBackgroundIndexing"] = async ({ frameId }) => {
+    // TODO: 구현하기
   };
   onIpcGetItems: IpcHandlers["getItems"] = async ({ frameId }) => {
     const {

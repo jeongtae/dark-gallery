@@ -74,7 +74,7 @@ type FileInfo = {
 };
 /** 주어진 경로에 해당하는 파일의 정보를 조회합니다.
  * @param filePath 조회할 파일의 절대 경로입니다.
- * @throws `NodeJS.ErrnoException`
+ * @throws {NodeJS.ErrnoException}
  * @returns 파일 정보 객체를 반환합니다.
  */
 export async function getFileInfo(filePath: string): Promise<FileInfo> {
@@ -147,7 +147,8 @@ export async function getImageInfo(filePath: string): Promise<ImageInfo> {
   const ext = path.extname(filePath).substring(1).toLowerCase();
   if (ext === "jpg" || ext === "jpeg") {
     try {
-      result.taggedTime = await getExifTime(filePath);
+      const taggedTime = await getExifTime(filePath);
+      if (taggedTime) result.taggedTime = taggedTime;
     } catch {}
   }
   return result;
@@ -177,9 +178,7 @@ export async function getVideoInfo(filePath: string) {
   };
   const tags: any = metadata.format.tags;
   const taggedTime: string = tags["com.apple.quicktime.creationdate"] || tags["creation_time"];
-  if (taggedTime) {
-    result.taggedTime = new Date(taggedTime);
-  }
+  if (taggedTime) result.taggedTime = new Date(taggedTime);
   return result;
 }
 

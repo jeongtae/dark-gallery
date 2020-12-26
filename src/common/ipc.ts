@@ -31,12 +31,31 @@ export type GalleryConfigs = {
   /** 갤러리 생성일시 */
   createdAt: Date;
 };
+export type IndexingProgress = {
+  /** 인덱싱 단계
+   * @example
+   * "started" // 1. 인덱싱이 시작됨
+   * "processing" // 2. 기존에 인덱싱된 항목에 대해 처리중
+   * "ended" // 3. 인덱싱 작업 완수함
+   * "aborted" // 3. 인덱싱 작업 중단됨
+   */
+  phase: "started" | "processing" | "ended" | "aborted";
+  /** 지금껏 알아낸 검사할 총 항목 수 */
+  totalCount: number;
+  /** 기존에 인덱싱 된 항목에 대한 처리 완료 수 (성공 여부 관련 없이) */
+  leftCount: number;
+  /** 처리 중에 오류가 발생한 경로 목록 */
+  errorList: string[];
+  /** 새롭게 유실된 경로 목록 */
+  newlyLostList: string[];
+};
 //#endregion
 
 //#region IPC Events (Main -> Renderer)
 export type Events = {
   clickMenu: (id: MenuItemId) => void;
   openGallery: (args: { path: string; title: string }) => void;
+  reportBackgroundIndexingProgress: (progress: IndexingProgress) => void;
 };
 //#endregion
 
@@ -48,7 +67,8 @@ export type Commands = {
   openGallery: (args: { path: string }) => string;
   resetDevGallery: () => boolean;
   setMenuEnabled: (id: MenuItemId, enabled: boolean) => void;
-  startIndexing: () => void;
+  startBackgroundIndexing: () => void;
+  abortBackgroundIndexing: () => void;
   getAllConfig: () => GalleryConfigs;
   getConfig: <K extends keyof GalleryConfigs>(key: K) => GalleryConfigs[K];
   setConfig: <K extends keyof GalleryConfigs>(key: K, value: GalleryConfigs[K]) => void;
