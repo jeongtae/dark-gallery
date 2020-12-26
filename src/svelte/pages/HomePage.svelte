@@ -23,7 +23,7 @@
    * @param path 갤러리의 경로
    * @returns 성공 여부 */
   async function openGallery(path: string) {
-    const title = await ipc.invoke("openGallery", { path });
+    const title = await ipc.invoke("openGallery", path);
     if (title) {
       $galleryPathStore = path;
       pushRecentlyOpenedGalleryInfo({ path, title });

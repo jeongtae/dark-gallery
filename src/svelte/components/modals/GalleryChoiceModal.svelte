@@ -5,7 +5,7 @@
   export let open = false;
 
   const pathValidator: PathValidator = async (path, setMessage) => {
-    const pathStatus = await ipc.invoke("getGalleryPathInfo", { path });
+    const pathStatus = await ipc.invoke("getGalleryPathInfo", path);
     if (!pathStatus.isAbsolute) {
       setMessage("절대 경로를 사용해야 합니다.");
       return false;

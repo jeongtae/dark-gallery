@@ -95,7 +95,7 @@
         selectedTabId = fixedTabs.settings.id;
       }
     });
-    ipc.on("openGallery", (event, { path, title }) => {
+    ipc.on("openGallery", (event, path, title) => {
       $galleryPathStore = path;
     });
   });

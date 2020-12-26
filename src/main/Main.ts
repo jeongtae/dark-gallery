@@ -107,7 +107,7 @@ export default class Main {
     if (gallery) {
       const title = await gallery.getConfig("title");
       const { path } = gallery;
-      sendEvent(window, "openGallery", { path, title });
+      sendEvent(window, "openGallery", path, title);
     }
   }
   //#endregion
@@ -142,7 +142,7 @@ export default class Main {
   private ipcHandlers: IpcHandlers = {
     getDevGalleryPath: () => (isDev ? DEV_GALLERY_PATH : null),
     resetDevGallery: () => (isDev ? Gallery.resetGallery(DEV_GALLERY_PATH) : false),
-    openDirectoryPickingDialog: async ({ frameId }, { title, buttonLabel }) => {
+    openDirectoryPickingDialog: async ({ frameId }, { title, buttonLabel } = {}) => {
       const window = getWindow(frameId);
       const result = await dialog.showOpenDialog(window, {
         properties: ["openDirectory"],
@@ -157,8 +157,8 @@ export default class Main {
         return null;
       }
     },
-    getGalleryPathInfo: async (event, { path }) => await Gallery.getGalleryPathInfo(path),
-    openGallery: async ({ frameId }, { path }) => {
+    getGalleryPathInfo: async (event, path) => await Gallery.getGalleryPathInfo(path),
+    openGallery: async ({ frameId }, path) => {
       const gallery = new Gallery(path);
       try {
         await gallery.open();

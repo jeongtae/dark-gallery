@@ -54,23 +54,63 @@ export type IndexingProgress = {
 //#region IPC Events (Main -> Renderer)
 export type Events = {
   clickMenu: (id: MenuItemId) => void;
-  openGallery: (args: { path: string; title: string }) => void;
+  openGallery: (path: string, title: string) => void;
   reportGalleryIndexingProgress: (progress: IndexingProgress) => void;
 };
 //#endregion
 
 //#region IPC Commands (Renderer -> Main)
 export type Commands = {
+  /** 개발용 갤러리의 절대경로를 얻습니다.
+   * @returns 개발용 갤러리의 절대경로
+   */
   getDevGalleryPath: () => string;
+  /** 개발용 갤러리의 인덱싱 폴더를 삭제하여 리셋합니다.
+   * @returns 성공 여부
+   */
   resetDevGallery: () => boolean;
-  openDirectoryPickingDialog: (args: { title?: string; buttonLabel?: string }) => string;
-  getGalleryPathInfo: (args: { path: string }) => GalleryPathInfo;
-  openGallery: (args: { path: string }) => string;
+  /** 디렉터리를 선택하는 네이티브 모달 창을 열고 결과를 얻습니다.
+   * @param options.title 모달 창의 타이틀바 문자열
+   * @param options.buttonLabel 모달 창의 선택버튼 문자열
+   * @returns 선택한 디렉터리 절대경로 또는 null
+   */
+  openDirectoryPickingDialog: (options: { title?: string; buttonLabel?: string }) => string;
+  /** 지정한 디렉터리 경로를 갤러리 관점에서 조사합니다.
+   * @param path 조사할 디렉터리의 절대경로
+   * @returns 경로 정보 객체
+   */
+  getGalleryPathInfo: (path: string) => GalleryPathInfo;
+  /** 주어진 경로를 갤러리로 취급하고 엽니다. 갤러리가 아닌 폴더라도 열리며, 인덱싱 파일이 생성됩니다.
+   * @param path 열 갤러리 디렉터리의 절대경로
+   * @returns 열린 갤러리의 제목
+   */
+  openGallery: (path: string) => string;
+  /** 앱 메뉴의 활성화 상태를 변경합니다.
+   * @param id 상태를 변경할 메뉴의 ID
+   * @param enabled 활성화 상태
+   */
   setMenuEnabled: (id: MenuItemId, enabled: boolean) => void;
+  /** 갤러리를 인덱싱하는 백그라운드 작업을 시작할 것을 요청합니다.
+   * 작업 상태는 `reportGalleryIndexingProgress` 이벤트로 계속 보고됩니다.
+   */
   startGalleryIndexing: () => void;
+  /** 갤러리를 인덱싱하는 백그라운드 작업을 중단할 것을 요청합니다.
+   * 중단되면 `reportGalleryIndexingProgress` 이벤트로 보고됩니다.
+   */
   abortGalleryIndexing: () => void;
+  /** 갤러리의 모든 설정을 가져옵니다.
+   * @returns 갤러리 설정 모음객체
+   */
   getAllGalleryConfigs: () => GalleryConfigs;
+  /** 갤러리의 설정을 가져옵니다.
+   * @param key 설정 키
+   * @returns 설정값
+   */
   getGalleryConfig: <K extends keyof GalleryConfigs>(key: K) => GalleryConfigs[K];
+  /** 갤러리의 설정을 변경합니다.
+   * @param key 설정 키
+   * @param value 설정 값
+   */
   setGalleryConfig: <K extends keyof GalleryConfigs>(key: K, value: GalleryConfigs[K]) => void;
   getItems: () => RawItem[];
 };
