@@ -3,6 +3,7 @@ import nodeFs from "fs";
 import { promisify } from "util";
 import rimraf from "rimraf";
 import { difference, union, cloneDeep } from "lodash";
+import type { PromiseValue } from "type-fest";
 import { createSequelize, Models, Sequelize } from "./sequelize";
 import { GalleryPathInfo, GalleryConfigs } from "./ipc";
 import {
@@ -482,7 +483,7 @@ export default class Gallery implements Disposable {
 
       const { id, path, type } = existingItem;
       const fullPath = nodePath.join(galleryPath, path);
-      let fileInfo: Await<ReturnType<typeof getFileInfo>>;
+      let fileInfo: PromiseValue<ReturnType<typeof getFileInfo>>;
       let fileHash: string;
       try {
         fileInfo = await getFileInfo(fullPath);
