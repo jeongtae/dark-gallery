@@ -7,15 +7,14 @@
     SelectItem,
     TextArea,
   } from "carbon-components-svelte";
-  import { galleryPathStore, galleryConfigStores, appSettingStores } from "../stores";
+  import {
+    currentGalleryPath,
+    galleryTitle,
+    appColorTheme,
+    appMaxRecentGalleryInfoListLength,
+  } from "../stores";
 
   let galleryDescription = "동일한 효력을 범죄에 의하여 모든 시설기준과 국내법과 보장하기.";
-
-  const { title: galleryTitleStore } = galleryConfigStores;
-  const {
-    colorTheme: appColorThemeStore,
-    maxRecentlyOpenedGalleriesCount: appMaxRecentlyOpenedGalleriesCountStore,
-  } = appSettingStores;
 </script>
 
 <page-container>
@@ -27,7 +26,7 @@
     <h3>색상 테마</h3>
     <Dropdown
       titleText="색상 테마"
-      bind:selectedIndex={$appColorThemeStore}
+      bind:selectedIndex={$appColorTheme}
       items={['다크', '라이트', '자동 (시스템 설정에 따름)'].map((text, id) => ({
         text,
         id: id.toString(),
@@ -42,16 +41,16 @@
       max={10}
       minLabel="안 함"
       maxLabel="10개"
-      bind:value={$appMaxRecentlyOpenedGalleriesCountStore}
+      bind:value={$appMaxRecentGalleryInfoListLength}
     />
   </page-tile>
 
-  {#if $galleryPathStore}
-    <h2>{$galleryTitleStore} 갤러리 설정</h2>
+  {#if $currentGalleryPath}
+    <h2>{$galleryTitle} 설정</h2>
     <p>현재 열려있는 갤러리에 대한 설정입니다.</p>
     <page-tile>
       <h3>제목</h3>
-      <TextInput labelText="제목" bind:value={$galleryTitleStore} />
+      <TextInput labelText="제목" bind:value={$galleryTitle} />
     </page-tile>
     <page-tile>
       <h3>설명</h3>

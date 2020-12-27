@@ -5,7 +5,7 @@
   import Close16 from "carbon-icons-svelte/lib/Close16";
   import Debug16 from "carbon-icons-svelte/lib/Debug16";
   import { ipc } from "../ipc";
-  import { appSettingStores, pushRecentlyOpenedGalleryInfo, galleryPathStore } from "../stores";
+  import { currentGalleryPath, appRecentGalleryInfoList } from "../stores";
   import { appName, appDescription, isDev } from "../environments";
   import GalleryCreationModal from "../components/modals/GalleryCreationModal.svelte";
   import GalleryChoiceModal from "../components/modals/GalleryChoiceModal.svelte";
@@ -14,8 +14,6 @@
   let choiceModalIsOpen = false;
   let isLoading = false;
 
-  const { recentlyOpenedGalleryInfoList: recentlyOpenedGalleryInfoListStore } = appSettingStores;
-
   /** 로딩 모달을 표시하고, 갤러리를 여는 IPC를 요청한다.
    * 성공 시, 현재 갤러리 스토어를 수정하고 최근 갤러리 목록 스토어에 푸시한다.
    * @param path 갤러리의 경로
@@ -23,8 +21,8 @@
   async function openGallery(path: string) {
     const title = await ipc.invoke("openGallery", path);
     if (title) {
-      $galleryPathStore = path;
-      pushRecentlyOpenedGalleryInfo({ path, title });
+      $currentGalleryPath = path;
+      appRecentGalleryInfoList.push({ path, title });
       return true;
     } else {
       return false;
@@ -115,10 +113,10 @@
       </OverflowMenu>
     {/if}
   </page-gallery-buttons-container>
-  {#if $recentlyOpenedGalleryInfoListStore.length}
+  {#if $appRecentGalleryInfoList.length}
     <h2>최근 갤러리</h2>
     <page-recent-buttons-wrapper>
-      {#each $recentlyOpenedGalleryInfoListStore as info, idx (info.path)}
+      {#each $appRecentGalleryInfoList as info, idx (info.path)}
         <page-recent-gallery-row>
           <page-primary-button-wrapper>
             <Button
@@ -136,7 +134,7 @@
               size="small"
               icon={Close16}
               on:click={() => {
-                recentlyOpenedGalleryInfoListStore.update(list => {
+                appRecentGalleryInfoList.update(list => {
                   list.splice(idx, 1);
                   return list;
                 });

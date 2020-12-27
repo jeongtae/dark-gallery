@@ -236,15 +236,15 @@ export default class Main {
     },
     getAllGalleryConfigs: async ({ frameId }) => {
       const gallery = this.galleries[frameId];
-      return await gallery.getAllConfigs();
+      return (await gallery?.getAllConfigs()) ?? null;
     },
     getGalleryConfig: async ({ frameId }, key) => {
       const gallery = this.galleries[frameId];
-      return await gallery.getConfig(key);
+      return (await gallery?.getConfig(key)) ?? null;
     },
     setGalleryConfig: async ({ frameId }, key, value) => {
       const gallery = this.galleries[frameId];
-      await gallery.setConfig(key, value);
+      await gallery?.setConfig(key, value);
     },
   };
   //#endregion

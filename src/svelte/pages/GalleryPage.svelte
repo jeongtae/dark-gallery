@@ -21,7 +21,7 @@
   import ChevronRight20 from "carbon-icons-svelte/lib/ChevronRight20";
   import { ipc } from "../ipc";
   import { path as nodePath } from "../node";
-  import { galleryPathStore } from "../stores";
+  import { currentGalleryPath } from "../stores";
   import VirtualGrid from "../components/VirtualGrid.svelte";
   import GridItem from "../components/GridItem.svelte";
 
@@ -236,7 +236,7 @@
           selected={selectedItemKeys.has(item.id)}
           selectedItemBorderMode={gridItemsPerRow > 5 ? 'thin' : 'normal'}
           thumbnailBase64={item.thumbnailBase64}
-          thumbnailPath={nodePath.join($galleryPathStore, item.thumbnailPath)}
+          thumbnailPath={nodePath.join($currentGalleryPath, item.thumbnailPath)}
           thumbnailAspect={item.width / item.height}
           thumbnailFitMode={gridItemFitCoverMode ? 'cover' : 'contain'}
         />

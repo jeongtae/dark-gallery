@@ -17,7 +17,7 @@
   import TabBar from "./components/TabBar.svelte";
   import type { Tab, FixedTab, FluidTab } from "./components/TabBar.svelte";
   import { ipc } from "./ipc";
-  import { galleryPathStore, galleryConfigStores } from "./stores";
+  import { currentGalleryPath, galleryTitle } from "./stores";
   import { appName } from "./environments";
 
   //#region 내부 상태
@@ -48,14 +48,10 @@
 
   //#endregion
 
-  //#region 스토어
-  const { title: galleryTitleStore } = galleryConfigStores;
-  //#endregion
-
   //#region 반응형 구문 및 선언
 
-  $: handleCurrentGalleryChange($galleryPathStore);
-  $: updateTitle($galleryTitleStore ?? appName, selectedTab.title);
+  $: handleCurrentGalleryChange($currentGalleryPath);
+  $: updateTitle($galleryTitle ?? appName, selectedTab.title);
   $: selectedTab = [leftFixedTab, rightFixedTab, ...centerFluidTabs].find(
     tab => tab.id === selectedTabId
   );
@@ -96,8 +92,9 @@
       }
     });
     ipc.on("openGallery", (event, path, title) => {
-      $galleryPathStore = path;
+      $currentGalleryPath = path;
     });
+    ipc.on("reportGalleryIndexingProgress", () => {});
   });
 </script>
 
