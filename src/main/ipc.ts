@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain, IpcMainEvent } from "electron";
+import { WebContents, ipcMain, IpcMainEvent } from "electron";
 import type { TypedIpcMain } from "electron-typed-ipc";
 import type { Events, Commands } from "../common/ipc";
 
@@ -9,11 +9,11 @@ export const ipc = ipcMain as TypedIpcMain<Events, Commands>;
 
 /** Renderer에게 이벤트를 보냅니다. */
 export function sendEvent<E extends keyof Events>(
-  window: BrowserWindow,
+  webContents: WebContents,
   event: E,
   ...args: Parameters<Events[E]>
 ) {
-  window.webContents.send(event, ...args);
+  webContents.send(event, ...args);
 }
 
 declare type OptionalPromise<T> = T | Promise<T>;

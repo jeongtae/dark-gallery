@@ -5,7 +5,7 @@ import { IndexingProgress, MenuItemId } from "../common/ipc";
 import { isSquirrelStartup, isDev, isMac, appPath } from "./environments";
 import { ipc, IpcHandlers, sendEvent } from "./ipc";
 import { getMenu, addMenuClickHandler, setMenuItemEnabled } from "./menu";
-import { createWindow, getAllWindows, getWindow } from "./window";
+import { createWindow } from "./window";
 import Gallery, { IndexingStep } from "./Gallery";
 
 const DEV_GALLERY_PATH = path.join(app.getAppPath(), "dev-gallery");
@@ -14,8 +14,8 @@ const DEV_GALLERY_PATH = path.join(app.getAppPath(), "dev-gallery");
 export default class Main {
   private static initialized: boolean = false;
 
-  /** 윈도우 Frame ID별 열려있는 갤러리 모음객체 */
-  private galleries: { [frameId: number]: Gallery } = {};
+  /** WebContents ID별 열려있는 갤러리 모음객체 */
+  private galleries: { [webContentsId: number]: Gallery } = {};
 
   constructor(readonly argv?: string[]) {
     // 단일 인스턴스만 허용
@@ -56,9 +56,8 @@ export default class Main {
   /** 새 윈도우를 생성합니다. */
   private createWindow() {
     const window = createWindow();
-    const { id } = window;
-    window.on("closed", async () => await this.onWindowClosed(id));
-    window.webContents.on("did-finish-load", () => this.onWindowDidFinishLoad(window));
+    window.on("closed", async () => await this.onWindowClosed(window));
+    window.webContents.on("did-finish-load", () => this.onWindowWebContentsDidFinishLoad(window));
     return window;
   }
 
@@ -70,11 +69,11 @@ export default class Main {
         if (allWindows.length) {
           const window = BrowserWindow.getFocusedWindow() ?? allWindows[0];
           window.focus();
-          sendEvent(window, "clickMenu", "openPreference");
+          sendEvent(window.webContents, "clickMenu", "openPreference");
         } else {
           const newWindow = this.createWindow();
           newWindow.webContents.once("did-finish-load", () =>
-            sendEvent(newWindow, "clickMenu", "openPreference")
+            sendEvent(newWindow.webContents, "clickMenu", "openPreference")
           );
         }
         break;
@@ -92,22 +91,22 @@ export default class Main {
         break;
       }
       default:
-        sendEvent(window, "clickMenu", id);
+        sendEvent(window.webContents, "clickMenu", id);
     }
   }
   //#endregion
 
   //#region 일렉트론 BrowserWindow의 이벤트 핸들러
-  async onWindowClosed(windowId: number) {
-    await this.galleries[windowId]?.dispose();
-    delete this.galleries[windowId];
+  async onWindowClosed(window: BrowserWindow) {
+    await this.galleries[window.webContents.id]?.dispose();
+    delete this.galleries[window.webContents.id];
   }
-  async onWindowDidFinishLoad(window: BrowserWindow) {
-    const gallery = this.galleries[window.id];
+  async onWindowWebContentsDidFinishLoad(window: BrowserWindow) {
+    const gallery = this.galleries[window.webContents.id];
     if (gallery) {
       const title = await gallery.getConfig("title");
       const { path } = gallery;
-      sendEvent(window, "openGallery", path, title);
+      sendEvent(window.webContents, "openGallery", path, title);
     }
   }
   //#endregion
@@ -125,7 +124,7 @@ export default class Main {
   }
   /** 일렉트론 `app`의 `activate` 이벤트 핸들러 */
   onAppActivate() {
-    if (getAllWindows().length === 0) {
+    if (BrowserWindow.getAllWindows().length === 0) {
       this.createWindow();
     }
   }
@@ -142,8 +141,8 @@ export default class Main {
   private ipcHandlers: IpcHandlers = {
     getDevGalleryPath: () => (isDev ? DEV_GALLERY_PATH : null),
     resetDevGallery: () => (isDev ? Gallery.resetGallery(DEV_GALLERY_PATH) : false),
-    openDirectoryPickingDialog: async ({ frameId }, { title, buttonLabel } = {}) => {
-      const window = getWindow(frameId);
+    openDirectoryPickingDialog: async ({ sender }, { title, buttonLabel } = {}) => {
+      const window = BrowserWindow.fromWebContents(sender);
       const result = await dialog.showOpenDialog(window, {
         properties: ["openDirectory"],
         title,
@@ -157,28 +156,27 @@ export default class Main {
         return null;
       }
     },
-    getGalleryPathInfo: async (event, path) => await Gallery.getGalleryPathInfo(path),
-    openGallery: async ({ frameId }, path) => {
+    getGalleryPathInfo: async (_, path) => await Gallery.getGalleryPathInfo(path),
+    openGallery: async ({ sender }, path) => {
       const gallery = new Gallery(path);
       try {
         await gallery.open();
         const title = await gallery.getConfig("title");
-        await this.galleries[frameId]?.dispose();
-        this.galleries[frameId] = gallery;
+        await this.galleries[sender.id]?.dispose();
+        this.galleries[sender.id] = gallery;
         return title;
       } catch {
         await gallery.dispose();
       }
       return null;
     },
-    setMenuEnabled: async ({ frameId }, id, enabled) => {
+    setMenuEnabled: async (_, id, enabled) => {
       // TODO: 윈도우 id별로 상태 저장하고, 윈도우 focus될 때 메뉴에 적용시키는 매커니즘이 필요하다.
       setMenuItemEnabled(id, enabled);
     },
-    startGalleryIndexing: async ({ frameId }) => {
-      const window = BrowserWindow.fromId(frameId);
+    startGalleryIndexing: async ({ sender }) => {
       const sendProgressReport = (progress: IndexingProgress) =>
-        sendEvent(window, "reportGalleryIndexingProgress", progress);
+        sendEvent(sender, "reportGalleryIndexingProgress", progress);
       const sendProgressReportThrottled = throttle(sendProgressReport, 1000, { trailing: false });
 
       // 시작보고
@@ -197,7 +195,6 @@ export default class Main {
 
       // 본격 인덱싱하며 계속 중간보고
       for await (const step of generator) {
-        console.log(step);
         const { result, path } = step.processed;
         switch (result) {
           case "newlyLost":
@@ -225,25 +222,25 @@ export default class Main {
         newlyLostList,
       });
     },
-    abortGalleryIndexing: async ({ frameId }) => {
+    abortGalleryIndexing: async ({ sender }) => {
       // TODO: 구현하기
     },
-    getItems: async ({ frameId }) => {
+    getItems: async ({ sender }) => {
       const {
         models: { item: Item },
-      } = this.galleries[frameId];
+      } = this.galleries[sender.id];
       return Item.findAll({ raw: true });
     },
-    getAllGalleryConfigs: async ({ frameId }) => {
-      const gallery = this.galleries[frameId];
+    getAllGalleryConfigs: async ({ sender }) => {
+      const gallery = this.galleries[sender.id];
       return (await gallery?.getAllConfigs()) ?? null;
     },
-    getGalleryConfig: async ({ frameId }, key) => {
-      const gallery = this.galleries[frameId];
+    getGalleryConfig: async ({ sender }, key) => {
+      const gallery = this.galleries[sender.id];
       return (await gallery?.getConfig(key)) ?? null;
     },
-    setGalleryConfig: async ({ frameId }, key, value) => {
-      const gallery = this.galleries[frameId];
+    setGalleryConfig: async ({ sender }, key, value) => {
+      const gallery = this.galleries[sender.id];
       await gallery?.setConfig(key, value);
     },
   };

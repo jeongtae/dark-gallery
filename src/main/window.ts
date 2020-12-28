@@ -28,9 +28,3 @@ export function createWindow(): BrowserWindow {
 
   return window;
 }
-
-export function getWindow(frameId: number): BrowserWindow {
-  return BrowserWindow.fromId(frameId);
-}
-
-export const { getAllWindows } = BrowserWindow;
