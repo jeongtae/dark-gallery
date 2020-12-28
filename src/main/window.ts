@@ -16,6 +16,7 @@ export function createWindow(): BrowserWindow {
       devTools: isDev,
       nodeIntegration: true,
       enableRemoteModule: true,
+      contextIsolation: false,
     },
   });
 
