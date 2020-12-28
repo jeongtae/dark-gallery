@@ -46,6 +46,8 @@ async function setGalleryConfig<K extends keyof GalleryConfigs>(
 export interface GalleryConfigWritable<T> extends Writable<T> {
   /** 스토어의 값을 변경하고, 설정에 따라 갤러리의 데이터베이스에 반영합니다. (기본: 반영함) */
   set(value: T): void;
+  /** 스토어의 값을 변경하고, 설정에 따라 갤러리의 데이터베이스에 반영합니다. (기본: 반영함) */
+  update(updater: (value: T) => T): void;
   /** 스토어의 값을 변경하기만 하고, 갤러리의 데이터베이스에 반영하지는 않습니다. */
   setWithoutReflection(value: T): void;
   /** set 메서드가 값을 데이터베이스에 반영하도록 합니다. */
@@ -74,6 +76,15 @@ function galleryConfigWritable<K extends keyof GalleryConfigs>(
       if (isReflectionEnabled) {
         setGalleryConfigThrottled(value);
       }
+    },
+    update(updater) {
+      store.update(value => {
+        const newValue = updater(value);
+        if (isReflectionEnabled) {
+          setGalleryConfigThrottled(value);
+        }
+        return newValue;
+      });
     },
     setWithoutReflection(value) {
       store.set(value);

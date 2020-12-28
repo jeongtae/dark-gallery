@@ -27,7 +27,6 @@ window.addEventListener("storage", ({ key, newValue }) => {
 });
 
 interface LocalStorageWritable<T> extends Writable<T> {
-  set(value: T): void;
   setWithoutReflection(value: T): void;
   cancelPendingReflection(): void;
 }
@@ -52,6 +51,13 @@ export function localStorageWritable<T>(
     set(value) {
       writableStore.set(value);
       setLocalStorageThrottled(storageKey, value);
+    },
+    update(updater) {
+      writableStore.update(value => {
+        const newValue = updater(value);
+        setLocalStorageThrottled(storageKey, value);
+        return newValue;
+      });
     },
     setWithoutReflection(value) {
       writableStore.set(value);
