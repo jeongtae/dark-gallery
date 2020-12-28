@@ -82,9 +82,6 @@
       showDetailSidebar = false;
     },
   };
-  function startIndexing() {
-    ipc.invoke("startGalleryIndexing");
-  }
 
   async function getItems() {
     items = await ipc.invoke("getItems");
@@ -106,8 +103,7 @@
             <Icon render={PageFirst24} />
           </button>
         </page-sidebar-header>
-        <button on:click={startIndexing}>START INDEXING</button>
-        <button on:click={getItems}>GET ITEMS</button>
+        <Button on:click={getItems}>GET ITEMS</Button>
         CONTENTS AREA
       </page-filter-sidebar>
     </page-split-side>

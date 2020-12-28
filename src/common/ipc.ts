@@ -34,12 +34,13 @@ export type GalleryConfigs = {
 export type IndexingProgress = {
   /** 인덱싱 단계
    * @example
-   * "started" // 1. 인덱싱이 시작됨
-   * "processing" // 2. 기존에 인덱싱된 항목에 대해 처리중
+   * "started" // 1. 인덱싱할 목록 준비 중
+   * "processing" // 2. 인덱싱할 목록의 각 항목에 대해 처리중
    * "ended" // 3. 인덱싱 작업 완수함
+   * "aborting" // 3. 인덱싱 작업 중단 중
    * "aborted" // 3. 인덱싱 작업 중단됨
    */
-  phase: "started" | "processing" | "ended" | "aborted";
+  phase: "started" | "processing" | "ended" | "aborting" | "aborted";
   /** 지금껏 알아낸 검사할 총 항목 수 */
   totalCount: number;
   /** 기존에 인덱싱 된 항목에 대한 처리 완료 수 (성공 여부 관련 없이) */
@@ -93,7 +94,7 @@ export type Commands = {
   /** 갤러리를 인덱싱하는 백그라운드 작업을 시작할 것을 요청합니다.
    * 작업 상태는 `reportGalleryIndexingProgress` 이벤트로 계속 보고됩니다.
    */
-  startGalleryIndexing: () => void;
+  startGalleryIndexing: (compareHash?: boolean) => void;
   /** 갤러리를 인덱싱하는 백그라운드 작업을 중단할 것을 요청합니다.
    * 중단되면 `reportGalleryIndexingProgress` 이벤트로 보고됩니다.
    */

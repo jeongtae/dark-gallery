@@ -174,19 +174,29 @@ export default class Main {
       // TODO: 윈도우 id별로 상태 저장하고, 윈도우 focus될 때 메뉴에 적용시키는 매커니즘이 필요하다.
       setMenuItemEnabled(id, enabled);
     },
-    startGalleryIndexing: async ({ sender }) => {
+    startGalleryIndexing: async ({ sender }, compareHash = false) => {
       const sendProgressReport = (progress: IndexingProgress) =>
         sendEvent(sender, "reportGalleryIndexingProgress", progress);
-      const sendProgressReportThrottled = throttle(sendProgressReport, 1000, { trailing: false });
+      const sendProgressReportThrottled = throttle(sendProgressReport, 500, { trailing: false });
 
-      // 시작보고
-      const gallery = this.galleries[frameId];
-      const generator = gallery.generateIndexingSequence({ compareHash: true });
-      const indexingStepFirst = (await generator.next()).value as IndexingStep;
+      // 준비중 보고
       let newlyLostList: string[] = [];
       let errorList: string[] = [];
       await sendProgressReport({
         phase: "started",
+        totalCount: 0,
+        leftCount: 0,
+        newlyLostList,
+        errorList,
+      });
+
+      const gallery = this.galleries[sender.id];
+      const generator = gallery.generateIndexingSequence({ compareHash });
+      const indexingStepFirst = (await generator.next()).value as IndexingStep;
+
+      // 시작보고
+      await sendProgressReport({
+        phase: "processing",
         totalCount: indexingStepFirst.total,
         leftCount: indexingStepFirst.total,
         newlyLostList,

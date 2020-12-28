@@ -17,7 +17,7 @@
   import TabBar from "./components/TabBar.svelte";
   import type { Tab, FixedTab, FluidTab } from "./components/TabBar.svelte";
   import { ipc } from "./ipc";
-  import { currentGalleryPath, galleryTitle } from "./stores";
+  import { currentGalleryPath, galleryTitle, lastReportedIndexingProgress } from "./stores";
   import { appName } from "./environments";
 
   //#region 내부 상태
@@ -86,15 +86,17 @@
   ];
 
   onMount(() => {
-    ipc.on("clickMenu", (event, id) => {
+    ipc.on("clickMenu", (_, id) => {
       if (id === "openPreference") {
         selectedTabId = fixedTabs.settings.id;
       }
     });
-    ipc.on("openGallery", (event, path, title) => {
-      $currentGalleryPath = path;
+    ipc.on("openGallery", (_, path) => {
+      currentGalleryPath.set(path);
     });
-    ipc.on("reportGalleryIndexingProgress", () => {});
+    ipc.on("reportGalleryIndexingProgress", (_, progress) => {
+      lastReportedIndexingProgress.set(progress);
+    });
   });
 </script>
 

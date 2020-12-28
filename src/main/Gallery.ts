@@ -446,7 +446,7 @@ export default class Gallery implements Disposable {
       path: galleryPath,
       models: { item: Item },
     } = this;
-    const { compareHash = true } = options;
+    const { compareHash = false } = options;
 
     // 기존에 인덱싱되어있던 모든 아이템 목록 얻기
     const existingItems = await Item.findAll({
@@ -515,10 +515,11 @@ export default class Gallery implements Disposable {
         isMtimeOrSizeDifferent || (compareHash && existingItem.hash !== fileHash);
       if (shouldBeUpdated) {
         // 업데이트할 데이터 준비
+        if (!fileHash) fileHash = await getFileHash(fullPath);
         const thumbnailFullPaths = buildThumbnailPathsForHash(galleryPath, fileHash);
         const updatingItem: Partial<Models.ItemAttributes> = {
           ...fileInfo,
-          hash: fileHash || (await getFileHash(fullPath)),
+          hash: fileHash,
           time: fileInfo.mtime,
           thumbnailPath: nodePath.relative(galleryPath, thumbnailFullPaths.image),
           lost: false,
