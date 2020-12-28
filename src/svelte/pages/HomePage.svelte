@@ -4,8 +4,8 @@
   import Folder16 from "carbon-icons-svelte/lib/Folder16";
   import Close16 from "carbon-icons-svelte/lib/Close16";
   import Debug16 from "carbon-icons-svelte/lib/Debug16";
-  import { ipc } from "../ipc";
-  import { currentGalleryPath, appRecentGalleryInfoList } from "../stores";
+  import { ipc, getGalleryConfig, getAllGalleryConfigs } from "../ipc";
+  import { currentGalleryPath, appRecentGalleryInfoList, galleryTitle } from "../stores";
   import { appName, appDescription, isDev } from "../environments";
   import GalleryCreationModal from "../components/modals/GalleryCreationModal.svelte";
   import GalleryChoiceModal from "../components/modals/GalleryChoiceModal.svelte";
@@ -19,10 +19,11 @@
    * @param path 갤러리의 경로
    * @returns 성공 여부 */
   async function openGallery(path: string) {
-    const title = await ipc.invoke("openGallery", path);
-    if (title) {
+    const isOpened = await ipc.invoke("openGallery", path);
+    if (isOpened) {
+      const { title, description } = await getAllGalleryConfigs();
+      appRecentGalleryInfoList.push({ path, title, description });
       $currentGalleryPath = path;
-      appRecentGalleryInfoList.push({ path, title });
       return true;
     } else {
       return false;

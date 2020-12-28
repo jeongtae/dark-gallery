@@ -18,12 +18,12 @@
   import {
     currentGalleryPath,
     galleryTitle,
+    galleryDescription,
     appColorTheme,
     appMaxRecentGalleryInfoListLength,
     lastReportedIndexingProgress,
   } from "../stores";
 
-  let galleryDescription = "동일한 효력을 범죄에 의하여 모든 시설기준과 국내법과 보장하기.";
 
   let indexingButtonKind: ButtonProps["kind"] = "primary";
   let indexingButtonDisabled = true;
@@ -96,7 +96,7 @@
     <page-tile>
       <h3>메타데이터</h3>
       <TextInput labelText="제목" bind:value={$galleryTitle} />
-      <TextArea labelText="설명" bind:value={galleryDescription} />
+      <TextArea labelText="설명" bind:value={$galleryDescription} />
     </page-tile>
   {/if}
   <h2>애플리케이션 설정</h2>

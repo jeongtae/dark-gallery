@@ -12,36 +12,7 @@
 import type { PascalCase, CamelCase } from "type-fest";
 import { throttle } from "lodash";
 import { writable, Writable } from "svelte/store";
-import { ipc, GalleryConfigs } from "../ipc";
-
-/** 현재 갤러리의 데이터베이스에서 모든 설정을 가져옵니다.
- * @returns 설정 모음객체
- */
-async function getAllGalleryConfigs(): Promise<GalleryConfigs> {
-  return await ipc.invoke("getAllGalleryConfigs");
-}
-
-// /** 현재 갤러리의 데이터베이스에서 설정을 가져옵니다.
-//  * @param key 설정 키
-//  * @returns 설정 값
-//  */
-// async function getGalleryConfig<K extends keyof GalleryConfigs>(
-//   key: K
-// ): Promise<GalleryConfigs[K]> {
-//   const value = await ipc.invoke("getGalleryConfig", key);
-//   return value as GalleryConfigs[K];
-// }
-
-/** 현재 갤러리의 데이터베이스에 설정을 저장합니다.
- * @param key 설정 키
- * @param value 설정 값
- */
-async function setGalleryConfig<K extends keyof GalleryConfigs>(
-  key: K,
-  value: GalleryConfigs[K]
-): Promise<void> {
-  await ipc.invoke("setGalleryConfig", key, value);
-}
+import { GalleryConfigs, getAllGalleryConfigs, setGalleryConfig } from "../ipc";
 
 export interface GalleryConfigWritable<T> extends Writable<T> {
   /** 스토어의 값을 변경하고, 설정에 따라 갤러리의 데이터베이스에 반영합니다. (기본: 반영함) */
@@ -113,9 +84,10 @@ const galleryStores: {
   >;
 } = {
   galleryTitle: galleryConfigWritable("title"),
+  galleryDescription: galleryConfigWritable("description"),
   galleryCreatedAt: galleryConfigWritable("createdAt"),
 };
-export const { galleryCreatedAt, galleryTitle } = galleryStores;
+export const { galleryTitle, galleryDescription, galleryCreatedAt } = galleryStores;
 
 export async function reloadAllGalleryConfigs() {
   Object.values(galleryStores).forEach(store => {

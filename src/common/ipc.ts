@@ -28,6 +28,8 @@ export interface GalleryPathInfo {
 export type GalleryConfigs = {
   /** 갤러리의 제목 */
   title: string;
+  /** 갤러리의 설명 */
+  description: string;
   /** 갤러리 생성일시 */
   createdAt: Date;
 };
@@ -55,7 +57,7 @@ export type IndexingProgress = {
 //#region IPC Events (Main -> Renderer)
 export type Events = {
   clickMenu: (id: MenuItemId) => void;
-  openGallery: (path: string, title: string) => void;
+  openGallery: (path: string) => void;
   reportGalleryIndexingProgress: (progress: IndexingProgress) => void;
 };
 //#endregion
@@ -83,9 +85,9 @@ export type Commands = {
   getGalleryPathInfo: (path: string) => GalleryPathInfo;
   /** 주어진 경로를 갤러리로 취급하고 엽니다. 갤러리가 아닌 폴더라도 열리며, 인덱싱 파일이 생성됩니다.
    * @param path 열 갤러리 디렉터리의 절대경로
-   * @returns 열린 갤러리의 제목
+   * @returns 성공 여부
    */
-  openGallery: (path: string) => string;
+  openGallery: (path: string) => boolean;
   /** 앱 메뉴의 활성화 상태를 변경합니다.
    * @param id 상태를 변경할 메뉴의 ID
    * @param enabled 활성화 상태

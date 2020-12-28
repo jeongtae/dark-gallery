@@ -37,8 +37,9 @@ export const appMaxRecentGalleryInfoListLength = localStorageWritable(
 
 /** 최근 연 갤러리에 대한 간략한 정보 */
 export interface RecentGalleryInfo {
-  title: string;
   path: string;
+  title: string;
+  description: string;
 }
 
 /** 최근 연 갤러리 정보 리스트 (FIFO) */

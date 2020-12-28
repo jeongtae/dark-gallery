@@ -104,9 +104,8 @@ export default class Main {
   async onWindowWebContentsDidFinishLoad(window: BrowserWindow) {
     const gallery = this.galleries[window.webContents.id];
     if (gallery) {
-      const title = await gallery.getConfig("title");
       const { path } = gallery;
-      sendEvent(window.webContents, "openGallery", path, title);
+      sendEvent(window.webContents, "openGallery", path);
     }
   }
   //#endregion
@@ -161,14 +160,13 @@ export default class Main {
       const gallery = new Gallery(path);
       try {
         await gallery.open();
-        const title = await gallery.getConfig("title");
         await this.galleries[sender.id]?.dispose();
         this.galleries[sender.id] = gallery;
-        return title;
+        return true;
       } catch {
         await gallery.dispose();
       }
-      return null;
+      return false;
     },
     setMenuEnabled: async (_, id, enabled) => {
       // TODO: 윈도우 id별로 상태 저장하고, 윈도우 focus될 때 메뉴에 적용시키는 매커니즘이 필요하다.
