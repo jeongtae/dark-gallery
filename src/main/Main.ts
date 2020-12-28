@@ -56,7 +56,7 @@ export default class Main {
   /** 새 윈도우를 생성합니다. */
   private createWindow() {
     const window = createWindow();
-    window.on("closed", async () => await this.onWindowClosed(window));
+    window.on("closed", async () => await this.onWindowClosed(window.webContents.id));
     window.webContents.on("did-finish-load", () => this.onWindowWebContentsDidFinishLoad(window));
     return window;
   }
@@ -97,9 +97,9 @@ export default class Main {
   //#endregion
 
   //#region 일렉트론 BrowserWindow의 이벤트 핸들러
-  async onWindowClosed(window: BrowserWindow) {
-    await this.galleries[window.webContents.id]?.dispose();
-    delete this.galleries[window.webContents.id];
+  async onWindowClosed(webContentsId: number) {
+    await this.galleries[webContentsId]?.dispose();
+    delete this.galleries[webContentsId];
   }
   async onWindowWebContentsDidFinishLoad(window: BrowserWindow) {
     const gallery = this.galleries[window.webContents.id];
