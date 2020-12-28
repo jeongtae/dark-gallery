@@ -278,11 +278,9 @@ export default class Gallery implements Disposable {
    */
   async setConfig<K extends keyof GalleryConfigs>(key: K, value: GalleryConfigs[K]) {
     const { config: Config } = this.models;
-    const existingRow = await Config.findByPk(key);
     const jsonValue = JSON.stringify(value);
-    if (existingRow) {
-      await Config.update({ value: jsonValue }, { where: { key } });
-    } else {
+    const [affectedCount] = await Config.update({ value: jsonValue }, { where: { key } });
+    if (affectedCount === 0) {
       await Config.create({ key, value: jsonValue });
     }
   }
@@ -429,7 +427,8 @@ export default class Gallery implements Disposable {
     // 새로 생성하는 갤러리면 Sequelize 객체를 Sync 호출하고 데이터베이스에 기본설정값 입력
     if (isNew) {
       await sequelize.sync();
-      const { title, createdAt } = this.defaultConfigs;
+      const { title } = this.defaultConfigs;
+      const createdAt = new Date();
       await this.setConfig("title", title);
       await this.setConfig("createdAt", createdAt);
     }
