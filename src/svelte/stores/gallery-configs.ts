@@ -2,7 +2,7 @@
  * @fileoverview 갤러리 데이터베이스에 저장되는 스토어 모음입니다.
  * 스토어 모음의 구성은 IPC에 기술된 `GalleryConfigs`에 의존합니다.
  * 모든 스토어의 타입은 동일합니다. (`GalleryConfigWritable<T>`)
- * 스토어에 변경을 가하면 현재 열린 갤러리 데이터베이스에 주기적으로 반영됩니다.
+ * 스토어에 변경을 가하면 현재 열린 갤러리 데이터베이스에 주기적으로 반영됩니다. (설정 필요)
  * 연속적으로 변경을 가하면서 마지막 변경 직후에 앱을 종료하거나 갤러리를 변경하면,
  *   변경사항이 갤러리 데이터베이스에 반영되지 않을 수 있습니다.
  * 데이터베이스에 반영하지 않고 스토어 값을 변경하려면, `set` 대신 `setWithoutReflection` 메서드를 호출하세요.
@@ -15,9 +15,9 @@ import { writable, Writable } from "svelte/store";
 import { GalleryConfigs, getAllGalleryConfigs, setGalleryConfig } from "../ipc";
 
 export interface GalleryConfigWritable<T> extends Writable<T> {
-  /** 스토어의 값을 변경하고, 설정에 따라 갤러리의 데이터베이스에 반영합니다. (기본: 반영함) */
+  /** 스토어의 값을 변경하고, 설정에 따라 갤러리의 데이터베이스에 반영합니다. (기본: 반영 안 함) */
   set(value: T): void;
-  /** 스토어의 값을 변경하고, 설정에 따라 갤러리의 데이터베이스에 반영합니다. (기본: 반영함) */
+  /** 스토어의 값을 변경하고, 설정에 따라 갤러리의 데이터베이스에 반영합니다. (기본: 반영 안 함) */
   update(updater: (value: T) => T): void;
   /** 스토어의 값을 변경하기만 하고, 갤러리의 데이터베이스에 반영하지는 않습니다. */
   setWithoutReflection(value: T): void;
@@ -39,7 +39,7 @@ function galleryConfigWritable<K extends keyof GalleryConfigs>(
     1000
   );
   const store = writable<any>(null);
-  let isReflectionEnabled = true;
+  let isReflectionEnabled = false;
   return {
     ...store,
     set(value) {
