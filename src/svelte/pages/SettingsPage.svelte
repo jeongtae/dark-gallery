@@ -22,8 +22,8 @@
     appColorTheme,
     appMaxRecentGalleryInfoListLength,
     lastReportedIndexingProgress,
+    appRecentGalleryInfoList,
   } from "../stores";
-
 
   let indexingButtonKind: ButtonProps["kind"] = "primary";
   let indexingButtonDisabled = true;
@@ -61,6 +61,12 @@
         aborted: "중단됨",
       })[phase] ?? "";
   }
+
+  $: appRecentGalleryInfoList.updateOne({
+    path: $currentGalleryPath,
+    title: $galleryTitle,
+    description: $galleryDescription,
+  });
 
   function startIndexing() {
     ipc.invoke("startGalleryIndexing", isPreciseIndexingEnabled);

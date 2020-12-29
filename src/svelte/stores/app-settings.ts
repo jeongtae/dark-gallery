@@ -54,8 +54,8 @@ export const appRecentGalleryInfoList = (function () {
   });
   return {
     ...store,
-    /** 스토어에 갤러리 정보 하나를 푸시합니다. */
-    push(info) {
+    /** 스토어의 목록에 갤러리 정보 하나를 푸시합니다. */
+    push(info: RecentGalleryInfo) {
       store.update(list => {
         const idx = list.findIndex(li => li.path === info.path);
         if (idx >= 0) {
@@ -68,7 +68,17 @@ export const appRecentGalleryInfoList = (function () {
         return list;
       });
     },
-  } as typeof store & { push(info: RecentGalleryInfo): void };
+    /** 스토어의 목록에서 하나를 찾아 수정합니다. */
+    updateOne(info: RecentGalleryInfo) {
+      store.update(list => {
+        const li = list.find(li => li.path === info.path);
+        if (li) {
+          Object.assign(li, info);
+        }
+        return list;
+      });
+    },
+  };
 })();
 
 //#endregion
