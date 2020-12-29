@@ -18,6 +18,7 @@
   import type { Tab, FixedTab, FluidTab } from "./components/TabBar.svelte";
   import { ipc } from "./ipc";
   import {
+    appColorThemeCalculated,
     currentGalleryPath,
     galleryTitle,
     galleryTitleFallback,
@@ -74,6 +75,8 @@
       document.title = main;
     }
   }
+
+  $: document.documentElement.setAttribute("theme", $appColorThemeCalculated);
 
   //#endregion
 

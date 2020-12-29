@@ -1,6 +1,7 @@
 import { path as nodePath } from "../node";
 import { writable, readable } from "svelte/store";
 import type { IndexingProgress } from "../ipc";
+import { appColorThemeDefault, appColorTheme } from "./app-settings";
 import { reloadAllGalleryConfigs } from "./gallery-configs";
 
 export * from "./app-settings";
@@ -16,6 +17,37 @@ export const galleryTitleFallback = readable<string>(null, set => {
     set(nodePath.basename(galleryPath ?? ""));
   });
   return unsubscribe;
+});
+
+/** 앱 색상 테마의 계산된 결과 (자동으로 설정한 것도 대응)  */
+export const appColorThemeCalculated = readable<"dark" | "light">(appColorThemeDefault, set => {
+  let isAutoMode = false;
+  const darkModeMediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  function setToMediaQueryResult() {
+    if (isAutoMode) {
+      set(darkModeMediaQuery.matches ? "dark" : "light");
+    }
+  }
+  darkModeMediaQuery.addEventListener("change", setToMediaQueryResult);
+  const unsubscribe = appColorTheme.subscribe(colorTheme => {
+    switch (colorTheme) {
+      case "dark":
+        isAutoMode = false;
+        set("dark");
+        break;
+      case "light":
+        isAutoMode = false;
+        set("light");
+        break;
+      default:
+        isAutoMode = true;
+        setToMediaQueryResult();
+    }
+  });
+  return () => {
+    darkModeMediaQuery.removeEventListener("change", setToMediaQueryResult);
+    unsubscribe();
+  };
 });
 
 /** 마지막으로 보고된 인덱싱 진행 상태 */
