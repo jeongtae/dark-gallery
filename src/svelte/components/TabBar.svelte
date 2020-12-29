@@ -178,21 +178,7 @@
 </tb-container>
 
 <style lang="scss">
-  @import "open-color/open-color";
-
-  @mixin shadow-border($color: $oc-gray-0) {
-    box-shadow: 0 0 0 2px $color inset;
-  }
-
-  @mixin transition($props...) {
-    $transition-properties: ();
-    @each $prop in $props {
-      $transition-properties: append($transition-properties, $prop, comma);
-    }
-    transition-property: $transition-properties;
-    transition-duration: 70ms;
-    transition-timing-function: ease-in-out;
-  }
+  @import "../utils";
 
   button {
     @include transition(box-shadow, color);
