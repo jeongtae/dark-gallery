@@ -56,7 +56,8 @@ export default class Main {
   /** 새 윈도우를 생성합니다. */
   private createWindow() {
     const window = createWindow();
-    window.on("closed", async () => await this.onWindowClosed(window.webContents.id));
+    const webContentsId = window.webContents.id;
+    window.on("closed", async () => await this.onWindowClosed(webContentsId));
     window.webContents.on("did-finish-load", () => this.onWindowWebContentsDidFinishLoad(window));
     return window;
   }
