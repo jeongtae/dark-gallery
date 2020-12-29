@@ -4,7 +4,7 @@
 
   Variables below should coplied to `src/svelte/carbon.scss`
     :root[theme="g100"] -> :root[theme="dark"]
-    :root -> :root[theme="light"]
+    :root[theme="g10"] -> :root[theme="light"]
   
   Try to find var\([^,]+\) as regex. There is no results so it does not need to copy :root.
 */
