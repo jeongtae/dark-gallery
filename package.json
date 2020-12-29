@@ -47,7 +47,7 @@
     "@types/lodash": "^4.14.165",
     "@types/rimraf": "^3.0.0",
     "@types/sharp": "^0.26.1",
-    "carbon-components-svelte": "^0.26.0",
+    "carbon-components-svelte": "0.26.0",
     "carbon-icons-svelte": "^10.21.0",
     "electron": "^11.1.0",
     "electron-packager-languages": "^0.4.0",
