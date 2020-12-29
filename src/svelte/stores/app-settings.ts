@@ -8,27 +8,26 @@ function camelToKebab(text: string) {
 //#region Color Theme 스토어
 
 /** 앱 색상 테마 */
-export enum ColorTheme {
-  Dark,
-  Light,
-  Auto,
-}
+export type ColorTheme = "dark" | "light" | "auto";
 
-export const colorThemeDefault = ColorTheme.Dark;
+export const appColorThemeDefault = "dark";
 
 /** 앱 색상 테마 */
-export const appColorTheme = localStorageWritable(camelToKebab("colorTheme"), colorThemeDefault);
+export const appColorTheme = localStorageWritable<ColorTheme>(
+  camelToKebab("colorTheme"),
+  appColorThemeDefault
+);
 
 //#endregion
 
 //#region Max Recent Gallery Info List Length 스토어
 
-export const maxRecentGalleryInfoListLengthDefault = 5;
+export const appMaxRecentGalleryInfoListLengthDefault = 5;
 
 /** 최근 연 갤러리 정보를 기억할 최대 개수 */
 export const appMaxRecentGalleryInfoListLength = localStorageWritable(
   camelToKebab("maxRecentGalleryInfoListLength"),
-  maxRecentGalleryInfoListLengthDefault
+  appMaxRecentGalleryInfoListLengthDefault
 );
 
 //#endregion
@@ -48,7 +47,7 @@ export const appRecentGalleryInfoList = (function () {
     camelToKebab("recentGalleryInfoList"),
     [] as RecentGalleryInfo[]
   );
-  let maxLength = maxRecentGalleryInfoListLengthDefault;
+  let maxLength = appMaxRecentGalleryInfoListLengthDefault;
   appMaxRecentGalleryInfoListLength.subscribe(newMaxLength => {
     maxLength = newMaxLength;
   });

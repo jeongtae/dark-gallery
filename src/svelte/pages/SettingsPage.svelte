@@ -12,6 +12,7 @@
     TextArea,
   } from "carbon-components-svelte";
   import type { ButtonProps } from "carbon-components-svelte/types/Button/Button";
+  import type { DropdownItem } from "carbon-components-svelte/types/Dropdown/Dropdown";
   import type { InlineLoadingProps } from "carbon-components-svelte/types/InlineLoading/InlineLoading";
   import { appName } from "../environments";
   import { ipc } from "../ipc";
@@ -25,6 +26,22 @@
     lastReportedIndexingProgress,
     appRecentGalleryInfoList,
   } from "../stores";
+  import type { ColorTheme } from "../stores";
+
+  type ColorThemeDropdownItem = DropdownItem & { id: ColorTheme; text: string };
+  const colorThemeDropdownItems: ColorThemeDropdownItem[] = [
+    { id: "dark", text: "다크" },
+    { id: "light", text: "라이트" },
+    { id: "auto", text: "자동 (시스템 설정에 따름)" },
+  ];
+  const colorThemeDropdownSelectedIndex = colorThemeDropdownItems.findIndex(
+    item => item.id === $appColorTheme
+  );
+  function handleColorThemeDropdownSelect(
+    event: CustomEvent<{ selectedItem: ColorThemeDropdownItem }>
+  ) {
+    $appColorTheme = event.detail.selectedItem.id;
+  }
 
   let indexingButtonKind: ButtonProps["kind"] = "primary";
   let indexingButtonDisabled = true;
@@ -111,11 +128,9 @@
   <page-tile>
     <h3>색상 테마</h3>
     <Dropdown
-      bind:selectedIndex={$appColorTheme}
-      items={['다크', '라이트', '자동 (시스템 설정에 따름)'].map((text, id) => ({
-        text,
-        id: id.toString(),
-      }))}
+      items={colorThemeDropdownItems}
+      selectedIndex={colorThemeDropdownSelectedIndex}
+      on:select={handleColorThemeDropdownSelect}
     />
   </page-tile>
   <page-tile>
