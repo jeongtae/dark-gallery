@@ -18,6 +18,7 @@
   import {
     currentGalleryPath,
     galleryTitle,
+    galleryTitleFallback,
     galleryDescription,
     appColorTheme,
     appMaxRecentGalleryInfoListLength,
@@ -79,7 +80,7 @@
 <page-container>
   <h1>설정</h1>
   {#if $currentGalleryPath}
-    <h2>{$galleryTitle} 설정</h2>
+    <h2>{$galleryTitle || $galleryTitleFallback} 설정</h2>
     <p>현재 열려있는 갤러리에 대한 설정입니다.</p>
     <page-tile>
       <h3>파일 인덱싱</h3>
@@ -101,7 +102,7 @@
     </page-tile>
     <page-tile>
       <h3>메타데이터</h3>
-      <TextInput labelText="제목" bind:value={$galleryTitle} />
+      <TextInput labelText="제목" placeholder={$galleryTitleFallback} bind:value={$galleryTitle} />
       <TextArea labelText="설명" bind:value={$galleryDescription} />
     </page-tile>
   {/if}

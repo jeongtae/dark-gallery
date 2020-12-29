@@ -1,11 +1,12 @@
 <script lang="ts">
+  import { path as nodePath } from "../node";
   import { Button, Loading, OverflowMenu, OverflowMenuItem } from "carbon-components-svelte";
   import Add16 from "carbon-icons-svelte/lib/Add16";
   import Folder16 from "carbon-icons-svelte/lib/Folder16";
   import Close16 from "carbon-icons-svelte/lib/Close16";
   import Debug16 from "carbon-icons-svelte/lib/Debug16";
-  import { ipc, getGalleryConfig, getAllGalleryConfigs } from "../ipc";
-  import { currentGalleryPath, appRecentGalleryInfoList, galleryTitle } from "../stores";
+  import { ipc, getAllGalleryConfigs } from "../ipc";
+  import { currentGalleryPath, appRecentGalleryInfoList } from "../stores";
   import { appName, appDescription, isDev } from "../environments";
   import GalleryCreationModal from "../components/modals/GalleryCreationModal.svelte";
   import GalleryChoiceModal from "../components/modals/GalleryChoiceModal.svelte";
@@ -126,7 +127,7 @@
               on:click={handleClickRecentGallery}
               data-path={info.path}
             >
-              {info.title}
+              {info.title || nodePath.basename(info.path)}
             </Button>
           </page-primary-button-wrapper>
           <span class="path">{info.path}</span>

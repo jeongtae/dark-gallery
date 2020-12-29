@@ -21,7 +21,10 @@ import {
 
 const IMAGE_EXTENSIONS: readonly string[] = ["jpg", "jpeg", "gif", "png", "bmp", "webp"];
 const VIDEO_EXTENSIONS: readonly string[] = ["webm", "mp4", "mov", "avi"];
-const DEFAULT_CONFIGS: Readonly<GalleryConfigs> = { title: "Untitled", createdAt: new Date(0) };
+const DEFAULT_CONFIGS: Readonly<GalleryConfigs> = {
+  title: "",
+  createdAt: new Date(0),
+};
 
 /** 갤러리 인덱싱 폴더의 절대경로를 얻습니다.
  * @param galleryPath 갤러리의 절대경로
@@ -222,7 +225,6 @@ export default class Gallery implements Disposable {
   /** 기본 설정 객체 */
   private readonly defaultConfigs: Readonly<GalleryConfigs> = {
     ...DEFAULT_CONFIGS,
-    title: nodePath.basename(this.path) || DEFAULT_CONFIGS.title,
   };
 
   /** Sequelize 인스턴스가 생성되었는지 여부 (데이터베이스 연결 여부) */
