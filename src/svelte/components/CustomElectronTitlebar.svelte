@@ -2,11 +2,14 @@
   const { Titlebar, Color } = require("custom-electron-titlebar");
   import { onMount } from "svelte";
 
-  export let color: string = "#fff";
+  export let colorHex: string = "#fff";
+
+  let titlebar: InstanceType<typeof Titlebar>;
+  $: titlebar?.updateBackground(Color.fromHex(colorHex));
 
   onMount(() => {
-    const titlebar = new Titlebar({
-      backgroundColor: Color.fromHex(color),
+    titlebar = new Titlebar({
+      backgroundColor: Color.fromHex(colorHex),
     });
     const observer = new MutationObserver(records => {
       titlebar.updateTitle();

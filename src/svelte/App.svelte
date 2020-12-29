@@ -111,7 +111,7 @@
 <svelte:head>
   <title>{appName}</title>
 </svelte:head>
-<CustomElectronTitlebar color={oc.gray[9]} />
+<CustomElectronTitlebar colorHex={$appColorThemeCalculated === 'dark' ? oc.gray[9] : oc.gray[2]} />
 <app-container>
   <TabBar {leftFixedTab} {rightFixedTab} bind:centerFluidTabs bind:selectedTabId />
   <app-page-switcher>
