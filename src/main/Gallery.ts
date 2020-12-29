@@ -23,6 +23,7 @@ const IMAGE_EXTENSIONS: readonly string[] = ["jpg", "jpeg", "gif", "png", "bmp",
 const VIDEO_EXTENSIONS: readonly string[] = ["webm", "mp4", "mov", "avi"];
 const DEFAULT_CONFIGS: Readonly<GalleryConfigs> = {
   title: "",
+  description: "",
   createdAt: new Date(0),
 };
 
