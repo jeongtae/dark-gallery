@@ -26,9 +26,10 @@ export async function getAllChildFilePaths(
   basePath: string,
   options: GetAllChildFilePathsOptions = {}
 ) {
-  const { ignoreDirectories, ignoreFiles, acceptingExtensions } = options;
-  const result: string[] = [];
+  let { ignoreDirectories, ignoreFiles, acceptingExtensions } = options;
+  acceptingExtensions = acceptingExtensions?.map(ext => ext.toLowerCase());
 
+  const result: string[] = [];
   const walk = async (relativeDirectoryPath: string) => {
     const absoluteDirectoryPath = path.join(basePath, relativeDirectoryPath);
     const dirents = await fs.promises.readdir(absoluteDirectoryPath, { withFileTypes: true });
