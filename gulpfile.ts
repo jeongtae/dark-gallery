@@ -36,18 +36,27 @@ export function watchPublic() {
 const mainTypeScripProject = typescript.createProject("src/main/tsconfig.json");
 const mainSource = "src/main/**/*";
 export function buildMain() {
-  return src(mainSource + ".ts")
+  return src([`${mainSource}.ts`, `!${mainSource}.test.ts`])
     .pipe(mainTypeScripProject())
     .pipe(uglify())
     .pipe(dest("dist/main"));
 }
 export function devMain() {
-  return src(mainSource + ".ts")
+  return src([`${mainSource}.ts`, `!${mainSource}.test.ts`])
     .pipe(sourcemaps.init())
     .pipe(mainTypeScripProject())
     .pipe(sourcemaps.write("."))
     .pipe(dest("dist/main"));
 }
 export function watchMain() {
-  watch("src/main/**/*", devMain);
+  watch(
+    [
+      `${mainSource}.ts`,
+      `!${mainSource}.test.ts`,
+      `${mainSource}.json`,
+      `${mainSource}.js`,
+      `!${mainSource}.test.js`,
+    ],
+    devMain
+  );
 }

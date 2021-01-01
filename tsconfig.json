@@ -1,5 +1,9 @@
 /* This is the TypeScript config file for Gulp */
 {
   "exclude": ["src"],
-  "compilerOptions": { "esModuleInterop": true }
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "lib": ["es2020.string"],
+    "downlevelIteration": true
+  }
 }
