@@ -139,9 +139,13 @@ export default class Main {
   //#region IPC 이벤트 핸들러
   /** IPC 이벤트 핸들러 모음객체 */
   private ipcHandlers: IpcHandlers = {
-    getDevGalleryPath: () => (isDev ? DEV_GALLERY_PATH : null),
-    resetDevGallery: () => (isDev ? Gallery.resetGallery(DEV_GALLERY_PATH) : false),
-    openDirectoryPickingDialog: async ({ sender }, { title, buttonLabel } = {}) => {
+    getDevGalleryPath() {
+      return isDev ? DEV_GALLERY_PATH : null;
+    },
+    resetDevGallery() {
+      return isDev ? Gallery.resetGallery(DEV_GALLERY_PATH) : false;
+    },
+    async openDirectoryPickingDialog({ sender }, { title, buttonLabel } = {}) {
       const window = BrowserWindow.fromWebContents(sender);
       const result = await dialog.showOpenDialog(window, {
         properties: ["openDirectory"],
@@ -156,8 +160,10 @@ export default class Main {
         return null;
       }
     },
-    getGalleryPathInfo: async (_, path) => await Gallery.getGalleryPathInfo(path),
-    openGallery: async ({ sender }, path) => {
+    async getGalleryPathInfo(_, path) {
+      return await Gallery.getGalleryPathInfo(path);
+    },
+    async openGallery(this: Main, { sender }, path) {
       const gallery = new Gallery(path);
       try {
         await gallery.open();
@@ -169,7 +175,7 @@ export default class Main {
       }
       return false;
     },
-    setMenuEnabled: async (_, id, enabled) => {
+    async setMenuEnabled(_, id, enabled) {
       // TODO: 윈도우 id별로 상태 저장하고, 윈도우 focus될 때 메뉴에 적용시키는 매커니즘이 필요하다.
       setMenuItemEnabled(id, enabled);
     },
@@ -183,7 +189,7 @@ export default class Main {
         //
       })();
     },
-    startGalleryIndexing: async ({ sender }, compareHash = false) => {
+    async startGalleryIndexing(this: Main, { sender }, compareHash = false) {
       const sendProgressReport = (progress: IndexingProgress) =>
         sendEvent(sender, "reportGalleryIndexingProgress", progress);
       const sendProgressReportThrottled = throttle(sendProgressReport, 500, { trailing: false });
@@ -241,24 +247,24 @@ export default class Main {
         newlyLostList,
       });
     },
-    abortGalleryIndexing: async ({ sender }) => {
+    async abortGalleryIndexing({ sender }) {
       // TODO: 구현하기
     },
-    getItems: async ({ sender }) => {
+    async getItems(this: Main, { sender }) {
       const {
         models: { item: Item },
       } = this.galleries[sender.id];
       return Item.findAll({ raw: true });
     },
-    getAllGalleryConfigs: async ({ sender }) => {
+    async getAllGalleryConfigs(this: Main, { sender }) {
       const gallery = this.galleries[sender.id];
       return (await gallery?.getAllConfigs()) ?? null;
     },
-    getGalleryConfig: async ({ sender }, key) => {
+    async getGalleryConfig(this: Main, { sender }, key) {
       const gallery = this.galleries[sender.id];
       return (await gallery?.getConfig(key)) ?? null;
     },
-    setGalleryConfig: async ({ sender }, key, value) => {
+    async setGalleryConfig(this: Main, { sender }, key, value) {
       const gallery = this.galleries[sender.id];
       await gallery?.setConfig(key, value);
     },
