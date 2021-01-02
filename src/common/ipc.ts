@@ -32,6 +32,10 @@ export type GalleryConfigs = {
   description: string;
   /** 갤러리 생성일시 */
   createdAt: Date;
+  /** 이미지 파일 확장자 리스트 */
+  imageExtensions: string[];
+  /** 비디오 파일 확장자 리스트 */
+  videoExtensions: string[];
 };
 export type IndexingProgress = {
   /** 인덱싱 단계

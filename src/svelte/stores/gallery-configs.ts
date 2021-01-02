@@ -86,6 +86,8 @@ const galleryStores: {
   galleryTitle: galleryConfigWritable("title"),
   galleryDescription: galleryConfigWritable("description"),
   galleryCreatedAt: galleryConfigWritable("createdAt"),
+  galleryImageExtensions: galleryConfigWritable("imageExtensions"),
+  galleryVideoExtensions: galleryConfigWritable("videoExtensions"),
 };
 export const { galleryTitle, galleryDescription, galleryCreatedAt } = galleryStores;
 

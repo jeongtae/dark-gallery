@@ -28,6 +28,8 @@ const DEFAULT_CONFIGS: Readonly<GalleryConfigs> = {
   title: "",
   description: "",
   createdAt: new Date(0),
+  imageExtensions: ["jpg", "jpeg", "gif", "png", "bmp", "webp"],
+  videoExtensions: ["webm", "mp4", "mov", "avi"],
 };
 
 /** 갤러리 인덱싱 폴더의 절대경로를 얻습니다.
@@ -646,30 +648,37 @@ export default class Gallery implements Disposable {
       models: { item: Item },
     } = this;
 
+    const imageExtensions = await this.getConfig("imageExtensions");
+    const videoExtensions = await this.getConfig("videoExtensions");
+
     let fetchedDirectory = null;
     let fetchedItemsInDirectory: Pick<RawItem, "filename">[];
 
     const generator = generateAllChildFilePaths(galleryPath, {
       ignoreDirectories: [INDEXING_DIRNAME],
-      acceptingExtensions: union(IMAGE_EXTENSIONS, VIDEO_EXTENSIONS),
+      acceptingExtensions: union(imageExtensions, videoExtensions),
     });
     for await (const relativeFilePath of generator) {
       const directory = nodePath.join(relativeFilePath, "..");
       const filename = nodePath.basename(relativeFilePath);
+      const extension = nodePath.extname(filename).toLowerCase().slice(1);
+      const hasImageExtension = imageExtensions.includes(extension);
+      const hasVideoExtension = videoExtensions.includes(extension);
+      if (!hasImageExtension && !hasVideoExtension) {
+        continue;
+      }
       if (fetchedDirectory !== directory) {
         fetchedDirectory = directory;
         fetchedItemsInDirectory = await Item.findAll({
           attributes: ["filename"],
           where: { directory: fetchedDirectory },
+          raw: true,
         });
       }
-      if (fetchedItemsInDirectory.find(item => item.filename === filename) === null) {
+      if (fetchedItemsInDirectory.find(item => item.filename === filename)) {
         continue;
       }
-      let type: Models.Item["type"];
-      if (checkPathIsImage(filename)) type = "IMG";
-      else if (checkPathIsVideo(filename)) type = "VID";
-      else continue;
+      let type: Models.Item["type"] = hasImageExtension ? "IMG" : "VID";
       const fullFilePath = nodePath.join(galleryPath, relativeFilePath);
       const fileInfo = await getFileInfo(fullFilePath);
       const hash = await getFileHash(fullFilePath);
