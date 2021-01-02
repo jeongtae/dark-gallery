@@ -43,14 +43,6 @@ function defineModels(sequelize: Sequelize) {
 
     title: DataTypes.TEXT,
 
-    path: {
-      type: DataTypes.VIRTUAL,
-      get() {
-        let directory = this.getDataValue("directory").replace("/", path.sep);
-        let filename = this.getDataValue("filename");
-        return path.join(directory, filename);
-      },
-    },
     directory: {
       type: DataTypes.STRING(1024),
       allowNull: false,
