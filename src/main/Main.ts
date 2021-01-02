@@ -179,6 +179,15 @@ export default class Main {
       // TODO: 윈도우 id별로 상태 저장하고, 윈도우 focus될 때 메뉴에 적용시키는 매커니즘이 필요하다.
       setMenuItemEnabled(id, enabled);
     },
+    startIndexingForAllExistingItems(this: Main, { sender }) {
+      (async () => {
+        const gallery = this.galleries[sender.id];
+        const generator = gallery.generateIndexingSequenceForExistingItems();
+        for await (const step of generator) {
+          console.log(step);
+        }
+      })();
+    },
     startIndexingForNewFiles(this: Main, { sender }) {
       (async () => {
         const gallery = this.galleries[sender.id];
@@ -189,67 +198,11 @@ export default class Main {
         //
       })();
     },
-    async startGalleryIndexing(this: Main, { sender }, compareHash = false) {
-      const sendProgressReport = (progress: IndexingProgress) =>
-        sendEvent(sender, "reportGalleryIndexingProgress", progress);
-      const sendProgressReportThrottled = throttle(sendProgressReport, 500, { trailing: false });
 
-      // 준비중 보고
-      let newlyLostList: string[] = [];
-      let errorList: string[] = [];
-      await sendProgressReport({
-        phase: "started",
-        totalCount: 0,
-        leftCount: 0,
-        newlyLostList,
-        errorList,
-      });
 
-      const gallery = this.galleries[sender.id];
-      const generator = gallery.generateIndexingSequence({ compareHash });
-      const indexingStepFirst = (await generator.next()).value as IndexingStep;
 
-      // 시작보고
-      await sendProgressReport({
-        phase: "processing",
-        totalCount: indexingStepFirst.total,
-        leftCount: indexingStepFirst.total,
-        newlyLostList,
-        errorList,
-      });
 
-      // 본격 인덱싱하며 계속 중간보고
-      for await (const step of generator) {
-        const { result, path } = step.processed;
-        switch (result) {
-          case "newlyLost":
-            newlyLostList.push(path);
-            break;
-          case "error":
-            errorList.push(path);
-            break;
-        }
-        await sendProgressReportThrottled({
-          phase: "processing",
-          totalCount: step.total,
-          leftCount: step.left,
-          newlyLostList,
-          errorList,
-        });
-      }
 
-      // 완료 보고
-      await sendProgressReport({
-        phase: "ended",
-        totalCount: indexingStepFirst.total,
-        leftCount: 0,
-        errorList,
-        newlyLostList,
-      });
-    },
-    async abortGalleryIndexing({ sender }) {
-      // TODO: 구현하기
-    },
     async getItems(this: Main, { sender }) {
       const {
         models: { item: Item },

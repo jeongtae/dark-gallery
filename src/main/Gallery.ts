@@ -1,25 +1,25 @@
-import nodePath from "path";
 import nodeFs from "fs";
-import { promisify } from "util";
+import { cloneDeep, difference, union } from "lodash";
+import nodePath from "path";
 import rimraf from "rimraf";
-import { difference, union, cloneDeep } from "lodash";
+import { Op, Sequelize } from "sequelize";
 import type { PromiseValue } from "type-fest";
-import { createSequelize, Models, Sequelize } from "./sequelize";
-import { GalleryPathInfo, GalleryConfigs } from "./ipc";
+import { promisify } from "util";
+import { RawItem } from "../common/sequelize";
 import {
+  generateAllChildFileRelativePaths,
   getAllChildFilePaths,
   getFileHash,
   getFileInfo,
   getImageInfo,
-  getVideoInfo,
   getResizedImageSize,
-  writeResizedWebpImageFileOfImageFile,
   getResizedWebpImageBufferOfImageFile,
+  getVideoInfo,
+  writeResizedWebpImageFileOfImageFile,
   writeResizedWebpImageFileOfVideoFile,
-  writeResizedPreviewVideoFileOfVideoFile,
-  generateAllChildFileRelativePaths,
 } from "./indexing";
-import { RawItem } from "../common/sequelize";
+import { GalleryConfigs, GalleryPathInfo } from "./ipc";
+import { createSequelize, Models } from "./sequelize";
 
 const INDEXING_DIRNAME = ".darkgallery";
 const IMAGE_EXTENSIONS: readonly string[] = ["jpg", "jpeg", "gif", "png", "bmp", "webp"];
@@ -641,7 +641,143 @@ export default class Gallery implements Disposable {
   }
 
   // async indexForExistingOne() {}
-  // async *generateIndexingSequenceForExistingItems() {}
+  // TODO: lost였다가 찾은 경우??
+  async *generateIndexingSequenceForExistingItems() {
+    const {
+      path: galleryPath,
+      models: { item: Item },
+    } = this;
+
+    const totalCount = await Item.count();
+    let leftCount = totalCount;
+
+    let lastId = 0;
+    let lastResultCount = 0;
+    do {
+      const items = await Item.findAll({
+        attributes: [
+          "id",
+          "directory",
+          "filename",
+          "mtime",
+          "size",
+          "hash",
+          "lost",
+          "thumbnailPath",
+          "previewVideoPath",
+        ],
+        order: Sequelize.col("id"),
+        where: {
+          id: { [Op.gt]: lastId },
+        },
+        limit: 1000,
+        raw: true,
+      });
+      lastId = items[items.length - 1]?.id;
+      lastResultCount = items.length;
+      for (const item of items) {
+        leftCount -= 1;
+        const fullFilePath = nodePath.join(galleryPath, item.directory, item.filename);
+        let fileInfo: PromiseValue<ReturnType<typeof getFileInfo>>;
+        try {
+          fileInfo = await getFileInfo(fullFilePath);
+        } catch (error) {
+          if (error.code === "ENOENT") {
+            // 파일이 없음
+            if (item.lost) {
+              // 원래 없음
+              // yield { total, left, processed: { path, result: "keepLost" } };
+              yield "LOST AGAIN";
+            } else {
+              // 이번에 갑자기 없음
+              await Item.update({ lost: true }, { where: { id: item.id } });
+              // yield { total, left, processed: { path, result: "newlyLost" } };
+              yield "LOST SUDDENLY";
+            }
+          } else {
+            // 예기치 못한 오류
+            // yield {
+            //   total,
+            //   left,
+            //   processed: { path, result: "error", errorMessage: error.toString() },
+            // };
+            yield "ERROR";
+          }
+          continue;
+        }
+        const isMtimeOrSizeDifferent = item.mtime !== fileInfo.mtime || item.size !== fileInfo.size;
+        if (!isMtimeOrSizeDifferent) {
+          // 업데이트 필요없음
+          continue;
+        }
+        const fileHash = await getFileHash(fullFilePath);
+        const shouldBeUpdated = item.hash !== fileHash;
+        if (!shouldBeUpdated) {
+          // 업데이트 필요없음
+          yield "NOUP";
+          continue;
+        }
+        // TODO: 업데이트하기
+        const thumbnailFullPaths = buildThumbnailPathsForHash(galleryPath, fileHash);
+        const updatingItem: Partial<Models.ItemAttributes> = {
+          ...fileInfo,
+          hash: fileHash,
+          time: fileInfo.mtime,
+          thumbnailPath: nodePath.relative(galleryPath, thumbnailFullPaths.image),
+          lost: false,
+        };
+        if (!nodeFs.existsSync(thumbnailFullPaths.directory)) {
+          await nodeFs.promises.mkdir(thumbnailFullPaths.directory, { recursive: true });
+        }
+        // 새로운 썸네일 생성 및 메타데이터의 시간 할당
+        try {
+          switch (item.type) {
+            case "IMG":
+              const imageIndexingData = await processImageIndexing(
+                fullFilePath,
+                thumbnailFullPaths.image
+              );
+              // if (imageIndexingData.time) imageIndexingData.time = imageIndexingData.time;
+              Object.assign(updatingItem, imageIndexingData);
+              break;
+            case "VID":
+              const videoIndexingData = await processVideoIndexing(
+                fullFilePath,
+                thumbnailFullPaths.video
+              );
+              // videoIndexingData.time = videoIndexingData.time || updatingItem.time;
+              Object.assign(updatingItem, videoIndexingData);
+              break;
+            default:
+              throw new Error();
+          }
+        } catch (error) {
+          // yield {
+          //   total,
+          //   left,
+          //   processed: { path, result: "error", errorMessage: error.toString() },
+          // };
+          yield "ERROR";
+          continue;
+        }
+        // DB에 반영
+        await Item.update(updatingItem, { where: { id: item.id } });
+        // 기존의 썸네일 파일은 삭제
+        if (item.thumbnailPath) {
+          try {
+            await nodeFs.promises.unlink(nodePath.join(galleryPath, item.thumbnailPath));
+          } catch {}
+        }
+        if (item.previewVideoPath) {
+          try {
+            await nodeFs.promises.unlink(nodePath.join(galleryPath, item.previewVideoPath));
+          } catch {}
+        }
+        // 성공 보고
+        yield "ONE";
+      }
+    } while (lastResultCount > 0);
+  }
   async *generateIndexingSequenceForNewFiles() {
     const {
       path: galleryPath,
