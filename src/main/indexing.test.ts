@@ -1,8 +1,9 @@
 import "jest-extended";
 import mockfs from "mock-fs";
-import { getFileHash, getAllChildFilePaths } from "./indexing";
+import * as testee from "./indexing";
 
 describe("testing getFileHash function", () => {
+  const { getFileHash } = testee;
   beforeAll(() =>
     mockfs({
       "test.bin": Buffer.from([1, 2, 3, 4, 5]),
@@ -16,6 +17,7 @@ describe("testing getFileHash function", () => {
 });
 
 describe("testing getAllChildFilePaths function", () => {
+  const { getAllChildFilePaths } = testee;
   beforeAll(() =>
     mockfs({
       "the-dir": {
@@ -137,6 +139,152 @@ describe("testing getAllChildFilePaths function", () => {
       // "foo-dir/foo-bin",
       // "bar-dir/image.jpg",
       // ".darkgallery/image.jpg",
+    ]);
+  });
+});
+
+describe("testing generateAllChildFilePaths function", () => {
+  const { generateAllChildFilePaths } = testee;
+  beforeAll(() =>
+    mockfs({
+      "the-dir": {
+        "foo-dir": {
+          "foo-img.jpg": "",
+          "foo-img.PNG": "",
+          "foo-img.webp": "",
+          "foo-vid.mp4": "",
+          "foo-vid.webm": "",
+          "foo-bin": "",
+        },
+        "bar-dir": {
+          "image.jpg": "",
+        },
+        ".darkgallery": {
+          "image.jpg": "",
+        },
+        "abc-def": "",
+        jpg: "",
+        "test.bin": "",
+        "image.jpeg": "",
+        "video.mov": "",
+      },
+      "not-this-dir": {
+        "no.jpg": "",
+      },
+    })
+  );
+  afterAll(() => mockfs.restore());
+  test("getting all descendant file paths with right order", async () => {
+    const paths: string[] = [];
+    for await (const path of generateAllChildFilePaths("./the-dir")) {
+      paths.push(path);
+    }
+    const filePaths = ["abc-def", "jpg", "test.bin", "image.jpeg", "video.mov"];
+    expect(paths.slice(0, filePaths.length)).toIncludeSameMembers(filePaths);
+    const dirPaths = [
+      "foo-dir/foo-img.jpg",
+      "foo-dir/foo-img.PNG",
+      "foo-dir/foo-img.webp",
+      "foo-dir/foo-vid.mp4",
+      "foo-dir/foo-vid.webm",
+      "foo-dir/foo-bin",
+      "bar-dir/image.jpg",
+      ".darkgallery/image.jpg",
+    ];
+    expect(paths.slice(filePaths.length)).toIncludeSameMembers(dirPaths);
+  });
+  test("getting all descendant file paths correctly with extension filter", async () => {
+    const paths: string[] = [];
+    for await (const path of generateAllChildFilePaths("./the-dir", {
+      acceptingExtensions: ["JPG", "MoV", "png", "webp", "webm"],
+    })) {
+      paths.push(path);
+    }
+    expect(paths).toIncludeSameMembers([
+      "foo-dir/foo-img.jpg",
+      "foo-dir/foo-img.PNG",
+      "foo-dir/foo-img.webp",
+      // "foo-dir/foo-vid.mp4",
+      "foo-dir/foo-vid.webm",
+      // "foo-dir/foo-bin",
+      "bar-dir/image.jpg",
+      ".darkgallery/image.jpg",
+      // "abc-def",
+      // "jpg",
+      // "test.bin",
+      // "image.jpeg",
+      "video.mov",
+    ]);
+  });
+  test("getting all descendant file paths correctly with file name filter", async () => {
+    const paths: string[] = [];
+    for await (const path of generateAllChildFilePaths("./the-dir", {
+      ignoreFiles: ["img.webp", "foo-vid.webm"],
+    })) {
+      paths.push(path);
+    }
+    expect(paths).toIncludeSameMembers([
+      "foo-dir/foo-img.jpg",
+      "foo-dir/foo-img.PNG",
+      "foo-dir/foo-img.webp",
+      "foo-dir/foo-vid.mp4",
+      // "foo-dir/foo-vid.webm",
+      "foo-dir/foo-bin",
+      "bar-dir/image.jpg",
+      ".darkgallery/image.jpg",
+      "abc-def",
+      "jpg",
+      "test.bin",
+      "image.jpeg",
+      "video.mov",
+    ]);
+  });
+  test("getting all descendant file paths correctly with directory name filter", async () => {
+    const paths: string[] = [];
+    for await (const path of generateAllChildFilePaths("./the-dir", {
+      ignoreDirectories: ["bar-dir", ".darkgallery"],
+    })) {
+      paths.push(path);
+    }
+    expect(paths).toIncludeSameMembers([
+      "foo-dir/foo-img.jpg",
+      "foo-dir/foo-img.PNG",
+      "foo-dir/foo-img.webp",
+      "foo-dir/foo-vid.mp4",
+      "foo-dir/foo-vid.webm",
+      "foo-dir/foo-bin",
+      // "bar-dir/image.jpg",
+      // ".darkgallery/image.jpg",
+      "abc-def",
+      "jpg",
+      "test.bin",
+      "image.jpeg",
+      "video.mov",
+    ]);
+  });
+  test("getting all descendant file paths correctly with all options", async () => {
+    const paths: string[] = [];
+    for await (const path of generateAllChildFilePaths("./the-dir", {
+      acceptingExtensions: ["JPG", "MoV", "png", "webp", "webm"],
+      ignoreFiles: ["img.webp", "foo-vid.webm"],
+      ignoreDirectories: ["bar-dir", ".darkgallery"],
+    })) {
+      paths.push(path);
+    }
+    expect(paths).toIncludeSameMembers([
+      "foo-dir/foo-img.jpg",
+      "foo-dir/foo-img.PNG",
+      "foo-dir/foo-img.webp",
+      // "foo-dir/foo-vid.mp4",
+      // "foo-dir/foo-vid.webm",
+      // "foo-dir/foo-bin",
+      // "bar-dir/image.jpg",
+      // ".darkgallery/image.jpg",
+      // "abc-def",
+      // "jpg",
+      // "test.bin",
+      // "image.jpeg",
+      "video.mov",
     ]);
   });
 });

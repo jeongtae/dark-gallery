@@ -21,6 +21,7 @@ type GetAllChildFilePathsOptions = {
  * @param basePath 탐색할 기반 경로입니다.
  * @param options 탐색 옵션입니다. (*각 옵션에서 Glob 패턴은 허용하지 않습니다.*)
  * @returns 파일 경로의 배열을 반환하며, 각 경로는 매개변수로 제공한 기반 경로에 대한 상대 경로입니다.
+ * @deprecated Use `generateAllChildFilePaths` instead.
  */
 export async function getAllChildFilePaths(
   basePath: string,
@@ -54,6 +55,41 @@ export async function getAllChildFilePaths(
   return result;
 }
 
+export function generateAllChildFilePaths(
+  baseDirPath: string,
+  options: GetAllChildFilePathsOptions = {}
+): AsyncGenerator<string> {
+  let { ignoreDirectories = [], ignoreFiles = [], acceptingExtensions = null } = options;
+  acceptingExtensions = acceptingExtensions?.map(ext => ext.toLowerCase());
+  async function* walk(currentRelativeDirPath: string): AsyncGenerator<string> {
+    const currentResolvedDirPath = path.join(baseDirPath, currentRelativeDirPath);
+    const nextRelativeDirPathList: string[] = [];
+    const dirents = await fs.promises.readdir(currentResolvedDirPath, { withFileTypes: true });
+    for (const dirent of dirents) {
+      const { name } = dirent;
+      const relativePath = path.join(currentRelativeDirPath, name);
+      if (dirent.isDirectory()) {
+        const isPassedIgnoreDirectories = !ignoreDirectories.includes(name);
+        if (isPassedIgnoreDirectories) {
+          nextRelativeDirPathList.push(relativePath);
+        }
+      } else if (dirent.isFile()) {
+        const extension = path.extname(name).toLowerCase().substring(1);
+        const isPassedAcceptingExtensions = acceptingExtensions?.includes(extension) ?? true;
+        const isPassedIgnoreFiles = !ignoreFiles.includes(name);
+        if (isPassedAcceptingExtensions && isPassedIgnoreFiles) {
+          yield relativePath;
+        }
+      }
+    }
+    for (const nextRelativeDirPath of nextRelativeDirPathList) {
+      for await (const relativePath of walk(nextRelativeDirPath)) {
+        yield relativePath;
+      }
+    }
+  }
+  return walk(".");
+}
 /** 주어진 경로에 해당하는 파일의 파일의 SHA-1 해시값을 계산합니다.
  * @returns 40자리의 16진수 문자열로 나타낸 SHA-1 해시값을 반환합니다.
  */
