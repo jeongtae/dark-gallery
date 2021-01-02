@@ -651,6 +651,8 @@ export default class Gallery implements Disposable {
     const imageExtensions = await this.getConfig("imageExtensions");
     const videoExtensions = await this.getConfig("videoExtensions");
 
+    let itemsToCreate: Models.ItemCreationAttributes[] = [];
+
     let fetchedDirectory = null;
     let fetchedItemsInDirectory: Pick<RawItem, "filename">[];
 
@@ -714,10 +716,14 @@ export default class Gallery implements Disposable {
         // videoIndexingData.time = videoIndexingData.time || newItem.time;
         Object.assign(newItem, videoIndexingData);
       }
-      await Item.create(newItem);
-      // TODO: make bulkCreate
+      itemsToCreate.push(newItem);
+      if (itemsToCreate.length >= 100) {
+        await Item.bulkCreate(itemsToCreate);
+        itemsToCreate = [];
+      }
       yield "HELLO";
     }
+    await Item.bulkCreate(itemsToCreate);
   }
 
   /** 데이터베이스 연결을 닫고 참조를 지웁니다. */
