@@ -21,7 +21,7 @@ type GetAllChildFilePathsOptions = {
  * @param basePath 탐색할 기반 경로입니다.
  * @param options 탐색 옵션입니다. (*각 옵션에서 Glob 패턴은 허용하지 않습니다.*)
  * @returns 파일 경로의 배열을 반환하며, 각 경로는 매개변수로 제공한 기반 경로에 대한 상대 경로입니다.
- * @deprecated Use `generateAllChildFilePaths` instead.
+ * @deprecated Use `generateAllChildFileRelativePaths` instead.
  */
 export async function getAllChildFilePaths(
   basePath: string,
@@ -55,7 +55,8 @@ export async function getAllChildFilePaths(
   return result;
 }
 
-export function generateAllChildFilePaths(
+// TODO: rename to generateAllChildFileRelativePaths
+export function generateAllChildFileRelativePaths(
   baseDirPath: string,
   options: GetAllChildFilePathsOptions = {}
 ): AsyncGenerator<string> {

@@ -143,8 +143,8 @@ describe("testing getAllChildFilePaths function", () => {
   });
 });
 
-describe("testing generateAllChildFilePaths function", () => {
-  const { generateAllChildFilePaths } = testee;
+describe("testing generateAllChildFileRelativePaths function", () => {
+  const { generateAllChildFileRelativePaths } = testee;
   beforeAll(() =>
     mockfs({
       "the-dir": {
@@ -176,7 +176,7 @@ describe("testing generateAllChildFilePaths function", () => {
   afterAll(() => mockfs.restore());
   test("getting all descendant file paths with right order", async () => {
     const paths: string[] = [];
-    for await (const path of generateAllChildFilePaths("./the-dir")) {
+    for await (const path of generateAllChildFileRelativePaths("./the-dir")) {
       paths.push(path);
     }
     const filePaths = ["abc-def", "jpg", "test.bin", "image.jpeg", "video.mov"];
@@ -195,7 +195,7 @@ describe("testing generateAllChildFilePaths function", () => {
   });
   test("getting all descendant file paths correctly with extension filter", async () => {
     const paths: string[] = [];
-    for await (const path of generateAllChildFilePaths("./the-dir", {
+    for await (const path of generateAllChildFileRelativePaths("./the-dir", {
       acceptingExtensions: ["JPG", "MoV", "png", "webp", "webm"],
     })) {
       paths.push(path);
@@ -218,7 +218,7 @@ describe("testing generateAllChildFilePaths function", () => {
   });
   test("getting all descendant file paths correctly with file name filter", async () => {
     const paths: string[] = [];
-    for await (const path of generateAllChildFilePaths("./the-dir", {
+    for await (const path of generateAllChildFileRelativePaths("./the-dir", {
       ignoreFiles: ["img.webp", "foo-vid.webm"],
     })) {
       paths.push(path);
@@ -241,7 +241,7 @@ describe("testing generateAllChildFilePaths function", () => {
   });
   test("getting all descendant file paths correctly with directory name filter", async () => {
     const paths: string[] = [];
-    for await (const path of generateAllChildFilePaths("./the-dir", {
+    for await (const path of generateAllChildFileRelativePaths("./the-dir", {
       ignoreDirectories: ["bar-dir", ".darkgallery"],
     })) {
       paths.push(path);
@@ -264,7 +264,7 @@ describe("testing generateAllChildFilePaths function", () => {
   });
   test("getting all descendant file paths correctly with all options", async () => {
     const paths: string[] = [];
-    for await (const path of generateAllChildFilePaths("./the-dir", {
+    for await (const path of generateAllChildFileRelativePaths("./the-dir", {
       acceptingExtensions: ["JPG", "MoV", "png", "webp", "webm"],
       ignoreFiles: ["img.webp", "foo-vid.webm"],
       ignoreDirectories: ["bar-dir", ".darkgallery"],

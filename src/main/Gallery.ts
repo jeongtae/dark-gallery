@@ -17,7 +17,7 @@ import {
   getResizedWebpImageBufferOfImageFile,
   writeResizedWebpImageFileOfVideoFile,
   writeResizedPreviewVideoFileOfVideoFile,
-  generateAllChildFilePaths,
+  generateAllChildFileRelativePaths,
 } from "./indexing";
 import { RawItem } from "../common/sequelize";
 
@@ -656,7 +656,7 @@ export default class Gallery implements Disposable {
     let fetchedDirectory = null;
     let fetchedItemsInDirectory: Pick<RawItem, "filename">[];
 
-    const generator = generateAllChildFilePaths(galleryPath, {
+    const generator = generateAllChildFileRelativePaths(galleryPath, {
       ignoreDirectories: [INDEXING_DIRNAME],
       acceptingExtensions: union(imageExtensions, videoExtensions),
     });
