@@ -44,17 +44,29 @@ function defineModels(sequelize: Sequelize) {
     title: DataTypes.TEXT,
 
     path: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        let directory = this.getDataValue("directory").replace("/", path.sep);
+        let filename = this.getDataValue("filename");
+        return path.join(directory, filename);
+      },
+    },
+    directory: {
       type: DataTypes.STRING(1024),
       allowNull: false,
       get() {
-        let value = this.getDataValue("path");
+        let value = this.getDataValue("directory");
         value = value.replace("/", path.sep);
         return value;
       },
       set(value: string) {
         value = value.replace(path.sep, "/");
-        this.setDataValue("path", value);
+        this.setDataValue("directory", value);
       },
+    },
+    filename: {
+      type: DataTypes.STRING(512),
+      allowNull: false,
     },
     lost: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
 

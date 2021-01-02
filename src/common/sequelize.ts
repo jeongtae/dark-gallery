@@ -29,8 +29,18 @@ export type ItemAttributes = {
   /** 항목에 대한 제목 */
   title: string;
 
-  /** 파일 시스템 상에 항목이 실제로 위치한 경로 (*갤러리 폴더에 대한 상대경로*) */
-  path: string;
+  /** 파일 시스템 상에 항목이 실제로 위치한 파일 경로 가상필드 (*갤러리 폴더에 대한 상대경로*) */
+  readonly path: string;
+  /** 파일 시스템 상에 항목이 실제로 위치한 폴더의 경로 (*갤러리 폴더에 대한 상대경로*)
+   * @example
+   * "."
+   * "foo"
+   * "foo/bar"
+   *  */
+  directory: string;
+  /** 파일 시스템 상 항목의 파일 이름
+   * @example "image.jpg" */
+  filename: string;
   /** 항목 파일의 유실 여부 */
   lost: boolean;
 
@@ -71,7 +81,15 @@ export type RawItem = Raw<
 >;
 export type ItemCreationAttributes = Optional<
   ItemAttributes,
-  "id" | "createdAt" | "updatedAt" | "title" | "lost" | "rating" | "memo" | "previewVideoPath"
+  | "id"
+  | "createdAt"
+  | "updatedAt"
+  | "title"
+  | "path"
+  | "lost"
+  | "rating"
+  | "memo"
+  | "previewVideoPath"
 >;
 export type Item = Model<ItemAttributes, ItemCreationAttributes> &
   ItemAttributes & {
