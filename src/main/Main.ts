@@ -173,6 +173,16 @@ export default class Main {
       // TODO: 윈도우 id별로 상태 저장하고, 윈도우 focus될 때 메뉴에 적용시키는 매커니즘이 필요하다.
       setMenuItemEnabled(id, enabled);
     },
+    startIndexingForNewFiles(this: Main, { sender }) {
+      (async () => {
+        const gallery = this.galleries[sender.id];
+        const generator = gallery.generateIndexingSequenceForNewFiles();
+        for await (const step of generator) {
+          console.log(step);
+        }
+        //
+      })();
+    },
     startGalleryIndexing: async ({ sender }, compareHash = false) => {
       const sendProgressReport = (progress: IndexingProgress) =>
         sendEvent(sender, "reportGalleryIndexingProgress", progress);

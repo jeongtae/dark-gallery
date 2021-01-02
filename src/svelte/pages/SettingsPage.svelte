@@ -87,7 +87,7 @@
   });
 
   function startIndexing() {
-    ipc.invoke("startGalleryIndexing", isPreciseIndexingEnabled);
+    ipc.invoke("startIndexingForNewFiles");
   }
   function abortIndexing() {
     ipc.invoke("abortGalleryIndexing");

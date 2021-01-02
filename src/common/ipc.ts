@@ -93,6 +93,7 @@ export type Commands = {
    * @param enabled 활성화 상태
    */
   setMenuEnabled: (id: MenuItemId, enabled: boolean) => void;
+  startIndexingForNewFiles: () => void;
   /** 갤러리를 인덱싱하는 백그라운드 작업을 시작할 것을 요청합니다.
    * 작업 상태는 `reportGalleryIndexingProgress` 이벤트로 계속 보고됩니다.
    */

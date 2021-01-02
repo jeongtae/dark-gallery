@@ -17,8 +17,11 @@ import {
   getResizedWebpImageBufferOfImageFile,
   writeResizedWebpImageFileOfVideoFile,
   writeResizedPreviewVideoFileOfVideoFile,
+  generateAllChildFilePaths,
 } from "./indexing";
+import { RawItem } from "../common/sequelize";
 
+const INDEXING_DIRNAME = ".darkgallery";
 const IMAGE_EXTENSIONS: readonly string[] = ["jpg", "jpeg", "gif", "png", "bmp", "webp"];
 const VIDEO_EXTENSIONS: readonly string[] = ["webm", "mp4", "mov", "avi"];
 const DEFAULT_CONFIGS: Readonly<GalleryConfigs> = {
@@ -32,7 +35,7 @@ const DEFAULT_CONFIGS: Readonly<GalleryConfigs> = {
  * @returns 인덱싱 폴더의 절대경로
  */
 function buildIndexDirectoryPath(galleryPath: string) {
-  return nodePath.join(galleryPath, ".darkgallery");
+  return nodePath.join(galleryPath, INDEXING_DIRNAME);
 }
 
 /** 갤러리 데이터베이스 파일의 절대경로를 얻습니다.
@@ -40,7 +43,7 @@ function buildIndexDirectoryPath(galleryPath: string) {
  * @returns 데이터베이스 파일의 절대경로
  */
 function buildSqliteFilePath(galleryPath: string) {
-  return nodePath.join(galleryPath, ".darkgallery", "db.sqlite");
+  return nodePath.join(galleryPath, INDEXING_DIRNAME, "db.sqlite");
 }
 
 /** 주어진 파일 경로의 확장자가 이미지인지 확인합니다.
@@ -468,7 +471,7 @@ export default class Gallery implements Disposable {
 
     // 인덱싱되지 않은 새로운 파일 목록 얻기
     const allFilePaths = await getAllChildFilePaths(galleryPath, {
-      ignoreDirectories: [".darkgallery"],
+      ignoreDirectories: [INDEXING_DIRNAME],
       acceptingExtensions: [...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS],
     });
     const allItemPaths = existingItems.map(item => item.path);
@@ -635,6 +638,78 @@ export default class Gallery implements Disposable {
     }
   }
 
+  // async indexForExistingOne() {}
+  // async *generateIndexingSequenceForExistingItems() {}
+  async *generateIndexingSequenceForNewFiles() {
+    const {
+      path: galleryPath,
+      models: { item: Item },
+    } = this;
+
+    let fetchedDirectory = null;
+    let fetchedItemsInDirectory: Pick<RawItem, "filename">[];
+
+    const generator = generateAllChildFilePaths(galleryPath, {
+      ignoreDirectories: [INDEXING_DIRNAME],
+      acceptingExtensions: union(IMAGE_EXTENSIONS, VIDEO_EXTENSIONS),
+    });
+    for await (const relativeFilePath of generator) {
+      const directory = nodePath.join(relativeFilePath, "..");
+      const filename = nodePath.basename(relativeFilePath);
+      if (fetchedDirectory !== directory) {
+        fetchedDirectory = directory;
+        fetchedItemsInDirectory = await Item.findAll({
+          attributes: ["filename"],
+          where: { directory: fetchedDirectory },
+        });
+      }
+      if (fetchedItemsInDirectory.find(item => item.filename === filename) === null) {
+        continue;
+      }
+      let type: Models.Item["type"];
+      if (checkPathIsImage(filename)) type = "IMG";
+      else if (checkPathIsVideo(filename)) type = "VID";
+      else continue;
+      const fullFilePath = nodePath.join(galleryPath, relativeFilePath);
+      const fileInfo = await getFileInfo(fullFilePath);
+      const hash = await getFileHash(fullFilePath);
+      const thumbnailFullPaths = buildThumbnailPathsForHash(galleryPath, hash);
+      const newItem: Models.ItemCreationAttributes = {
+        ...fileInfo,
+        type,
+        hash,
+        directory,
+        filename,
+        width: 0,
+        height: 0,
+        duration: 0,
+        time: fileInfo.mtime,
+        thumbnailBase64: "",
+        thumbnailPath: nodePath.relative(galleryPath, thumbnailFullPaths.image),
+      };
+      if (!nodeFs.existsSync(thumbnailFullPaths.directory)) {
+        await nodeFs.promises.mkdir(thumbnailFullPaths.directory, { recursive: true });
+      }
+      if (type === "IMG") {
+        const imageIndexingData = await processImageIndexing(
+          fullFilePath,
+          thumbnailFullPaths.image
+        );
+        // imageIndexingData.time = imageIndexingData.time || newItem.time;
+        Object.assign(newItem, imageIndexingData);
+      } else {
+        const videoIndexingData = await processVideoIndexing(
+          fullFilePath,
+          thumbnailFullPaths.image
+        );
+        // videoIndexingData.time = videoIndexingData.time || newItem.time;
+        Object.assign(newItem, videoIndexingData);
+      }
+      await Item.create(newItem);
+      // TODO: make bulkCreate
+      yield "HELLO";
+    }
+  }
 
   /** 데이터베이스 연결을 닫고 참조를 지웁니다. */
   async dispose() {
