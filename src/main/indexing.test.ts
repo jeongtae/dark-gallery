@@ -16,15 +16,11 @@ describe("testing getFileHash function", () => {
   });
 });
 
-describe("testing getAllChildFilePaths function", () => {
-  const { getAllChildFilePaths } = testee;
+describe("testing countAllChildFiles function", () => {
+  const { countAllChildFiles } = testee;
   beforeAll(() =>
     mockfs({
       "the-dir": {
-        jpg: "",
-        "test.bin": "",
-        "image.jpeg": "",
-        "video.mov": "",
         "foo-dir": {
           "foo-img.jpg": "",
           "foo-img.PNG": "",
@@ -39,6 +35,11 @@ describe("testing getAllChildFilePaths function", () => {
         ".darkgallery": {
           "image.jpg": "",
         },
+        "abc-def": "",
+        jpg: "",
+        "test.bin": "",
+        "image.jpeg": "",
+        "video.mov": "",
       },
       "not-this-dir": {
         "no.jpg": "",
@@ -46,100 +47,95 @@ describe("testing getAllChildFilePaths function", () => {
     })
   );
   afterAll(() => mockfs.restore());
-  test("getting all descendant file paths correctly without any options", async () => {
-    const paths = await getAllChildFilePaths("./the-dir", {});
-    expect(paths).toIncludeSameMembers([
-      "jpg",
-      "test.bin",
-      "image.jpeg",
-      "video.mov",
-      "foo-dir/foo-img.jpg",
-      "foo-dir/foo-img.PNG",
-      "foo-dir/foo-img.webp",
-      "foo-dir/foo-vid.mp4",
-      "foo-dir/foo-vid.webm",
-      "foo-dir/foo-bin",
-      "bar-dir/image.jpg",
-      ".darkgallery/image.jpg",
-    ]);
-  });
-  test("getting all descendant file paths correctly with extension filter", async () => {
-    const paths = await getAllChildFilePaths("./the-dir", {
+  test("getting all descendant file paths count correctly with extension filter", async () => {
+    const count = await countAllChildFiles("./the-dir", {
       acceptingExtensions: ["JPG", "MoV", "png", "webp", "webm"],
     });
-    expect(paths).toIncludeSameMembers([
-      // "jpg",
-      // "test.bin",
-      // "image.jpeg",
-      "video.mov",
-      "foo-dir/foo-img.jpg",
-      "foo-dir/foo-img.PNG",
-      "foo-dir/foo-img.webp",
-      // "foo-dir/foo-vid.mp4",
-      "foo-dir/foo-vid.webm",
-      // "foo-dir/foo-bin",
-      "bar-dir/image.jpg",
-      ".darkgallery/image.jpg",
-    ]);
+    expect(count).toBe(
+      [
+        "foo-dir/foo-img.jpg",
+        "foo-dir/foo-img.PNG",
+        "foo-dir/foo-img.webp",
+        // "foo-dir/foo-vid.mp4",
+        "foo-dir/foo-vid.webm",
+        // "foo-dir/foo-bin",
+        "bar-dir/image.jpg",
+        ".darkgallery/image.jpg",
+        // "abc-def",
+        // "jpg",
+        // "test.bin",
+        // "image.jpeg",
+        "video.mov",
+      ].length
+    );
   });
-  test("getting all descendant file paths correctly with file name filter", async () => {
-    const paths = await getAllChildFilePaths("./the-dir", {
+  test("getting all descendant file paths count correctly with file name filter", async () => {
+    const count = await countAllChildFiles("./the-dir", {
       ignoreFiles: ["img.webp", "foo-vid.webm"],
     });
-    expect(paths).toIncludeSameMembers([
-      "jpg",
-      "test.bin",
-      "image.jpeg",
-      "video.mov",
-      "foo-dir/foo-img.jpg",
-      "foo-dir/foo-img.PNG",
-      "foo-dir/foo-img.webp",
-      "foo-dir/foo-vid.mp4",
-      // "foo-dir/foo-vid.webm",
-      "foo-dir/foo-bin",
-      "bar-dir/image.jpg",
-      ".darkgallery/image.jpg",
-    ]);
+    expect(count).toBe(
+      [
+        "foo-dir/foo-img.jpg",
+        "foo-dir/foo-img.PNG",
+        "foo-dir/foo-img.webp",
+        "foo-dir/foo-vid.mp4",
+        // "foo-dir/foo-vid.webm",
+        "foo-dir/foo-bin",
+        "bar-dir/image.jpg",
+        ".darkgallery/image.jpg",
+        "abc-def",
+        "jpg",
+        "test.bin",
+        "image.jpeg",
+        "video.mov",
+      ].length
+    );
   });
-  test("getting all descendant file paths correctly with directory name filter", async () => {
-    const paths = await getAllChildFilePaths("./the-dir", {
+  test("getting all descendant file paths count correctly with directory name filter", async () => {
+    const count = await countAllChildFiles("./the-dir", {
       ignoreDirectories: ["bar-dir", ".darkgallery"],
     });
-    expect(paths).toIncludeSameMembers([
-      "jpg",
-      "test.bin",
-      "image.jpeg",
-      "video.mov",
-      "foo-dir/foo-img.jpg",
-      "foo-dir/foo-img.PNG",
-      "foo-dir/foo-img.webp",
-      "foo-dir/foo-vid.mp4",
-      "foo-dir/foo-vid.webm",
-      "foo-dir/foo-bin",
-      // "bar-dir/image.jpg",
-      // ".darkgallery/image.jpg",
-    ]);
+    expect(count).toBe(
+      [
+        "foo-dir/foo-img.jpg",
+        "foo-dir/foo-img.PNG",
+        "foo-dir/foo-img.webp",
+        "foo-dir/foo-vid.mp4",
+        "foo-dir/foo-vid.webm",
+        "foo-dir/foo-bin",
+        // "bar-dir/image.jpg",
+        // ".darkgallery/image.jpg",
+        "abc-def",
+        "jpg",
+        "test.bin",
+        "image.jpeg",
+        "video.mov",
+      ].length
+    );
   });
-  test("getting all descendant file paths correctly with all options", async () => {
-    const paths = await getAllChildFilePaths("./the-dir", {
+  test("getting all descendant file paths count correctly with all options", async () => {
+    const count = await countAllChildFiles("./the-dir", {
       acceptingExtensions: ["JPG", "MoV", "png", "webp", "webm"],
       ignoreFiles: ["img.webp", "foo-vid.webm"],
       ignoreDirectories: ["bar-dir", ".darkgallery"],
     });
-    expect(paths).toIncludeSameMembers([
-      // "jpg",
-      // "test.bin",
-      // "image.jpeg",
-      "video.mov",
-      "foo-dir/foo-img.jpg",
-      "foo-dir/foo-img.PNG",
-      "foo-dir/foo-img.webp",
-      // "foo-dir/foo-vid.mp4",
-      // "foo-dir/foo-vid.webm",
-      // "foo-dir/foo-bin",
-      // "bar-dir/image.jpg",
-      // ".darkgallery/image.jpg",
-    ]);
+    expect(count).toBe(
+      [
+        "foo-dir/foo-img.jpg",
+        "foo-dir/foo-img.PNG",
+        "foo-dir/foo-img.webp",
+        // "foo-dir/foo-vid.mp4",
+        // "foo-dir/foo-vid.webm",
+        // "foo-dir/foo-bin",
+        // "bar-dir/image.jpg",
+        // ".darkgallery/image.jpg",
+        // "abc-def",
+        // "jpg",
+        // "test.bin",
+        // "image.jpeg",
+        "video.mov",
+      ].length
+    );
   });
 });
 
