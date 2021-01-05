@@ -2,7 +2,13 @@ import { WebContents, ipcMain, IpcMainEvent } from "electron";
 import type { TypedIpcMain } from "electron-typed-ipc";
 import type { Events, Commands } from "../common/ipc";
 
-export type { IndexingProgress, GalleryPathInfo, GalleryConfigs } from "../common/ipc";
+export type {
+  MenuItemId,
+  GalleryPathInfo,
+  GalleryConfigs,
+  GalleryWholeIndexingOptions,
+  GalleryWholeIndexingProgressReport,
+} from "../common/ipc";
 
 /** 타이핑 적용된 ipcMain 객체 */
 export const ipc = ipcMain as TypedIpcMain<Events, Commands>;

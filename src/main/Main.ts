@@ -1,12 +1,12 @@
 import path from "path";
 import { throttle } from "lodash";
 import { app, BrowserWindow, dialog, Menu, shell } from "electron";
-import { GalleryWholeIndexingProgressReport, IndexingProgress, MenuItemId } from "../common/ipc";
+import { MenuItemId, GalleryWholeIndexingProgressReport } from "../common/ipc";
 import { isSquirrelStartup, isDev, isMac, appPath } from "./environments";
 import { ipc, IpcHandlers, sendEvent } from "./ipc";
 import { getMenu, addMenuClickHandler, setMenuItemEnabled } from "./menu";
 import { createWindow } from "./window";
-import Gallery, { IndexingStep } from "./Gallery";
+import Gallery from "./Gallery";
 
 const DEV_GALLERY_PATH = path.join(app.getAppPath(), "dev-gallery");
 

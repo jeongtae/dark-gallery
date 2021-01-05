@@ -1,12 +1,12 @@
 import nodeFs from "fs";
-import { cloneDeep, difference, union } from "lodash";
+import { cloneDeep, union } from "lodash";
 import nodePath from "path";
 import rimraf from "rimraf";
 import { Op, Sequelize } from "sequelize";
-import type { PromiseValue } from "type-fest";
 import { promisify } from "util";
-import { RawItem } from "../common/sequelize";
 import { isDev } from "./environments";
+import type { GalleryConfigs, GalleryPathInfo } from "./ipc";
+import { createSequelize, Models } from "./sequelize";
 import {
   countAllChildFiles,
   generateAllChildFileRelativePaths,
@@ -19,12 +19,8 @@ import {
   writeResizedWebpImageFileOfImageFile,
   writeResizedWebpImageFileOfVideoFile,
 } from "./indexing";
-import { GalleryConfigs, GalleryPathInfo } from "./ipc";
-import { createSequelize, Models } from "./sequelize";
 
 const INDEXING_DIRNAME = ".darkgallery";
-const IMAGE_EXTENSIONS: readonly string[] = ["jpg", "jpeg", "gif", "png", "bmp", "webp"];
-const VIDEO_EXTENSIONS: readonly string[] = ["webm", "mp4", "mov", "avi"];
 const DEFAULT_CONFIGS: Readonly<GalleryConfigs> = {
   title: "",
   description: "",
@@ -728,7 +724,7 @@ export default class Gallery implements Disposable {
 
     const nonLostItemsInDirectory = {
       directory: null as string,
-      items: [] as Pick<RawItem, "filename">[],
+      items: [] as Pick<Models.RawItem, "filename">[],
     };
 
     const generator = generateAllChildFileRelativePaths(galleryPath, {
