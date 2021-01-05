@@ -37,7 +37,9 @@ export type GalleryConfigs = {
   /** 비디오 파일 확장자 리스트 */
   videoExtensions: string[];
 };
-export type IndexingProgress = {
+
+/** @deprecated */
+type IndexingProgress = {
   /** 인덱싱 단계
    * @example
    * "started" // 1. 인덱싱할 목록 준비 중
@@ -56,13 +58,49 @@ export type IndexingProgress = {
   /** 새롭게 유실된 경로 목록 */
   newlyLostList: string[];
 };
+
+export interface GalleryWholeIndexingOptions {
+  /** 인덱싱할 대상 (기본값 `both`) */
+  target: "update-preexistences" | "find-new" | "both";
+}
+
+interface GalleryWholeIndexingStartedReport {
+  phase: "started";
+}
+interface GalleryWholeIndexingUpdatingReport {
+  phase: "updating";
+  totalCount: number;
+  leftCount: number;
+  updatedCount: number;
+  lostCount: number;
+  errorCount: number;
+}
+interface GalleryWholeIndexingFindingReport {
+  phase: "finding";
+  foundCount: number;
+  errorCount: number;
+}
+interface GalleryWholeIndexingFinishedReport {
+  phase: "finished";
+  lostCount: number;
+  newCount: number;
+}
+interface GalleryWholeIndexingAbortedReport {
+  phase: "aborted";
+}
+export type GalleryWholeIndexingProgressReport =
+  | GalleryWholeIndexingStartedReport
+  | GalleryWholeIndexingUpdatingReport
+  | GalleryWholeIndexingFindingReport
+  | GalleryWholeIndexingFinishedReport
+  | GalleryWholeIndexingAbortedReport;
 //#endregion
 
 //#region IPC Events (Main -> Renderer)
 export type Events = {
   clickMenu: (id: MenuItemId) => void;
   openGallery: (path: string) => void;
-  reportGalleryIndexingProgress: (progress: IndexingProgress) => void;
+  reportGalleryWholeIndexingProgress: (report: GalleryWholeIndexingProgressReport) => void;
 };
 //#endregion
 
@@ -97,11 +135,11 @@ export type Commands = {
    * @param enabled 활성화 상태
    */
   setMenuEnabled: (id: MenuItemId, enabled: boolean) => void;
-  startIndexingForAllExistingItems: () => void;
-  startIndexingForNewFiles: () => void;
-  /** 갤러리를 인덱싱하는 백그라운드 작업을 시작할 것을 요청합니다.
-   * 작업 상태는 `reportGalleryIndexingProgress` 이벤트로 계속 보고됩니다.
+  /** 갤러리를 전체 항목을 모두 업데이트하는 백그라운드 작업을 시작할 것을 요청합니다.
+   * 작업 상태는 `reportGalleryIndexingProgressForPreexistences` 이벤트로 계속 보고됩니다.
+   * @param options 인덱싱 옵션
    */
+  startGalleryWholeIndexing: (options: GalleryWholeIndexingOptions) => boolean;
   /** 갤러리를 인덱싱하는 백그라운드 작업을 중단할 것을 요청합니다.
    * 중단되면 `reportGalleryIndexingProgress` 이벤트로 보고됩니다.
    */

@@ -1,7 +1,7 @@
 import path from "path";
 import { throttle } from "lodash";
 import { app, BrowserWindow, dialog, Menu, shell } from "electron";
-import { IndexingProgress, MenuItemId } from "../common/ipc";
+import { GalleryWholeIndexingProgressReport, IndexingProgress, MenuItemId } from "../common/ipc";
 import { isSquirrelStartup, isDev, isMac, appPath } from "./environments";
 import { ipc, IpcHandlers, sendEvent } from "./ipc";
 import { getMenu, addMenuClickHandler, setMenuItemEnabled } from "./menu";
@@ -179,24 +179,36 @@ export default class Main {
       // TODO: 윈도우 id별로 상태 저장하고, 윈도우 focus될 때 메뉴에 적용시키는 매커니즘이 필요하다.
       setMenuItemEnabled(id, enabled);
     },
-    startIndexingForAllExistingItems(this: Main, { sender }) {
-      (async () => {
-        const gallery = this.galleries[sender.id];
-        const generator = gallery.generateIndexingSequenceForExistingItems();
-        for await (const step of generator) {
-          console.log(step);
+    async startGalleryWholeIndexing(this: Main, { sender }, { target = "both" }) {
+      const gallery = this.galleries[sender.id];
+      if (!gallery) {
+        return false;
+      }
+
+      (async function () {
+        const sendProgressReport = (progress: GalleryWholeIndexingProgressReport) =>
+          sendEvent(sender, "reportGalleryWholeIndexingProgress", progress);
+        const sendProgressReportThrottled = throttle(sendProgressReport, 500, { trailing: false });
+
+        sendProgressReport({ phase: "started" });
+        if (target === "both" || target === "update-preexistences") {
+          const updatingPreexistencesGenerator = gallery.generateIndexingSequenceForPreexistences();
+          for await (const step of updatingPreexistencesGenerator) {
+            console.log(step);
+          }
         }
-      })();
-    },
-    startIndexingForNewFiles(this: Main, { sender }) {
-      (async () => {
-        const gallery = this.galleries[sender.id];
-        const generator = gallery.generateIndexingSequenceForNewFiles();
-        for await (const step of generator) {
-          console.log(step);
+        if (target === "both" || target === "find-new") {
+          const findingNewGenerator = gallery.generateIndexingSequenceForNewFiles();
+          for await (const step of findingNewGenerator) {
+            console.log(step);
+          }
         }
-        //
+
+        sendProgressReportThrottled.cancel();
+        sendProgressReport({ phase: "finished", lostCount: 0, newCount: 0 });
       })();
+
+      return true;
     },
 
 

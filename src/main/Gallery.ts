@@ -6,9 +6,10 @@ import { Op, Sequelize } from "sequelize";
 import type { PromiseValue } from "type-fest";
 import { promisify } from "util";
 import { RawItem } from "../common/sequelize";
+import { isDev } from "./environments";
 import {
+  countAllChildFiles,
   generateAllChildFileRelativePaths,
-  getAllChildFilePaths,
   getFileHash,
   getFileInfo,
   getImageInfo,
@@ -46,24 +47,6 @@ function buildIndexDirectoryPath(galleryPath: string) {
  */
 function buildSqliteFilePath(galleryPath: string) {
   return nodePath.join(galleryPath, INDEXING_DIRNAME, "db.sqlite");
-}
-
-/** 주어진 파일 경로의 확장자가 이미지인지 확인합니다.
- * @param filePath 확인할 파일 경로
- * @returns 이미지 여부
- */
-function checkPathIsImage(filePath: string) {
-  const ext = nodePath.extname(filePath).substring(1).toLowerCase();
-  return IMAGE_EXTENSIONS.includes(ext);
-}
-
-/** 주어진 파일 경로의 확장자가 비디오인지 확인합니다.
- * @param filePath 확인할 파일 경로
- * @returns 비디오 여부
- */
-function checkPathIsVideo(filePath: string) {
-  const ext = nodePath.extname(filePath).substring(1).toLowerCase();
-  return VIDEO_EXTENSIONS.includes(ext);
 }
 
 type ThumbnailPaths = {
@@ -189,35 +172,56 @@ interface GalleryModels {
   config: Models.ConfigCtor;
 }
 
-interface IndexingOptions {
-  /** 작업의 진행률 보고 콜백입니다.
-   * @param done 현재까지 작업한 항목 수 (에러난 것 포함)
-   * @param error 현재까지 작업하다가 실패한 항목 수
-   * @param remaning 남은 항목 수
-   */
-  reporter?: (done: number, error: number, remaning: number) => void;
-}
-
-interface IndexExistingItemsOptions extends IndexingOptions {
-  /** 기존에 인덱싱된 모든 항목에 대해 파일의 해시 비교까지 수행하여,
-   * 파일이 변한 것을 확실하게 감지할 수 있게 되지만 작업 속도가 늦어집니다.
-   * (선택적, 기본 false)
-   */
-  compareHash?: boolean;
-}
-interface IndexNewItemsOptions extends IndexingOptions {}
-
-export interface IndexingStep {
+export interface IndexingStepForPreexistences {
   /** 작업할 전체 항목 수 */
-  total: number;
-  /** 남은 항목 수 */
-  left: number;
-  /** 지금 작업한 항목 정보 (처음엔 null) */
-  processed?: {
-    result: "done" | "keepLost" | "newlyLost" | "error";
+  totalCount: number;
+  /** 작업한 항목 수 */
+  processedCount: number;
+  /** 지금 작업한 항목의 정보 */
+  processedInfo?: {
+    /** 항목의 경로 (갤러리 폴더에 대한 상대경로) */
     path: string;
-    errorMessage?: string;
+    error?: string;
+    /** DB 상에서 항목의 변경된 필드 (`mtime`의 변경은 표시되지 않음) */
+    itemChanged: "no-change" | "hash-and-others" | "lost-only";
+    /** DB 상에서 항목의 `lost` 필드 값 */
+    itemLost: boolean;
+    /** 파일의 존재 여부 */
+    fileExists: boolean;
+    /** 파일과 항목의 해시 일치 여부 */
+    fileHash: "same" | "different" | "estimated-same" | "unknown";
   };
+  alt?: {
+    path: string;
+  } & (
+    | {
+        result:
+          | "item-keep-lost"
+          | "item-set-lost"
+          | "found-lost-item-and-updated"
+          | "found-lost-item-candidate"
+          | "no-action"
+          | "item-updated-mtime-only"
+          | "item-updated";
+      }
+    | { result: "error"; error: string }
+  );
+}
+
+// 기존에 사라졌던 항목을 찾기도 하지만, 경로가 다르면 못 한다.
+export interface IndexingStepForNewFiles {
+  /** 작업할 전체 항목 수 */
+  totalCount: number;
+  /** 작업한 항목 수 */
+  processedCount: number;
+  /** 지금 작업한 항목의 정보 */
+  processedInfo?: {
+    path: string;
+  } & (
+    | { result: "no-action" | "item-added" | "found-lost-item-and-updated" }
+    | { result: "found-lost-item-candidates"; lostItemCandidatePaths: string[] }
+    | { result: "error"; error: string }
+  );
 }
 
 /**
@@ -442,221 +446,45 @@ export default class Gallery implements Disposable {
     }
   }
 
-  /** 인덱싱을 한 파일씩 수행하는 제너레이터를 반환합니다.
-   * 열거할 때, 처음 나오는 항목은 total과 left만 포함합니다.
+  // async indexForExistingOne() {}
+  /** 기존에 인덱싱한 항목에 대해 업데이트를 하나씩 수행하는 제너레이터를 반환합니다.
+   * @yields
+   * 처음에 열거되는 객체는 `totalCount`와 `processedCount`만 포함합니다.
+   * 이후에는 항목을 하나 거칠 때마다 열거되며, 항목에 대한 상세 정보는 `processedInfo`에서 확인이 가능합니다.
    * @example
-   * for (const { total, left, processed } of generateIndexingSequence()) {
+   * for (const step of generateIndexingSequenceForPreexistences()) {
+   *   if (step.processedInfo?.itemChanged !== "no-change") {
+   *     // 실제 파일이 기존에 인덱싱된 항목에 기록된 것과 다르다면 적절하게 업데이트되며,
+   *     // 변경된 내용은 `processedInfo.itemChanged`에서 알 수 있습니다.
+   *     // 단, `mtime`의 변경은 알 수 없습니다.
+   *   }
+   *   if (step.processedInfo?.itemChanged === "lost-only") {
+   *     // 파일을 찾았거나, 파일이 사라진 경우를 알 수 있습니다.
+   *     // `lost` 필드의 값이 적절하게 변경됩니다.
+   *   }
+   *   if (step.processedInfo?.fileExists && !step.processedInfo.itemLost) {
+   *     // 파일을 찾았어도, 파일의 해시가 항목에 기록된 해시와 다를 경우, lost 필드는 변경되지 않습니다.
+   *     // 이러한 파일들은 별도의 검수 과정을 거치고, ??? 함수를 이용해 강제 업데이트 해야합니다.
+   *   }
    *   ...
    * }
    */
-  async *generateIndexingSequence(options: { compareHash: boolean }): AsyncGenerator<IndexingStep> {
-    const {
-      path: galleryPath,
-      models: { item: Item },
-    } = this;
-    const { compareHash = false } = options;
-
-    // 기존에 인덱싱되어있던 모든 아이템 목록 얻기
-    const existingItems = await Item.findAll({
-      attributes: [
-        "id",
-        "path",
-        "mtime",
-        "size",
-        "hash",
-        "lost",
-        "thumbnailPath",
-        "previewVideoPath",
-      ],
-      raw: true,
-    });
-
-    // 인덱싱되지 않은 새로운 파일 목록 얻기
-    const allFilePaths = await getAllChildFilePaths(galleryPath, {
-      ignoreDirectories: [INDEXING_DIRNAME],
-      acceptingExtensions: [...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS],
-    });
-    const allItemPaths = existingItems.map(item => item.path);
-    const newFilePaths = difference(allFilePaths, allItemPaths);
-
-    // 작업 시작 보고
-    const total = existingItems.length + newFilePaths.length;
-    let left = total;
-    yield { total, left };
-
-    // 기존 모든 아이템 순회
-    for (const existingItem of existingItems) {
-      left -= 1;
-
-      const { id, path, type } = existingItem;
-      const fullPath = nodePath.join(galleryPath, path);
-      let fileInfo: PromiseValue<ReturnType<typeof getFileInfo>>;
-      let fileHash: string;
-      try {
-        fileInfo = await getFileInfo(fullPath);
-        fileHash = compareHash ? await getFileHash(fullPath) : null;
-      } catch (error) {
-        if (error.code === "ENOENT") {
-          // 파일이 없음
-          if (existingItem.lost) {
-            // 원래 없음
-            yield { total, left, processed: { path, result: "keepLost" } };
-          } else {
-            // 이번에 갑자기 없음
-            await Item.update({ lost: true }, { where: { id } });
-            yield { total, left, processed: { path, result: "newlyLost" } };
-          }
-        } else {
-          // 예기치 못한 오류
-          yield {
-            total,
-            left,
-            processed: { path, result: "error", errorMessage: error.toString() },
-          };
-        }
-        continue;
-      }
-      // 갱신 필요하면 수행
-      const isMtimeOrSizeDifferent =
-        existingItem.mtime !== fileInfo.mtime || existingItem.size !== fileInfo.size;
-      const shouldBeUpdated =
-        isMtimeOrSizeDifferent || (compareHash && existingItem.hash !== fileHash);
-      if (shouldBeUpdated) {
-        // 업데이트할 데이터 준비
-        if (!fileHash) fileHash = await getFileHash(fullPath);
-        const thumbnailFullPaths = buildThumbnailPathsForHash(galleryPath, fileHash);
-        const updatingItem: Partial<Models.ItemAttributes> = {
-          ...fileInfo,
-          hash: fileHash,
-          time: fileInfo.mtime,
-          thumbnailPath: nodePath.relative(galleryPath, thumbnailFullPaths.image),
-          lost: false,
-        };
-        if (!nodeFs.existsSync(thumbnailFullPaths.directory)) {
-          await nodeFs.promises.mkdir(thumbnailFullPaths.directory, { recursive: true });
-        }
-        // 새로운 썸네일 생성 및 메타데이터의 시간 할당
-        try {
-          switch (type) {
-            case "IMG":
-              const imageIndexingData = await processImageIndexing(
-                fullPath,
-                thumbnailFullPaths.image
-              );
-              // if (imageIndexingData.time) imageIndexingData.time = imageIndexingData.time;
-              Object.assign(updatingItem, imageIndexingData);
-              break;
-            case "VID":
-              const videoIndexingData = await processVideoIndexing(
-                fullPath,
-                thumbnailFullPaths.video
-              );
-              // videoIndexingData.time = videoIndexingData.time || updatingItem.time;
-              Object.assign(updatingItem, videoIndexingData);
-              break;
-            default:
-              throw new Error();
-          }
-        } catch (error) {
-          yield {
-            total,
-            left,
-            processed: { path, result: "error", errorMessage: error.toString() },
-          };
-          continue;
-        }
-        // DB에 반영
-        await Item.update(updatingItem, { where: { id } });
-        // 기존의 썸네일 파일은 삭제
-        if (existingItem.thumbnailPath) {
-          try {
-            nodeFs.promises.unlink(nodePath.join(galleryPath, existingItem.thumbnailPath));
-          } catch {}
-        }
-        if (existingItem.previewVideoPath) {
-          try {
-            nodeFs.promises.unlink(nodePath.join(galleryPath, existingItem.previewVideoPath));
-          } catch {}
-        }
-        // 성공 보고
-        yield { total, left, processed: { path, result: "done" } };
-      }
-    }
-
-    // 새로운 파일 목록 순회
-    for (const path of newFilePaths) {
-      left -= 1;
-      try {
-        let type: Models.Item["type"];
-        if (checkPathIsImage(path)) type = "IMG";
-        else if (checkPathIsVideo(path)) type = "VID";
-        else continue;
-
-        const fullPath = nodePath.join(galleryPath, path);
-        const fileInfo = await getFileInfo(fullPath);
-        const hash = await getFileHash(fullPath);
-        const thumbnailFullPaths = buildThumbnailPathsForHash(galleryPath, hash);
-        const newItem: Models.ItemCreationAttributes = {
-          ...fileInfo,
-          hash,
-          path,
-          type,
-          width: 0,
-          height: 0,
-          duration: 0,
-          time: fileInfo.mtime,
-          thumbnailBase64: "",
-          thumbnailPath: nodePath.relative(galleryPath, thumbnailFullPaths.image),
-        };
-        if (!nodeFs.existsSync(thumbnailFullPaths.directory)) {
-          await nodeFs.promises.mkdir(thumbnailFullPaths.directory, { recursive: true });
-        }
-        switch (type) {
-          case "IMG":
-            const imageIndexingData = await processImageIndexing(
-              fullPath,
-              thumbnailFullPaths.image
-            );
-            // imageIndexingData.time = imageIndexingData.time || newItem.time;
-            Object.assign(newItem, imageIndexingData);
-            break;
-          case "VID":
-            const videoIndexingData = await processVideoIndexing(
-              fullPath,
-              thumbnailFullPaths.image
-            );
-            // videoIndexingData.time = videoIndexingData.time || newItem.time;
-            Object.assign(newItem, videoIndexingData);
-            break;
-          default:
-            throw new Error();
-        }
-        await Item.create(newItem);
-        yield { total, left, processed: { path, result: "done" } };
-      } catch (error) {
-        yield { total, left, processed: { path, result: "error", errorMessage: error.toString() } };
-        continue;
-      }
-    }
-  }
-
-  // async indexForExistingOne() {}
-  // TODO: lost였다가 찾은 경우??
-  async *generateIndexingSequenceForExistingItems() {
+  async *generateIndexingSequenceForPreexistences(): AsyncGenerator<IndexingStepForPreexistences> {
     const {
       path: galleryPath,
       models: { item: Item },
     } = this;
 
     const totalCount = await Item.count();
-    let leftCount = totalCount;
-
+    let processedCount = 0;
+    yield { totalCount, processedCount };
     let lastId = 0;
     let lastResultCount = 0;
     do {
       const items = await Item.findAll({
         attributes: [
           "id",
+          "type",
           "directory",
           "filename",
           "mtime",
@@ -676,61 +504,137 @@ export default class Gallery implements Disposable {
       lastId = items[items.length - 1]?.id;
       lastResultCount = items.length;
       for (const item of items) {
-        leftCount -= 1;
-        const fullFilePath = nodePath.join(galleryPath, item.directory, item.filename);
-        let fileInfo: PromiseValue<ReturnType<typeof getFileInfo>>;
-        try {
-          fileInfo = await getFileInfo(fullFilePath);
-        } catch (error) {
-          if (error.code === "ENOENT") {
-            // 파일이 없음
-            if (item.lost) {
-              // 원래 없음
-              // yield { total, left, processed: { path, result: "keepLost" } };
-              yield "LOST AGAIN";
-            } else {
-              // 이번에 갑자기 없음
-              await Item.update({ lost: true }, { where: { id: item.id } });
-              // yield { total, left, processed: { path, result: "newlyLost" } };
-              yield "LOST SUDDENLY";
-            }
-          } else {
-            // 예기치 못한 오류
-            // yield {
-            //   total,
-            //   left,
-            //   processed: { path, result: "error", errorMessage: error.toString() },
-            // };
-            yield "ERROR";
-          }
-          continue;
-        }
-        const isMtimeOrSizeDifferent = item.mtime !== fileInfo.mtime || item.size !== fileInfo.size;
-        if (!isMtimeOrSizeDifferent) {
-          // 업데이트 필요없음
-          continue;
-        }
-        const fileHash = await getFileHash(fullFilePath);
-        const shouldBeUpdated = item.hash !== fileHash;
-        if (!shouldBeUpdated) {
-          // 업데이트 필요없음
-          yield "NOUP";
-          continue;
-        }
-        // TODO: 업데이트하기
-        const thumbnailFullPaths = buildThumbnailPathsForHash(galleryPath, fileHash);
-        const updatingItem: Partial<Models.ItemAttributes> = {
-          ...fileInfo,
-          hash: fileHash,
-          time: fileInfo.mtime,
-          thumbnailPath: nodePath.relative(galleryPath, thumbnailFullPaths.image),
-          lost: false,
+        processedCount += 1;
+        const step: IndexingStepForPreexistences = {
+          totalCount,
+          processedCount,
         };
-        if (!nodeFs.existsSync(thumbnailFullPaths.directory)) {
-          await nodeFs.promises.mkdir(thumbnailFullPaths.directory, { recursive: true });
-        }
-        // 새로운 썸네일 생성 및 메타데이터의 시간 할당
+        const relativeFilePath = nodePath.join(item.directory, item.filename);
         try {
+          const fullFilePath = nodePath.join(galleryPath, relativeFilePath);
+          try {
+            // 파일의 존재 확인
+            await nodeFs.promises.access(fullFilePath);
+          } catch (error) {
+            if (error.code === "ENOENT") {
+              if (item.lost) {
+                // 원래 lost: true였던 항목인데, 여전히 파일이 없음
+                yield {
+                  ...step,
+                  processedInfo: {
+                    path: relativeFilePath,
+                    itemChanged: "no-change",
+                    itemLost: true,
+                    fileExists: false,
+                    fileHash: "unknown",
+                  },
+                };
+                continue;
+              } else {
+                // 원래는 lost: false였는데, 갑자기 파일이 없음
+                await Item.update({ lost: true }, { where: { id: item.id }, sideEffects: false });
+                yield {
+                  ...step,
+                  processedInfo: {
+                    path: relativeFilePath,
+                    itemChanged: "lost-only",
+                    itemLost: true,
+                    fileExists: false,
+                    fileHash: "unknown",
+                  },
+                };
+                continue;
+              }
+            } else {
+              throw error;
+            }
+          }
+          if (item.lost) {
+            const fileHash = await getFileHash(fullFilePath);
+            if (item.hash === fileHash) {
+              // 원래 lost: true였던 항목인데, 같은 위치에 똑같은 파일을 찾았음
+              // TODO: time 필드
+              const fileInfo = await getFileInfo(fullFilePath);
+              await Item.update(
+                { mtime: fileInfo.mtime, lost: false },
+                { where: { id: item.id }, sideEffects: false }
+              );
+              yield {
+                ...step,
+                processedInfo: {
+                  path: relativeFilePath,
+                  itemChanged: "no-change",
+                  itemLost: true,
+                  fileExists: true,
+                  fileHash: "different",
+                },
+              };
+              continue;
+            } else {
+              // 원래 lost: true였던 항목인데, 같은 경로의 파일을 찾았지만 해시가 다름
+              yield {
+                ...step,
+                processedInfo: {
+                  path: relativeFilePath,
+                  itemChanged: "no-change",
+                  itemLost: true,
+                  fileExists: true,
+                  fileHash: "different",
+                },
+              };
+              continue;
+            }
+          }
+          const fileInfo = await getFileInfo(fullFilePath);
+          const isMtimeOrSizeDifferent =
+            item.mtime !== fileInfo.mtime || item.size !== fileInfo.size;
+          if (!isMtimeOrSizeDifferent) {
+            // 크기나 날짜가 같으므로 업데이트가 필요하지 않음
+            yield {
+              ...step,
+              processedInfo: {
+                path: relativeFilePath,
+                itemChanged: "no-change",
+                itemLost: false,
+                fileExists: true,
+                fileHash: "estimated-same",
+              },
+            };
+            continue;
+          }
+          const fileHash = await getFileHash(fullFilePath);
+          const shouldBeUpdated = item.hash !== fileHash;
+          if (!shouldBeUpdated) {
+            // mtime이 다르지만 해시가 같으므로, mtime만 갱신함
+            // TODO: 그렇다면 timeType 필드 추가하여, time까지 바꿔야하나 체크
+            await Item.update(
+              { mtime: fileInfo.mtime },
+              { where: { id: item.id }, sideEffects: false }
+            );
+            yield {
+              ...step,
+              processedInfo: {
+                path: relativeFilePath,
+                itemChanged: "no-change",
+                itemLost: true,
+                fileExists: true,
+                fileHash: "same",
+              },
+            };
+            continue;
+          }
+          const thumbnailFullPaths = buildThumbnailPathsForHash(galleryPath, fileHash);
+          const updatingItem: Partial<Models.ItemAttributes> = {
+            ...fileInfo,
+            hash: fileHash,
+            time: fileInfo.mtime,
+            thumbnailPath: nodePath.relative(galleryPath, thumbnailFullPaths.image),
+            lost: false,
+          };
+          if (!nodeFs.existsSync(thumbnailFullPaths.directory)) {
+            await nodeFs.promises.mkdir(thumbnailFullPaths.directory, { recursive: true });
+          }
+          // 새로운 썸네일 생성 및 메타데이터의 시간 할당
           switch (item.type) {
             case "IMG":
               const imageIndexingData = await processImageIndexing(
@@ -749,117 +653,244 @@ export default class Gallery implements Disposable {
               Object.assign(updatingItem, videoIndexingData);
               break;
             default:
-              throw new Error();
+              throw new Error("Unknown media type.");
           }
+          // DB에 반영
+          await Item.update(updatingItem, { where: { id: item.id }, sideEffects: false });
+          // 기존의 썸네일 파일은 삭제
+          if (item.thumbnailPath) {
+            try {
+              await nodeFs.promises.unlink(nodePath.join(galleryPath, item.thumbnailPath));
+            } catch {}
+          }
+          if (item.previewVideoPath) {
+            try {
+              await nodeFs.promises.unlink(nodePath.join(galleryPath, item.previewVideoPath));
+            } catch {}
+          }
+          yield {
+            ...step,
+            processedInfo: {
+              path: relativeFilePath,
+              itemChanged: "hash-and-others",
+              itemLost: false,
+              fileExists: true,
+              fileHash: "different",
+            },
+          };
         } catch (error) {
-          // yield {
-          //   total,
-          //   left,
-          //   processed: { path, result: "error", errorMessage: error.toString() },
-          // };
-          yield "ERROR";
-          continue;
+          yield {
+            ...step,
+            processedInfo: {
+              path: relativeFilePath,
+              error: isDev ? error.stack : error.toString(),
+              itemChanged: "no-change",
+              itemLost: item.lost,
+              fileExists: true,
+              fileHash: "unknown",
+            },
+          };
         }
-        // DB에 반영
-        await Item.update(updatingItem, { where: { id: item.id } });
-        // 기존의 썸네일 파일은 삭제
-        if (item.thumbnailPath) {
-          try {
-            await nodeFs.promises.unlink(nodePath.join(galleryPath, item.thumbnailPath));
-          } catch {}
-        }
-        if (item.previewVideoPath) {
-          try {
-            await nodeFs.promises.unlink(nodePath.join(galleryPath, item.previewVideoPath));
-          } catch {}
-        }
-        // 성공 보고
-        yield "ONE";
       }
     } while (lastResultCount > 0);
   }
-  async *generateIndexingSequenceForNewFiles() {
+
+  // TODO: 중간에 누가 지워질지 모른다. 누가 생기진 않겠지만 누가 지워지기는 하니까 주의.
+  /** 기존에 인덱싱되지 않은 파일을 찾아, 인덱싱 항목에 하나씩 추가하는 제너레이터를 반환합니다. */
+  async *generateIndexingSequenceForNewFiles(): AsyncGenerator<IndexingStepForNewFiles> {
     const {
       path: galleryPath,
       models: { item: Item },
     } = this;
 
-    const imageExtensions = await this.getConfig("imageExtensions");
-    const videoExtensions = await this.getConfig("videoExtensions");
+    const imageExtensions = (await this.getConfig("imageExtensions")).map(ext => ext.toLowerCase());
+    const videoExtensions = (await this.getConfig("videoExtensions")).map(ext => ext.toLowerCase());
 
-    let itemsToCreate: Models.ItemCreationAttributes[] = [];
+    const allChildFilesCount = await countAllChildFiles(galleryPath, {
+      ignoreDirectories: [INDEXING_DIRNAME],
+      acceptingExtensions: union(imageExtensions, videoExtensions),
+    });
+    const allNonLostItemsCount = await Item.count({ where: { lost: false } });
+    const totalCount = allChildFilesCount - allNonLostItemsCount;
+    let processedCount = 0;
+    yield { totalCount, processedCount };
 
-    let fetchedDirectory = null;
-    let fetchedItemsInDirectory: Pick<RawItem, "filename">[];
+    const lostItemHashesSet = new Set<string>();
+    (
+      await Item.findAll({
+        attributes: ["hash"],
+        raw: true,
+        where: { lost: true },
+      })
+    ).forEach(item => lostItemHashesSet.add(item.hash));
+
+    let itemsToBulkCreate: Models.ItemCreationAttributes[] = [];
+
+    const nonLostItemsInDirectory = {
+      directory: null as string,
+      items: [] as Pick<RawItem, "filename">[],
+    };
 
     const generator = generateAllChildFileRelativePaths(galleryPath, {
       ignoreDirectories: [INDEXING_DIRNAME],
       acceptingExtensions: union(imageExtensions, videoExtensions),
     });
     for await (const relativeFilePath of generator) {
-      const directory = nodePath.join(relativeFilePath, "..");
-      const filename = nodePath.basename(relativeFilePath);
-      const extension = nodePath.extname(filename).toLowerCase().slice(1);
+      const step: IndexingStepForNewFiles = {
+        totalCount,
+        processedCount,
+      };
+
+      const extension = nodePath.extname(relativeFilePath).toLowerCase().slice(1);
       const hasImageExtension = imageExtensions.includes(extension);
-      const hasVideoExtension = videoExtensions.includes(extension);
+      const hasVideoExtension = !hasImageExtension && videoExtensions.includes(extension);
       if (!hasImageExtension && !hasVideoExtension) {
+        // This code will never be executed thanks to the generator's reliable integrity.
         continue;
       }
-      if (fetchedDirectory !== directory) {
-        fetchedDirectory = directory;
-        fetchedItemsInDirectory = await Item.findAll({
+      const directory = nodePath.join(relativeFilePath, "..");
+      if (nonLostItemsInDirectory.directory !== directory) {
+        // Fetch preexisting non-lost items in the same directory of the file
+        // to verify it is new or not.
+        nonLostItemsInDirectory.directory = directory;
+        nonLostItemsInDirectory.items = await Item.findAll({
           attributes: ["filename"],
-          where: { directory: fetchedDirectory },
+          where: { directory, lost: false },
           raw: true,
         });
       }
-      if (fetchedItemsInDirectory.find(item => item.filename === filename)) {
+      const filename = nodePath.basename(relativeFilePath);
+      if (nonLostItemsInDirectory.items.find(item => item.filename === filename)) {
+        // If this file is already indexed before and it is `lost: false`
+        // then continue to the next file.
         continue;
       }
-      let type: Models.Item["type"] = hasImageExtension ? "IMG" : "VID";
+      processedCount += 1;
       const fullFilePath = nodePath.join(galleryPath, relativeFilePath);
-      const fileInfo = await getFileInfo(fullFilePath);
-      const hash = await getFileHash(fullFilePath);
-      const thumbnailFullPaths = buildThumbnailPathsForHash(galleryPath, hash);
-      const newItem: Models.ItemCreationAttributes = {
-        ...fileInfo,
-        type,
-        hash,
-        directory,
-        filename,
-        width: 0,
-        height: 0,
-        duration: 0,
-        time: fileInfo.mtime,
-        thumbnailBase64: "",
-        thumbnailPath: nodePath.relative(galleryPath, thumbnailFullPaths.image),
-      };
-      if (!nodeFs.existsSync(thumbnailFullPaths.directory)) {
-        await nodeFs.promises.mkdir(thumbnailFullPaths.directory, { recursive: true });
+      try {
+        const fileHash = await getFileHash(fullFilePath);
+        if (lostItemHashesSet.has(fileHash)) {
+          // If this file is already indexed but it is `lost: true`
+
+          // TODO: Wrap it with a transaction
+          const lostItemsWithSameHash = await Item.findAll({
+            attributes: ["directory", "filename"],
+            where: { lost: true, hash: fileHash },
+          });
+          const lostItemWithSameHashAndPath = lostItemsWithSameHash.find(
+            item => item.directory === directory && item.filename === filename
+          );
+          if (lostItemWithSameHashAndPath) {
+            // If this file's hash and its path are equals to some preexisting lost item
+            // then make it `lost: false` and continue to the next file.
+            lostItemWithSameHashAndPath.lost = false;
+            await lostItemWithSameHashAndPath.save();
+            yield {
+              ...step,
+              processedInfo: {
+                path: relativeFilePath,
+                result: "found-lost-item-and-updated",
+              },
+            };
+            continue;
+          }
+
+          const lostItemsWithSameHashButDifferentPath = lostItemsWithSameHash.filter(
+            item => item.directory !== directory || item.filename !== filename
+          );
+          if (lostItemsWithSameHashButDifferentPath.length) {
+            // If this file's hash is equal to some preexistence item but the path is not
+            // then it requires the user's confirmation.
+            // In this function, just notify the caller and continue to the next file.
+            const lostItemCandidatePaths = lostItemsWithSameHashButDifferentPath.map(item =>
+              nodePath.join(item.directory, item.filename)
+            );
+            yield {
+              ...step,
+              processedInfo: {
+                path: relativeFilePath,
+                result: "found-lost-item-candidates",
+                lostItemCandidatePaths,
+              },
+            };
+            continue;
+          }
+
+          // If there is no item that has the same hash
+          // then just continue to index it.
+          // This case will occur when the lost item is disappeared during enumerating this generator.
+        }
+        const type: Models.Item["type"] = hasImageExtension ? "IMG" : "VID";
+        const fileInfo = await getFileInfo(fullFilePath);
+        const thumbnailFullPaths = buildThumbnailPathsForHash(galleryPath, fileHash);
+        const newItem: Models.ItemCreationAttributes = {
+          ...fileInfo,
+          type,
+          hash: fileHash,
+          directory,
+          filename,
+          width: 0,
+          height: 0,
+          duration: 0,
+          time: fileInfo.mtime,
+          thumbnailBase64: "",
+          thumbnailPath: nodePath.relative(galleryPath, thumbnailFullPaths.image),
+        };
+        if (!nodeFs.existsSync(thumbnailFullPaths.directory)) {
+          await nodeFs.promises.mkdir(thumbnailFullPaths.directory, { recursive: true });
+        }
+        if (type === "IMG") {
+          const imageIndexingData = await processImageIndexing(
+            fullFilePath,
+            thumbnailFullPaths.image
+          );
+          // imageIndexingData.time = imageIndexingData.time || newItem.time;
+          Object.assign(newItem, imageIndexingData);
+        } else {
+          const videoIndexingData = await processVideoIndexing(
+            fullFilePath,
+            thumbnailFullPaths.image
+          );
+          // videoIndexingData.time = videoIndexingData.time || newItem.time;
+          Object.assign(newItem, videoIndexingData);
+        }
+        itemsToBulkCreate.push(newItem);
+        if (itemsToBulkCreate.length >= 100) {
+          await Item.bulkCreate(itemsToBulkCreate);
+          itemsToBulkCreate = [];
+        }
+        yield {
+          ...step,
+          processedInfo: {
+            path: relativeFilePath,
+            result: "item-added",
+            //   result: "added",
+          },
+        };
+      } catch (error) {
+        if (error.code === "ENOENT") {
+          yield {
+            ...step,
+            processedInfo: {
+              path: relativeFilePath,
+              result: "no-action",
+            },
+          };
+        } else {
+          yield {
+            ...step,
+            processedInfo: {
+              path: relativeFilePath,
+              result: "error",
+              error: error.toString(),
+            },
+          };
+        }
       }
-      if (type === "IMG") {
-        const imageIndexingData = await processImageIndexing(
-          fullFilePath,
-          thumbnailFullPaths.image
-        );
-        // imageIndexingData.time = imageIndexingData.time || newItem.time;
-        Object.assign(newItem, imageIndexingData);
-      } else {
-        const videoIndexingData = await processVideoIndexing(
-          fullFilePath,
-          thumbnailFullPaths.image
-        );
-        // videoIndexingData.time = videoIndexingData.time || newItem.time;
-        Object.assign(newItem, videoIndexingData);
-      }
-      itemsToCreate.push(newItem);
-      if (itemsToCreate.length >= 100) {
-        await Item.bulkCreate(itemsToCreate);
-        itemsToCreate = [];
-      }
-      yield "HELLO";
     }
-    await Item.bulkCreate(itemsToCreate);
+    if (itemsToBulkCreate.length >= 1) {
+      await Item.bulkCreate(itemsToBulkCreate);
+    }
   }
 
   /** 데이터베이스 연결을 닫고 참조를 지웁니다. */

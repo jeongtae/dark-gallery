@@ -87,10 +87,11 @@
   });
 
   function startIndexing() {
-    ipc.invoke("startIndexingForNewFiles");
+    // ipc.invoke("startGalleryIndexing", isPreciseIndexingEnabled);
+    ipc.invoke("startGalleryIndexingForNewFiles");
   }
   function abortIndexing() {
-    ipc.invoke("abortGalleryIndexing");
+    // ipc.invoke("abortGalleryIndexing");
   }
 </script>
 
@@ -111,11 +112,19 @@
       <Button
         kind={indexingButtonKind}
         disabled={indexingButtonDisabled}
-        on:click={indexingButtonClickHandler}
+        on:click={() => ipc.invoke('startGalleryWholeIndexing', { target: 'both' })}
       >
         {indexingButtonText}
       </Button>
       <InlineLoading status={indexingLoadingStatus} description={indexingLoadingDescription} />
+      <Button
+        on:click={() => ipc.invoke('startGalleryWholeIndexing', { target: 'update-preexistences' })}
+      >
+        기존
+      </Button>
+      <Button on:click={() => ipc.invoke('startGalleryWholeIndexing', { target: 'find-new' })}>
+        신규
+      </Button>
     </page-tile>
     <page-tile>
       <h3>메타데이터</h3>
