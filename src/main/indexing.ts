@@ -170,7 +170,7 @@ function getExifTime(filePath: string): Promise<Date> {
     });
   });
 }
-type ImageInfo = {
+export type ImageInfo = {
   width: number;
   height: number;
   /** EXIF 메타데이터에 기록된 시각입니다. */
