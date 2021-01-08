@@ -9,7 +9,7 @@ import _getImageSize from "image-size";
 const ffprobe = promisify<string, FfprobeData>(_ffprobe);
 const getImageSize = promisify(_getImageSize);
 
-type PathFilteringOptions = {
+export type PathFilteringOptions = {
   /** 무시할 디렉터리 이름의 배열입니다. */
   ignoreDirectories?: string[];
   /** 무시할 파일 이름의 배열입니다. */

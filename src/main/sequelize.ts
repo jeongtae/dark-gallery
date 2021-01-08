@@ -36,54 +36,58 @@ function defineModels(sequelize: Sequelize) {
   const createdAt = DataTypes.DATE;
   const updatedAt = DataTypes.DATE;
 
-  const Item = sequelize.define<Models.Item>("item", {
-    id,
-    createdAt,
-    updatedAt,
+  const Item = sequelize.define<Models.Item>(
+    "item",
+    {
+      id,
+      createdAt,
+      updatedAt,
 
-    title: DataTypes.TEXT,
+      title: DataTypes.TEXT,
 
-    directory: {
-      type: DataTypes.STRING(1024),
-      allowNull: false,
-      get() {
-        let value = this.getDataValue("directory");
-        value = value.replace("/", path.sep);
-        return value;
+      directory: {
+        type: DataTypes.STRING(1024),
+        allowNull: false,
+        get() {
+          let value = this.getDataValue("directory");
+          value = value.replace(path.posix.sep, path.sep);
+          return value;
+        },
+        set(value: string) {
+          value = value.replace(path.sep, path.posix.sep);
+          this.setDataValue("directory", value);
+        },
       },
-      set(value: string) {
-        value = value.replace(path.sep, "/");
-        this.setDataValue("directory", value);
+      filename: {
+        type: DataTypes.STRING(512),
+        allowNull: false,
       },
+      lost: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+
+      hash: { type: DataTypes.CHAR(40), allowNull: false },
+      size: { type: DataTypes.INTEGER, allowNull: false },
+      mtime: { type: DataTypes.DATE, allowNull: false },
+      time: { type: DataTypes.DATE, allowNull: false },
+
+      rating: {
+        type: DataTypes.SMALLINT,
+        allowNull: false,
+        defaultValue: 0,
+        validate: { min: 0, max: 10 },
+      },
+      memo: DataTypes.TEXT,
+
+      type: DataTypes.CHAR(4),
+      width: { type: DataTypes.SMALLINT, allowNull: false },
+      height: { type: DataTypes.SMALLINT, allowNull: false },
+      duration: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+
+      thumbnailBase64: { type: DataTypes.TEXT, allowNull: false },
+      thumbnailPath: { type: DataTypes.STRING(256), allowNull: false },
+      previewVideoPath: DataTypes.STRING(256),
     },
-    filename: {
-      type: DataTypes.STRING(512),
-      allowNull: false,
-    },
-    lost: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
-
-    hash: { type: DataTypes.CHAR(40), allowNull: false },
-    size: { type: DataTypes.INTEGER, allowNull: false },
-    mtime: { type: DataTypes.DATE, allowNull: false },
-    time: { type: DataTypes.DATE, allowNull: false },
-
-    rating: {
-      type: DataTypes.SMALLINT,
-      allowNull: false,
-      defaultValue: 0,
-      validate: { min: 0, max: 10 },
-    },
-    memo: DataTypes.TEXT,
-
-    type: DataTypes.CHAR(4),
-    width: { type: DataTypes.SMALLINT, allowNull: false },
-    height: { type: DataTypes.SMALLINT, allowNull: false },
-    duration: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
-
-    thumbnailBase64: { type: DataTypes.TEXT, allowNull: false },
-    thumbnailPath: { type: DataTypes.STRING(256), allowNull: false },
-    previewVideoPath: DataTypes.STRING(256),
-  });
+    { indexes: [{ unique: true, fields: ["directory", "filename"] }] }
+  );
 
   const Tag = sequelize.define<Models.Tag>("tag", {
     id,

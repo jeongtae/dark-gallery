@@ -16,6 +16,7 @@ import {
   getResizedImageSize,
   getResizedWebpImageBufferOfImageFile,
   getVideoInfo,
+  PathFilteringOptions,
   writeResizedWebpImageFileOfImageFile,
   writeResizedWebpImageFileOfVideoFile,
 } from "./indexing";
@@ -693,7 +694,9 @@ export default class Gallery implements Disposable {
 
   // TODO: 중간에 누가 지워질지 모른다. 누가 생기진 않겠지만 누가 지워지기는 하니까 주의.
   /** 기존에 인덱싱되지 않은 파일을 찾아, 인덱싱 항목에 하나씩 추가하는 제너레이터를 반환합니다. */
-  async *generateIndexingSequenceForNewFiles(): AsyncGenerator<IndexingStepForNewFiles> {
+  async *generateIndexingSequenceForNewFiles(
+    bulkCount = 100
+  ): AsyncGenerator<IndexingStepForNewFiles> {
     const {
       path: galleryPath,
       models: { item: Item },
@@ -701,128 +704,152 @@ export default class Gallery implements Disposable {
 
     const imageExtensions = (await this.getConfig("imageExtensions")).map(ext => ext.toLowerCase());
     const videoExtensions = (await this.getConfig("videoExtensions")).map(ext => ext.toLowerCase());
-
-    const allChildFilesCount = await countAllChildFiles(galleryPath, {
+    const childFilesFilter: PathFilteringOptions = {
       ignoreDirectories: [INDEXING_DIRNAME],
       acceptingExtensions: union(imageExtensions, videoExtensions),
-    });
+    };
+
+    const allChildFilesCount = await countAllChildFiles(galleryPath, childFilesFilter);
     const allNonLostItemsCount = await Item.count({ where: { lost: false } });
     const totalCount = allChildFilesCount - allNonLostItemsCount;
     let processedCount = 0;
     yield { totalCount, processedCount };
 
-    const lostItemHashesSet = new Set<string>();
+    /** Key: *hash*, Value: *preindexed lost item's path* */
+    const hashToLostItemPathSetMap = new Map<string, Set<string>>();
     (
       await Item.findAll({
-        attributes: ["hash"],
+        attributes: ["hash", "directory", "filename"],
         raw: true,
         where: { lost: true },
       })
-    ).forEach(item => lostItemHashesSet.add(item.hash));
+    ).forEach(({ hash, directory, filename }) => {
+      directory = directory.replace(nodePath.posix.sep, nodePath.sep);
+      const path = nodePath.join(directory, filename);
+      const set = hashToLostItemPathSetMap.get(hash);
+      if (set) {
+        set.add(path);
+      } else {
+        hashToLostItemPathSetMap.set(hash, new Set([path]));
+      }
+    });
+
+    const filenameToItemMapPerDirectory = {
+      directory: null as string,
+      //TODO: which time field
+      map: null as Map<string, Pick<Models.Item, "lost" | "hash" | "time">>,
+    };
 
     let itemsToBulkCreate: Models.ItemCreationAttributes[] = [];
 
-    const nonLostItemsInDirectory = {
-      directory: null as string,
-      items: [] as Pick<Models.RawItem, "filename">[],
-    };
-
-    const generator = generateAllChildFileRelativePaths(galleryPath, {
-      ignoreDirectories: [INDEXING_DIRNAME],
-      acceptingExtensions: union(imageExtensions, videoExtensions),
-    });
+    const generator = generateAllChildFileRelativePaths(galleryPath, childFilesFilter);
     for await (const relativeFilePath of generator) {
       const step: IndexingStepForNewFiles = {
         totalCount,
         processedCount,
       };
-
-      const extension = nodePath.extname(relativeFilePath).toLowerCase().slice(1);
-      const hasImageExtension = imageExtensions.includes(extension);
-      const hasVideoExtension = !hasImageExtension && videoExtensions.includes(extension);
-      if (!hasImageExtension && !hasVideoExtension) {
-        // This code will never be executed thanks to the generator's reliable integrity.
-        continue;
-      }
-      const directory = nodePath.join(relativeFilePath, "..");
-      if (nonLostItemsInDirectory.directory !== directory) {
-        // Fetch preexisting non-lost items in the same directory of the file
-        // to verify it is new or not.
-        nonLostItemsInDirectory.directory = directory;
-        nonLostItemsInDirectory.items = await Item.findAll({
-          attributes: ["filename"],
-          where: { directory, lost: false },
-          raw: true,
-        });
-      }
-      const filename = nodePath.basename(relativeFilePath);
-      if (nonLostItemsInDirectory.items.find(item => item.filename === filename)) {
-        // If this file is already indexed before and it is `lost: false`
-        // then continue to the next file.
-        continue;
-      }
-      processedCount += 1;
-      const fullFilePath = nodePath.join(galleryPath, relativeFilePath);
       try {
-        const fileHash = await getFileHash(fullFilePath);
-        if (lostItemHashesSet.has(fileHash)) {
-          // If this file is already indexed but it is `lost: true`
+        const extension = nodePath.extname(relativeFilePath).toLowerCase().slice(1);
+        const hasImageExtension = imageExtensions.includes(extension);
+        const hasVideoExtension = !hasImageExtension && videoExtensions.includes(extension);
+        if (!hasImageExtension && !hasVideoExtension) {
+          // This code will never be executed thanks to the generator's reliable integrity.
+          continue;
+        }
 
-          // TODO: Wrap it with a transaction
-          const lostItemsWithSameHash = await Item.findAll({
-            attributes: ["directory", "filename"],
-            where: { lost: true, hash: fileHash },
-          });
-          const lostItemWithSameHashAndPath = lostItemsWithSameHash.find(
-            item => item.directory === directory && item.filename === filename
-          );
-          if (lostItemWithSameHashAndPath) {
-            // If this file's hash and its path are equals to some preexisting lost item
-            // then make it `lost: false` and continue to the next file.
-            lostItemWithSameHashAndPath.lost = false;
-            await lostItemWithSameHashAndPath.save();
-            yield {
-              ...step,
-              processedInfo: {
-                path: relativeFilePath,
-                result: "found-lost-item-and-updated",
-              },
-            };
-            continue;
-          }
+        const directory = nodePath.join(relativeFilePath, "..");
+        if (filenameToItemMapPerDirectory.directory !== directory) {
+          // Fetch preindexed items in the same directory of the file
+          const map: typeof filenameToItemMapPerDirectory["map"] = new Map();
+          (
+            await Item.findAll({
+              attributes: ["filename", "lost", "hash", "time"],
+              where: { directory, lost: true },
+              raw: true,
+            })
+          ).forEach(({ filename, ...attrs }) => map.set(filename, { ...attrs }));
+          filenameToItemMapPerDirectory.directory = directory;
+          filenameToItemMapPerDirectory.map = map;
+        }
 
-          const lostItemsWithSameHashButDifferentPath = lostItemsWithSameHash.filter(
-            item => item.directory !== directory || item.filename !== filename
-          );
-          if (lostItemsWithSameHashButDifferentPath.length) {
-            // If this file's hash is equal to some preexistence item but the path is not
-            // then it requires the user's confirmation.
-            // In this function, just notify the caller and continue to the next file.
-            const lostItemCandidatePaths = lostItemsWithSameHashButDifferentPath.map(item =>
-              nodePath.join(item.directory, item.filename)
+        // 1. 이미 동일 경로로 인덱싱된 Non-Lost 항목이 있으면 -> PASS (노카운트)
+        // 2. 이미 동일 경로로 인덱싱된 항목이 Lost면?
+        //   a. Hash가 같다면 lost:false 처리 및 time갱신
+        //   b. Hash가 다르다면 사용자에게 lost:false로 처리할 후보임을 알림
+        // 3. 인덱싱한 항목중에 경로는 다르지만 Hash가 같으며 Lost인게 있다면?
+        //   a. 그게 이 파일일 수도 있으니 (파일이 이동되어서) lost:false로 처리할 후보임을 알림)
+        // 4. 1,2,3을 통과했으면 인덱싱처리!
+
+        const filename = nodePath.basename(relativeFilePath);
+        const preindexedSamePathItem = filenameToItemMapPerDirectory.map.get(filename) ?? null;
+        if (preindexedSamePathItem?.lost === false) {
+          // If there is already indexed item with same path, and it is `lost: false`
+          // then continue to the next file.
+          continue;
+        } else {
+          processedCount += 1;
+        }
+
+        const fullFilePath = nodePath.join(galleryPath, relativeFilePath);
+        const hash = await getFileHash(fullFilePath);
+        const fileInfo = await getFileInfo(fullFilePath);
+        if (preindexedSamePathItem?.lost === true) {
+          // If there is already indexed item with same path, and it is `lost: true`
+          if (preindexedSamePathItem.hash === hash) {
+            // If the hash is same then update it's lost value to false
+            const [updatedCount] = await Item.update(
+              { lost: false, mtime: fileInfo.mtime },
+              { where: { directory, filename, hash, lost: true } }
             );
+            if (updatedCount >= 1) {
+              // Updated item successfully
+              yield {
+                ...step,
+                processedInfo: {
+                  path: relativeFilePath,
+                  result: "found-lost-item-and-updated",
+                },
+              };
+              continue;
+            } else {
+              // Failed to update due to some unexpected situation.
+              // (like the user modified this item while the indexing is in progress)
+              // these situations should not be handled as an error.
+              continue;
+            }
+          } else {
+            // If the hash is different then notify it as a candidate
             yield {
               ...step,
               processedInfo: {
                 path: relativeFilePath,
                 result: "found-lost-item-candidates",
-                lostItemCandidatePaths,
+                lostItemCandidatePaths: [relativeFilePath],
               },
             };
             continue;
           }
-
-          // If there is no item that has the same hash
-          // then just continue to index it.
-          // This case will occur when the lost item is disappeared during enumerating this generator.
+        }
+        const preindexedSameHashLostItemPathSet = hashToLostItemPathSetMap.get(hash);
+        preindexedSameHashLostItemPathSet?.delete(relativeFilePath);
+        if (preindexedSameHashLostItemPathSet?.has(relativeFilePath)) {
+          // 후보
+          yield {
+            ...step,
+            processedInfo: {
+              path: relativeFilePath,
+              result: "found-lost-item-candidates",
+              lostItemCandidatePaths: [...preindexedSameHashLostItemPathSet.values()],
+            },
+          };
+          continue;
         }
         const type: Models.Item["type"] = hasImageExtension ? "IMG" : "VID";
-        const fileInfo = await getFileInfo(fullFilePath);
-        const thumbnailFullPaths = buildThumbnailPathsForHash(galleryPath, fileHash);
+        const thumbnailFullPaths = buildThumbnailPathsForHash(galleryPath, hash);
         const newItem: Models.ItemCreationAttributes = {
           ...fileInfo,
           type,
-          hash: fileHash,
+          hash,
           directory,
           filename,
           width: 0,
@@ -851,7 +878,7 @@ export default class Gallery implements Disposable {
           Object.assign(newItem, videoIndexingData);
         }
         itemsToBulkCreate.push(newItem);
-        if (itemsToBulkCreate.length >= 100) {
+        if (itemsToBulkCreate.length >= bulkCount) {
           await Item.bulkCreate(itemsToBulkCreate);
           itemsToBulkCreate = [];
         }
@@ -860,11 +887,11 @@ export default class Gallery implements Disposable {
           processedInfo: {
             path: relativeFilePath,
             result: "item-added",
-            //   result: "added",
           },
         };
       } catch (error) {
         if (error.code === "ENOENT") {
+          // If the file is disappeared while indexing it.
           yield {
             ...step,
             processedInfo: {
@@ -873,6 +900,7 @@ export default class Gallery implements Disposable {
             },
           };
         } else {
+          // If some unexpected error is thrown.
           yield {
             ...step,
             processedInfo: {

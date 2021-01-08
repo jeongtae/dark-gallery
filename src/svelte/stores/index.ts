@@ -1,6 +1,6 @@
 import { path as nodePath } from "../node";
 import { writable, readable } from "svelte/store";
-import type { IndexingProgress } from "../ipc";
+// import type { IndexingProgress } from "../ipc";
 import { appColorThemeDefault, appColorTheme } from "./app-settings";
 import { reloadAllGalleryConfigs } from "./gallery-configs";
 
@@ -51,4 +51,4 @@ export const appColorThemeCalculated = readable<"dark" | "light">(appColorThemeD
 });
 
 /** 마지막으로 보고된 인덱싱 진행 상태 */
-export const lastReportedIndexingProgress = writable<IndexingProgress>(null);
+export const lastReportedIndexingProgress = writable<any>(null);
