@@ -46,7 +46,7 @@ function defineModels(sequelize: Sequelize) {
       title: DataTypes.TEXT,
 
       directory: {
-        type: DataTypes.STRING(1024),
+        type: DataTypes.TEXT,
         allowNull: false,
         get() {
           let value = this.getDataValue("directory");
@@ -59,7 +59,7 @@ function defineModels(sequelize: Sequelize) {
         },
       },
       filename: {
-        type: DataTypes.STRING(512),
+        type: DataTypes.TEXT,
         allowNull: false,
       },
       lost: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
@@ -68,6 +68,7 @@ function defineModels(sequelize: Sequelize) {
       size: { type: DataTypes.INTEGER, allowNull: false },
       mtime: { type: DataTypes.DATE, allowNull: false },
       time: { type: DataTypes.DATE, allowNull: false },
+      timeMode: { type: DataTypes.CHAR(4), allowNull: false },
 
       rating: {
         type: DataTypes.SMALLINT,
@@ -77,14 +78,14 @@ function defineModels(sequelize: Sequelize) {
       },
       memo: DataTypes.TEXT,
 
-      type: DataTypes.CHAR(4),
+      type: { type: DataTypes.CHAR(4), allowNull: false },
       width: { type: DataTypes.SMALLINT, allowNull: false },
       height: { type: DataTypes.SMALLINT, allowNull: false },
       duration: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
 
       thumbnailBase64: { type: DataTypes.TEXT, allowNull: false },
-      thumbnailPath: { type: DataTypes.STRING(256), allowNull: false },
-      previewVideoPath: DataTypes.STRING(256),
+      thumbnailPath: { type: DataTypes.TEXT, allowNull: false },
+      previewVideoPath: DataTypes.TEXT,
     },
     { indexes: [{ unique: true, fields: ["directory", "filename"] }] }
   );
@@ -111,10 +112,10 @@ function defineModels(sequelize: Sequelize) {
   const Config = sequelize.define<Models.Config>(
     "config",
     {
-      key: { type: DataTypes.STRING, primaryKey: true, allowNull: false },
+      key: { type: DataTypes.TEXT, primaryKey: true, allowNull: false },
       value: { type: DataTypes.TEXT, allowNull: false },
     },
-    { timestamps: false, freezeTableName: true }
+    { timestamps: false }
   );
 
   const ItemToTag = sequelize.define<Models.ItemToTag>("itemToTag", {

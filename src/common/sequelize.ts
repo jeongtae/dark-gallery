@@ -53,6 +53,8 @@ export type ItemAttributes = {
   mtime: Date;
   /** 정렬에 사용할 날짜 */
   time: Date;
+  /** 정렬에 사용할 날짜 종류 */
+  timeMode: "MTIME" | "METAD";
 
   /** 항목에 대한 유저 점수 0~10 */
   rating: number;
