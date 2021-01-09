@@ -103,7 +103,7 @@ export function getFileHash(filePath: string): Promise<string> {
     const hasher = crypto.createHash("sha1");
     const stream = fs.createReadStream(filePath);
     stream.once("error", reject);
-    stream.on("data", chunk => hasher.update(chunk));
+    stream.on("data", hasher.update.bind(hasher));
     stream.once("close", () => resolve(hasher.digest("hex")));
   });
 }
