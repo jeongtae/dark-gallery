@@ -207,11 +207,11 @@ export interface IndexingStepForPreexistences {
 
 // 기존에 사라졌던 항목을 찾기도 하지만, 경로가 다르면 못 한다.
 export interface IndexingStepForNewFiles {
-  /** 작업할 전체 항목 수 */
+  /** Total count of files to process */
   totalCount: number;
-  /** 작업한 항목 수 */
+  /** Processed count of files */
   processedCount: number;
-  /** 지금 작업한 항목의 정보 */
+  /** Detail of processed file at this time */
   processedInfo?: {
     path: string;
   } & (
@@ -466,7 +466,9 @@ export default class Gallery implements Disposable {
    *   ...
    * }
    */
-  async *generateIndexingSequenceForPreexistences(): AsyncGenerator<IndexingStepForPreexistences> {
+  async *generateIndexingSequenceForPreexistences(
+    fetchCount = 1000
+  ): AsyncGenerator<IndexingStepForPreexistences> {
     const {
       path: galleryPath,
       models: { item: Item },
@@ -495,7 +497,7 @@ export default class Gallery implements Disposable {
         where: {
           id: { [Op.gt]: lastId },
         },
-        limit: 1000,
+        limit: fetchCount,
         raw: true,
       });
       lastId = items[items.length - 1]?.id;
@@ -692,8 +694,15 @@ export default class Gallery implements Disposable {
     } while (lastResultCount > 0);
   }
 
-  // TODO: 중간에 누가 지워질지 모른다. 누가 생기진 않겠지만 누가 지워지기는 하니까 주의.
-  /** 기존에 인덱싱되지 않은 파일을 찾아, 인덱싱 항목에 하나씩 추가하는 제너레이터를 반환합니다. */
+  /** Returns a generator that finds new files those not indexed before and indexes them one by one.
+   * @yields
+   * First yield object has `totalCount` and `processedCount` only.
+   * After it, the generator yields an object containing `processedInfo` for each indexing item
+   * @example
+   * for (const step of generateIndexingSequenceForNewFiles()) {
+   *   ...
+   * }
+   */
   async *generateIndexingSequenceForNewFiles(
     bulkCount = 100
   ): AsyncGenerator<IndexingStepForNewFiles> {
@@ -736,8 +745,7 @@ export default class Gallery implements Disposable {
 
     const filenameToItemMapPerDirectory = {
       directory: null as string,
-      //TODO: which time field
-      map: null as Map<string, Pick<Models.Item, "lost" | "hash" | "time">>,
+      map: null as Map<string, Pick<Models.Item, "lost" | "hash" | "timeMode">>,
     };
 
     let itemsToBulkCreate: Models.ItemCreationAttributes[] = [];
@@ -763,7 +771,7 @@ export default class Gallery implements Disposable {
           const map: typeof filenameToItemMapPerDirectory["map"] = new Map();
           (
             await Item.findAll({
-              attributes: ["filename", "lost", "hash", "time"],
+              attributes: ["filename", "lost", "hash", "timeMode"],
               where: { directory, lost: true },
               raw: true,
             })
@@ -771,14 +779,6 @@ export default class Gallery implements Disposable {
           filenameToItemMapPerDirectory.directory = directory;
           filenameToItemMapPerDirectory.map = map;
         }
-
-        // 1. 이미 동일 경로로 인덱싱된 Non-Lost 항목이 있으면 -> PASS (노카운트)
-        // 2. 이미 동일 경로로 인덱싱된 항목이 Lost면?
-        //   a. Hash가 같다면 lost:false 처리 및 time갱신
-        //   b. Hash가 다르다면 사용자에게 lost:false로 처리할 후보임을 알림
-        // 3. 인덱싱한 항목중에 경로는 다르지만 Hash가 같으며 Lost인게 있다면?
-        //   a. 그게 이 파일일 수도 있으니 (파일이 이동되어서) lost:false로 처리할 후보임을 알림)
-        // 4. 1,2,3을 통과했으면 인덱싱처리!
 
         const filename = nodePath.basename(relativeFilePath);
         const preindexedSamePathItem = filenameToItemMapPerDirectory.map.get(filename) ?? null;
@@ -798,7 +798,11 @@ export default class Gallery implements Disposable {
           if (preindexedSamePathItem.hash === hash) {
             // If the hash is same then update it's lost value to false
             const [updatedCount] = await Item.update(
-              { lost: false, mtime: fileInfo.mtime },
+              {
+                lost: false,
+                mtime: fileInfo.mtime,
+                ...(preindexedSamePathItem.timeMode === "MTIME" && { time: fileInfo.mtime }),
+              },
               { where: { directory, filename, hash, lost: true } }
             );
             if (updatedCount >= 1) {
@@ -818,7 +822,7 @@ export default class Gallery implements Disposable {
               continue;
             }
           } else {
-            // If the hash is different then notify it as a candidate
+            // If the hash is different then notify it as a candidate.
             yield {
               ...step,
               processedInfo: {
@@ -833,7 +837,8 @@ export default class Gallery implements Disposable {
         const preindexedSameHashLostItemPathSet = hashToLostItemPathSetMap.get(hash);
         preindexedSameHashLostItemPathSet?.delete(relativeFilePath);
         if (preindexedSameHashLostItemPathSet?.has(relativeFilePath)) {
-          // 후보
+          // If there are already indexed items with same hash but different path, and it is `lost: false`
+          // then notify them as a candidates.
           yield {
             ...step,
             processedInfo: {
@@ -844,40 +849,49 @@ export default class Gallery implements Disposable {
           };
           continue;
         }
-        const type: Models.Item["type"] = hasImageExtension ? "IMG" : "VID";
-        const thumbnailFullPaths = buildThumbnailPathsForHash(galleryPath, hash);
-        const newItem: Models.ItemCreationAttributes = {
-          ...fileInfo,
+        let type: Models.Item["type"];
+        let width: number, height: number, duration: number;
+        let time = fileInfo.mtime;
+        let timeMode: Models.Item["timeMode"] = "MTIME";
+        if (hasImageExtension) {
+          type = "IMG";
+          const imageInfo = await getImageInfo(fullFilePath);
+          width = imageInfo.width;
+          height = imageInfo.height;
+          if (imageInfo.taggedTime !== null) {
+            timeMode = "METAD";
+            time = imageInfo.taggedTime;
+          }
+        } else if (hasVideoExtension) {
+          type = "VID";
+          const videoInfo = await getVideoInfo(fullFilePath);
+          width = videoInfo.width;
+          height = videoInfo.height;
+          duration = videoInfo.duration;
+          if (videoInfo.taggedTime !== null) {
+            timeMode = "METAD";
+            time = videoInfo.taggedTime;
+          }
+        } else {
+          // This code will never be executed thanks to the generator's reliable integrity.
+          throw new Error("Unexpected media type.");
+        }
+
+        itemsToBulkCreate.push({
           type,
           hash,
+          size: fileInfo.size,
           directory,
           filename,
-          width: 0,
-          height: 0,
-          duration: 0,
-          time: fileInfo.mtime,
+          width,
+          height,
+          duration,
+          mtime: fileInfo.mtime,
+          time,
+          timeMode,
           thumbnailBase64: "",
-          thumbnailPath: nodePath.relative(galleryPath, thumbnailFullPaths.image),
-        };
-        if (!nodeFs.existsSync(thumbnailFullPaths.directory)) {
-          await nodeFs.promises.mkdir(thumbnailFullPaths.directory, { recursive: true });
-        }
-        if (type === "IMG") {
-          const imageIndexingData = await processImageIndexing(
-            fullFilePath,
-            thumbnailFullPaths.image
-          );
-          // imageIndexingData.time = imageIndexingData.time || newItem.time;
-          Object.assign(newItem, imageIndexingData);
-        } else {
-          const videoIndexingData = await processVideoIndexing(
-            fullFilePath,
-            thumbnailFullPaths.image
-          );
-          // videoIndexingData.time = videoIndexingData.time || newItem.time;
-          Object.assign(newItem, videoIndexingData);
-        }
-        itemsToBulkCreate.push(newItem);
+          thumbnailPath: "",
+        });
         if (itemsToBulkCreate.length >= bulkCount) {
           await Item.bulkCreate(itemsToBulkCreate);
           itemsToBulkCreate = [];
