@@ -170,42 +170,26 @@ interface GalleryModels {
 }
 
 export interface IndexingStepForPreexistences {
-  /** 작업할 전체 항목 수 */
+  /** Total count of files to process */
   totalCount: number;
-  /** 작업한 항목 수 */
+  /** Processed count of files */
   processedCount: number;
-  /** 지금 작업한 항목의 정보 */
+  /** Detail of processed file at this time */
   processedInfo?: {
-    /** 항목의 경로 (갤러리 폴더에 대한 상대경로) */
-    path: string;
-    error?: string;
-    /** DB 상에서 항목의 변경된 필드 (`mtime`의 변경은 표시되지 않음) */
-    itemChanged: "no-change" | "hash-and-others" | "lost-only";
-    /** DB 상에서 항목의 `lost` 필드 값 */
-    itemLost: boolean;
-    /** 파일의 존재 여부 */
-    fileExists: boolean;
-    /** 파일과 항목의 해시 일치 여부 */
-    fileHash: "same" | "different" | "estimated-same" | "unknown";
-  };
-  alt?: {
     path: string;
   } & (
     | {
         result:
-          | "item-keep-lost"
-          | "item-set-lost"
-          | "found-lost-item-and-updated"
-          | "found-lost-item-candidate"
-          | "no-action"
-          | "item-updated-mtime-only"
+          | "no-big-change"
+          | "item-lost"
+          | "found-lost-items-file-and-updated"
+          | "found-lost-items-candidate-file"
           | "item-updated";
       }
     | { result: "error"; error: string }
   );
 }
 
-// 기존에 사라졌던 항목을 찾기도 하지만, 경로가 다르면 못 한다.
 export interface IndexingStepForNewFiles {
   /** Total count of files to process */
   totalCount: number;
@@ -215,8 +199,8 @@ export interface IndexingStepForNewFiles {
   processedInfo?: {
     path: string;
   } & (
-    | { result: "no-action" | "item-added" | "found-lost-item-and-updated" }
-    | { result: "found-lost-item-candidates"; lostItemCandidatePaths: string[] }
+    | { result: "item-added" | "found-lost-items-file-and-updated" }
+    | { result: "found-lost-item-candidate-file"; lostItemPaths: string[] }
     | { result: "error"; error: string }
   );
 }
@@ -444,26 +428,36 @@ export default class Gallery implements Disposable {
   }
 
   // async indexForExistingOne() {}
-  /** 기존에 인덱싱한 항목에 대해 업데이트를 하나씩 수행하는 제너레이터를 반환합니다.
+  /** Returns a generator that updates already indexed items one by one.
    * @yields
-   * 처음에 열거되는 객체는 `totalCount`와 `processedCount`만 포함합니다.
-   * 이후에는 항목을 하나 거칠 때마다 열거되며, 항목에 대한 상세 정보는 `processedInfo`에서 확인이 가능합니다.
+   * First yield object has `totalCount` and `processedCount` only.
+   * After it, the generator yields an object containing `processedInfo` for each indexing item
    * @example
-   * for (const step of generateIndexingSequenceForPreexistences()) {
-   *   if (step.processedInfo?.itemChanged !== "no-change") {
-   *     // 실제 파일이 기존에 인덱싱된 항목에 기록된 것과 다르다면 적절하게 업데이트되며,
-   *     // 변경된 내용은 `processedInfo.itemChanged`에서 알 수 있습니다.
-   *     // 단, `mtime`의 변경은 알 수 없습니다.
+   * for await (const step of generateIndexingSequenceForPreexistences()) {
+   *   if (step.processedInfo === undefined) {
+   *     // This step is the first one that contains `totalCount` and `processedCount` only.
    *   }
-   *   if (step.processedInfo?.itemChanged === "lost-only") {
-   *     // 파일을 찾았거나, 파일이 사라진 경우를 알 수 있습니다.
-   *     // `lost` 필드의 값이 적절하게 변경됩니다.
+   *   if (step.processedInfo?.result === "no-big-change") {
+   *     // The item has been passed through with no changes or it was updated mtime only.
    *   }
-   *   if (step.processedInfo?.fileExists && !step.processedInfo.itemLost) {
-   *     // 파일을 찾았어도, 파일의 해시가 항목에 기록된 해시와 다를 경우, lost 필드는 변경되지 않습니다.
-   *     // 이러한 파일들은 별도의 검수 과정을 거치고, ??? 함수를 이용해 강제 업데이트 해야합니다.
+   *   if (step.processedInfo?.result === "item-lost") {
+   *     // The corresponding file to the item has been lost on the actual file system.
    *   }
-   *   ...
+   *   if (step.processedInfo?.result === "found-lost-items-file-and-updated") {
+   *     // The item's lost file has been discovered so it updated the attribute `lost` to false.
+   *   }
+   *   if (step.processedInfo?.result === "found-lost-items-candidate-file") {
+   *     // The item's lost file has been discovered however the hash is different.
+   *     // These items may not be the same as the previously existing file.
+   *     // Therefore it needs the user's verification.
+   *   }
+   *   if (step.processedInfo?.result === "item-updated") {
+   *     // The corresponding file to the item has been changed so the item has been updated.
+   *   }
+   *   if (step.processedInfo?.result === "error") {
+   *     // An error has been thrown.
+   *     const message = step.processedInfo.error;
+   *   }
    * }
    */
   async *generateIndexingSequenceForPreexistences(
@@ -474,19 +468,24 @@ export default class Gallery implements Disposable {
       models: { item: Item },
     } = this;
 
-    const totalCount = await Item.count();
-    let processedCount = 0;
-    yield { totalCount, processedCount };
-    let lastId = 0;
-    let lastResultCount = 0;
+    const step: IndexingStepForPreexistences = {
+      totalCount: await Item.count(),
+      processedCount: 0,
+    };
+
+    yield { ...step };
+
+    let lastProcessedItemId = 0;
+    let lastFetchedItemsCount = 0;
     do {
-      const items = await Item.findAll({
+      const fetchedItems = await Item.findAll({
         attributes: [
           "id",
           "type",
           "directory",
           "filename",
           "mtime",
+          "timeMode",
           "size",
           "hash",
           "lost",
@@ -495,51 +494,42 @@ export default class Gallery implements Disposable {
         ],
         order: Sequelize.col("id"),
         where: {
-          id: { [Op.gt]: lastId },
+          id: { [Op.gt]: lastProcessedItemId },
         },
         limit: fetchCount,
         raw: true,
       });
-      lastId = items[items.length - 1]?.id;
-      lastResultCount = items.length;
-      for (const item of items) {
-        processedCount += 1;
-        const step: IndexingStepForPreexistences = {
-          totalCount,
-          processedCount,
-        };
+      lastProcessedItemId = fetchedItems[fetchedItems.length - 1]?.id;
+      lastFetchedItemsCount = fetchedItems.length;
+      for (const item of fetchedItems) {
+        step.processedCount += 1;
         const relativeFilePath = nodePath.join(item.directory, item.filename);
         try {
           const fullFilePath = nodePath.join(galleryPath, relativeFilePath);
           try {
-            // 파일의 존재 확인
+            // Check the file is exists or not.
             await nodeFs.promises.access(fullFilePath);
           } catch (error) {
             if (error.code === "ENOENT") {
+              // If the file does not exists.
               if (item.lost) {
-                // 원래 lost: true였던 항목인데, 여전히 파일이 없음
+                // If the item is `lost: true`
                 yield {
                   ...step,
                   processedInfo: {
                     path: relativeFilePath,
-                    itemChanged: "no-change",
-                    itemLost: true,
-                    fileExists: false,
-                    fileHash: "unknown",
+                    result: "no-big-change",
                   },
                 };
                 continue;
               } else {
-                // 원래는 lost: false였는데, 갑자기 파일이 없음
-                await Item.update({ lost: true }, { where: { id: item.id }, sideEffects: false });
+                // If the item is `lost: false` then update it to `lost: true`
+                await Item.update({ lost: true }, { where: { id: item.id } });
                 yield {
                   ...step,
                   processedInfo: {
                     path: relativeFilePath,
-                    itemChanged: "lost-only",
-                    itemLost: true,
-                    fileExists: false,
-                    fileHash: "unknown",
+                    result: "item-lost",
                   },
                 };
                 continue;
@@ -548,133 +538,137 @@ export default class Gallery implements Disposable {
               throw error;
             }
           }
-          if (item.lost) {
-            const fileHash = await getFileHash(fullFilePath);
-            if (item.hash === fileHash) {
-              // 원래 lost: true였던 항목인데, 같은 위치에 똑같은 파일을 찾았음
-              // TODO: time 필드
-              const fileInfo = await getFileInfo(fullFilePath);
-              await Item.update(
-                { mtime: fileInfo.mtime, lost: false },
-                { where: { id: item.id }, sideEffects: false }
-              );
+          const fileHash = await getFileHash(fullFilePath);
+          if (item.lost && item.hash === fileHash) {
+            // If the item is `lost: true` and the file is exists with same hash
+            // Then update it to `lost: false`
+            const fileInfo = await getFileInfo(fullFilePath);
+            const [updatedCount] = await Item.update(
+              {
+                lost: false,
+                mtime: fileInfo.mtime,
+                ...(item.timeMode === "MTIME" && { time: fileInfo.mtime }),
+              },
+              { where: { id: item.id, lost: true } }
+            );
+            if (updatedCount === 0) {
+              // Failed to update due to some unexpected situation.
+              // (like the user modified this item while the indexing is in progress)
+              // these situations should not be handled as an error.
+              // It just ignores this item instead.
               yield {
                 ...step,
                 processedInfo: {
                   path: relativeFilePath,
-                  itemChanged: "no-change",
-                  itemLost: true,
-                  fileExists: true,
-                  fileHash: "different",
+                  result: "no-big-change",
                 },
               };
               continue;
             } else {
-              // 원래 lost: true였던 항목인데, 같은 경로의 파일을 찾았지만 해시가 다름
+              // Updated item successfully
               yield {
                 ...step,
                 processedInfo: {
                   path: relativeFilePath,
-                  itemChanged: "no-change",
-                  itemLost: true,
-                  fileExists: true,
-                  fileHash: "different",
+                  result: "found-lost-items-file-and-updated",
                 },
               };
               continue;
             }
           }
-          const fileInfo = await getFileInfo(fullFilePath);
-          const isMtimeOrSizeDifferent =
-            item.mtime !== fileInfo.mtime || item.size !== fileInfo.size;
-          if (!isMtimeOrSizeDifferent) {
-            // 크기나 날짜가 같으므로 업데이트가 필요하지 않음
+
+          if (item.lost && item.hash !== fileHash) {
+            // If the item is `lost: true` and the file is exists but different hash
             yield {
               ...step,
               processedInfo: {
                 path: relativeFilePath,
-                itemChanged: "no-change",
-                itemLost: false,
-                fileExists: true,
-                fileHash: "estimated-same",
+                result: "found-lost-items-candidate-file",
               },
             };
             continue;
           }
-          const fileHash = await getFileHash(fullFilePath);
-          const shouldBeUpdated = item.hash !== fileHash;
+          const fileInfo = await getFileInfo(fullFilePath);
+          const isMtimeOrSizeDifferent =
+            item.mtime !== fileInfo.mtime || item.size !== fileInfo.size;
+          if (!isMtimeOrSizeDifferent) {
+            // If the items mtile and size are both same
+            // then it does not need any update.
+            yield {
+              ...step,
+              processedInfo: {
+                path: relativeFilePath,
+                result: "no-big-change",
+              },
+            };
+            continue;
+          }
+          const shouldBeUpdated = item.size !== fileInfo.size || item.hash !== fileHash;
           if (!shouldBeUpdated) {
-            // mtime이 다르지만 해시가 같으므로, mtime만 갱신함
-            // TODO: 그렇다면 timeType 필드 추가하여, time까지 바꿔야하나 체크
+            // If the items size and hash are both same but the mtime is different
+            // Then update the mtime only.
             await Item.update(
-              { mtime: fileInfo.mtime },
-              { where: { id: item.id }, sideEffects: false }
+              {
+                mtime: fileInfo.mtime,
+                ...(item.timeMode === "MTIME" && { time: fileInfo.mtime }),
+              },
+              { where: { id: item.id } }
             );
             yield {
               ...step,
               processedInfo: {
                 path: relativeFilePath,
-                itemChanged: "no-change",
-                itemLost: true,
-                fileExists: true,
-                fileHash: "same",
+                result: "no-big-change",
               },
             };
             continue;
           }
-          const thumbnailFullPaths = buildThumbnailPathsForHash(galleryPath, fileHash);
-          const updatingItem: Partial<Models.ItemAttributes> = {
-            ...fileInfo,
-            hash: fileHash,
-            time: fileInfo.mtime,
-            thumbnailPath: nodePath.relative(galleryPath, thumbnailFullPaths.image),
-            lost: false,
-          };
-          if (!nodeFs.existsSync(thumbnailFullPaths.directory)) {
-            await nodeFs.promises.mkdir(thumbnailFullPaths.directory, { recursive: true });
+          let width: number, height: number, duration: number;
+          let time = fileInfo.mtime;
+          let timeMode: Models.Item["timeMode"] = "MTIME";
+          if (item.type === "IMG") {
+            const imageInfo = await getImageInfo(fullFilePath);
+            width = imageInfo.width;
+            height = imageInfo.height;
+            if (imageInfo.taggedTime !== null) {
+              timeMode = "METAD";
+              time = imageInfo.taggedTime;
+            }
+          } else if (item.type === "VID") {
+            const videoInfo = await getVideoInfo(fullFilePath);
+            width = videoInfo.width;
+            height = videoInfo.height;
+            duration = videoInfo.duration;
+            if (videoInfo.taggedTime !== null) {
+              timeMode = "METAD";
+              time = videoInfo.taggedTime;
+            }
+          } else {
+            // This code will never be executed
+            throw new Error("Unexpected media type.");
           }
-          // 새로운 썸네일 생성 및 메타데이터의 시간 할당
-          switch (item.type) {
-            case "IMG":
-              const imageIndexingData = await processImageIndexing(
-                fullFilePath,
-                thumbnailFullPaths.image
-              );
-              // if (imageIndexingData.time) imageIndexingData.time = imageIndexingData.time;
-              Object.assign(updatingItem, imageIndexingData);
-              break;
-            case "VID":
-              const videoIndexingData = await processVideoIndexing(
-                fullFilePath,
-                thumbnailFullPaths.video
-              );
-              // videoIndexingData.time = videoIndexingData.time || updatingItem.time;
-              Object.assign(updatingItem, videoIndexingData);
-              break;
-            default:
-              throw new Error("Unknown media type.");
-          }
-          // DB에 반영
-          await Item.update(updatingItem, { where: { id: item.id }, sideEffects: false });
-          // 기존의 썸네일 파일은 삭제
-          if (item.thumbnailPath) {
-            try {
-              await nodeFs.promises.unlink(nodePath.join(galleryPath, item.thumbnailPath));
-            } catch {}
-          }
-          if (item.previewVideoPath) {
-            try {
-              await nodeFs.promises.unlink(nodePath.join(galleryPath, item.previewVideoPath));
-            } catch {}
-          }
+
+          await Item.update(
+            {
+              hash: fileHash,
+              size: fileInfo.size,
+              width,
+              height,
+              duration,
+              mtime: fileInfo.mtime,
+              time,
+              timeMode,
+              thumbnailBase64: null,
+              thumbnailPath: null,
+              previewVideoPath: null,
+            },
+            { where: { id: item.id } }
+          );
           yield {
             ...step,
             processedInfo: {
               path: relativeFilePath,
-              itemChanged: "hash-and-others",
-              itemLost: false,
-              fileExists: true,
-              fileHash: "different",
+              result: "item-updated",
             },
           };
         } catch (error) {
@@ -682,16 +676,13 @@ export default class Gallery implements Disposable {
             ...step,
             processedInfo: {
               path: relativeFilePath,
+              result: "error",
               error: isDev ? error.stack : error.toString(),
-              itemChanged: "no-change",
-              itemLost: item.lost,
-              fileExists: true,
-              fileHash: "unknown",
             },
           };
         }
       }
-    } while (lastResultCount > 0);
+    } while (lastFetchedItemsCount > 0);
   }
 
   /** Returns a generator that finds new files those not indexed before and indexes them one by one.
@@ -699,8 +690,28 @@ export default class Gallery implements Disposable {
    * First yield object has `totalCount` and `processedCount` only.
    * After it, the generator yields an object containing `processedInfo` for each indexing item
    * @example
-   * for (const step of generateIndexingSequenceForNewFiles()) {
-   *   ...
+   * for await (const step of generateIndexingSequenceForNewFiles()) {
+   *   // The processed count does not always increase by one.
+   *   if (step.processedInfo === undefined) {
+   *     // This step is the first one that contains `totalCount` and `processedCount` only.
+   *   }
+   *   if (step.processedInfo?.result === "item-added") {
+   *      // The file has been indexd newly.
+   *   }
+   *   if (step.processedInfo?.result === "found-lost-items-file-and-updated") {
+   *     // Some item's lost file has been discovered
+   *     // so the item's attribute `lost` has been updated to false.
+   *   }
+   *   if (step.processedInfo?.result === "found-lost-item-candidate-file") {
+   *     // There are at least one lost items that have the same hash with the file hash.
+   *     // But these items have different path so the generator can't assert the file is lost one.
+   *     // Therefore the file must be verified by the user.
+   *     const lostItemPaths = step.processedInfo.lostItemPaths
+   *   }
+   *   if (step.processedInfo?.result === "error") {
+   *     // An error has been thrown.
+   *     const message = step.processedInfo.error;
+   *   }
    * }
    */
   async *generateIndexingSequenceForNewFiles(
@@ -720,11 +731,14 @@ export default class Gallery implements Disposable {
 
     const allChildFilesCount = await countAllChildFiles(galleryPath, childFilesFilter);
     const allNonLostItemsCount = await Item.count({ where: { lost: false } });
-    const totalCount = allChildFilesCount - allNonLostItemsCount;
-    let processedCount = 0;
-    yield { totalCount, processedCount };
+    const step: IndexingStepForNewFiles = {
+      totalCount: allChildFilesCount - allNonLostItemsCount,
+      processedCount: 0,
+    };
 
-    /** Key: *hash*, Value: *preindexed lost item's path* */
+    yield { ...step };
+
+    /** Key: *hash*, Value: *already indexed lost item's path* */
     const hashToLostItemPathSetMap = new Map<string, Set<string>>();
     (
       await Item.findAll({
@@ -752,22 +766,18 @@ export default class Gallery implements Disposable {
 
     const generator = generateAllChildFileRelativePaths(galleryPath, childFilesFilter);
     for await (const relativeFilePath of generator) {
-      const step: IndexingStepForNewFiles = {
-        totalCount,
-        processedCount,
-      };
       try {
         const extension = nodePath.extname(relativeFilePath).toLowerCase().slice(1);
         const hasImageExtension = imageExtensions.includes(extension);
         const hasVideoExtension = !hasImageExtension && videoExtensions.includes(extension);
         if (!hasImageExtension && !hasVideoExtension) {
           // This code will never be executed thanks to the generator's reliable integrity.
-          continue;
+          throw new Error("Unexpected file extension.");
         }
 
         const directory = nodePath.join(relativeFilePath, "..");
         if (filenameToItemMapPerDirectory.directory !== directory) {
-          // Fetch preindexed items in the same directory of the file
+          // Fetch already indexed items in the same directory of the file
           const map: typeof filenameToItemMapPerDirectory["map"] = new Map();
           (
             await Item.findAll({
@@ -787,7 +797,7 @@ export default class Gallery implements Disposable {
           // then continue to the next file.
           continue;
         } else {
-          processedCount += 1;
+          step.processedCount += 1;
         }
 
         const fullFilePath = nodePath.join(galleryPath, relativeFilePath);
@@ -805,20 +815,20 @@ export default class Gallery implements Disposable {
               },
               { where: { directory, filename, hash, lost: true } }
             );
-            if (updatedCount >= 1) {
+            if (updatedCount === 0) {
+              // Failed to update due to some unexpected situation.
+              // (like the user modified this item while the indexing is in progress)
+              // these situations should not be handled as an error.
+              continue;
+            } else {
               // Updated item successfully
               yield {
                 ...step,
                 processedInfo: {
                   path: relativeFilePath,
-                  result: "found-lost-item-and-updated",
+                  result: "found-lost-items-file-and-updated",
                 },
               };
-              continue;
-            } else {
-              // Failed to update due to some unexpected situation.
-              // (like the user modified this item while the indexing is in progress)
-              // these situations should not be handled as an error.
               continue;
             }
           } else {
@@ -827,8 +837,8 @@ export default class Gallery implements Disposable {
               ...step,
               processedInfo: {
                 path: relativeFilePath,
-                result: "found-lost-item-candidates",
-                lostItemCandidatePaths: [relativeFilePath],
+                result: "found-lost-item-candidate-file",
+                lostItemPaths: [relativeFilePath],
               },
             };
             continue;
@@ -843,8 +853,8 @@ export default class Gallery implements Disposable {
             ...step,
             processedInfo: {
               path: relativeFilePath,
-              result: "found-lost-item-candidates",
-              lostItemCandidatePaths: [...preindexedSameHashLostItemPathSet.values()],
+              result: "found-lost-item-candidate-file",
+              lostItemPaths: [...preindexedSameHashLostItemPathSet.values()],
             },
           };
           continue;
@@ -889,8 +899,6 @@ export default class Gallery implements Disposable {
           mtime: fileInfo.mtime,
           time,
           timeMode,
-          thumbnailBase64: "",
-          thumbnailPath: "",
         });
         if (itemsToBulkCreate.length >= bulkCount) {
           await Item.bulkCreate(itemsToBulkCreate);
@@ -910,7 +918,8 @@ export default class Gallery implements Disposable {
             ...step,
             processedInfo: {
               path: relativeFilePath,
-              result: "no-action",
+              result: "error",
+              error: "File is not exists",
             },
           };
         } else {
@@ -920,7 +929,7 @@ export default class Gallery implements Disposable {
             processedInfo: {
               path: relativeFilePath,
               result: "error",
-              error: error.toString(),
+              error: isDev ? error.stack : error.toString(),
             },
           };
         }

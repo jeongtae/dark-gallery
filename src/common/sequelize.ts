@@ -84,7 +84,16 @@ export type RawItem = Raw<
 >;
 export type ItemCreationAttributes = Optional<
   ItemAttributes,
-  "id" | "createdAt" | "updatedAt" | "title" | "lost" | "rating" | "memo" | "previewVideoPath"
+  | "id"
+  | "createdAt"
+  | "updatedAt"
+  | "title"
+  | "lost"
+  | "rating"
+  | "memo"
+  | "thumbnailBase64"
+  | "thumbnailPath"
+  | "previewVideoPath"
 >;
 export type Item = Model<ItemAttributes, ItemCreationAttributes> &
   ItemAttributes & {

@@ -83,8 +83,8 @@ function defineModels(sequelize: Sequelize) {
       height: { type: DataTypes.SMALLINT, allowNull: false },
       duration: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
 
-      thumbnailBase64: { type: DataTypes.TEXT, allowNull: false },
-      thumbnailPath: { type: DataTypes.TEXT, allowNull: false },
+      thumbnailBase64: DataTypes.TEXT,
+      thumbnailPath: DataTypes.TEXT,
       previewVideoPath: DataTypes.TEXT,
     },
     { indexes: [{ unique: true, fields: ["directory", "filename"] }] }
