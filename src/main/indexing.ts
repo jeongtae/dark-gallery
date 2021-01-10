@@ -196,7 +196,7 @@ export async function getImageInfo(filePath: string): Promise<ImageInfo> {
   return result;
 }
 
-type VideoInfo = {
+export type VideoInfo = {
   width: number;
   height: number;
   /** 마이크로초 단위의 길이입니다. */
