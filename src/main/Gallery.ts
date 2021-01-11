@@ -169,6 +169,11 @@ interface GalleryModels {
   config: Models.ConfigCtor;
 }
 
+export interface IndexingOptionsForPreexistences {
+  /** Fetching count of SELECT query at once (Default: 1000) */
+  fetchCount: number;
+}
+
 export interface IndexingStepForPreexistences {
   /** Total count of files to process */
   totalCount: number;
@@ -188,6 +193,11 @@ export interface IndexingStepForPreexistences {
       }
     | { result: "error"; error: string }
   );
+}
+
+export interface IndexingOptionsForNewFiles {
+  /** Bulk count of INSERT query (Default: 100) */
+  bulkCount: number;
 }
 
 export interface IndexingStepForNewFiles {
@@ -461,12 +471,13 @@ export default class Gallery implements Disposable {
    * }
    */
   async *generateIndexingSequenceForPreexistences(
-    fetchCount = 1000
+    options: IndexingOptionsForPreexistences
   ): AsyncGenerator<IndexingStepForPreexistences> {
     const {
       path: galleryPath,
       models: { item: Item },
     } = this;
+    const { fetchCount = 1000 } = options ?? {};
 
     const step: IndexingStepForPreexistences = {
       totalCount: await Item.count(),
@@ -715,12 +726,13 @@ export default class Gallery implements Disposable {
    * }
    */
   async *generateIndexingSequenceForNewFiles(
-    bulkCount = 100
+    options: IndexingOptionsForNewFiles
   ): AsyncGenerator<IndexingStepForNewFiles> {
     const {
       path: galleryPath,
       models: { item: Item },
     } = this;
+    const { bulkCount = 100 } = options ?? {};
 
     const imageExtensions = (await this.getConfig("imageExtensions")).map(ext => ext.toLowerCase());
     const videoExtensions = (await this.getConfig("videoExtensions")).map(ext => ext.toLowerCase());
