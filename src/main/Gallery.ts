@@ -471,7 +471,7 @@ export default class Gallery implements Disposable {
    * }
    */
   async *generateIndexingSequenceForPreexistences(
-    options: IndexingOptionsForPreexistences
+    options?: IndexingOptionsForPreexistences
   ): AsyncGenerator<IndexingStepForPreexistences> {
     const {
       path: galleryPath,
@@ -727,7 +727,7 @@ export default class Gallery implements Disposable {
    * }
    */
   async *generateIndexingSequenceForNewFiles(
-    options: IndexingOptionsForNewFiles
+    options?: IndexingOptionsForNewFiles
   ): AsyncGenerator<IndexingStepForNewFiles> {
     const {
       path: galleryPath,
