@@ -170,6 +170,7 @@ describe("testing generateAllChildFileRelativePaths function", () => {
     })
   );
   afterAll(() => mockfs.restore());
+
   test("getting all descendant file paths with right order", async () => {
     const paths: string[] = [];
     for await (const path of generateAllChildFileRelativePaths("./the-dir")) {
@@ -189,6 +190,7 @@ describe("testing generateAllChildFileRelativePaths function", () => {
     ];
     expect(paths.slice(filePaths.length)).toIncludeSameMembers(dirPaths);
   });
+
   test("getting all descendant file paths correctly with extension filter", async () => {
     const paths: string[] = [];
     for await (const path of generateAllChildFileRelativePaths("./the-dir", {
@@ -212,6 +214,7 @@ describe("testing generateAllChildFileRelativePaths function", () => {
       "video.mov",
     ]);
   });
+
   test("getting all descendant file paths correctly with file name filter", async () => {
     const paths: string[] = [];
     for await (const path of generateAllChildFileRelativePaths("./the-dir", {
@@ -235,6 +238,7 @@ describe("testing generateAllChildFileRelativePaths function", () => {
       "video.mov",
     ]);
   });
+
   test("getting all descendant file paths correctly with directory name filter", async () => {
     const paths: string[] = [];
     for await (const path of generateAllChildFileRelativePaths("./the-dir", {
@@ -258,6 +262,7 @@ describe("testing generateAllChildFileRelativePaths function", () => {
       "video.mov",
     ]);
   });
+
   test("getting all descendant file paths correctly with all options", async () => {
     const paths: string[] = [];
     for await (const path of generateAllChildFileRelativePaths("./the-dir", {
