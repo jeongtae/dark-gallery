@@ -91,6 +91,7 @@ export type ItemCreationAttributes = Optional<
   | "lost"
   | "rating"
   | "memo"
+  | "duration"
   | "thumbnailBase64"
   | "thumbnailPath"
   | "previewVideoPath"

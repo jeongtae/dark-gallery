@@ -64,24 +64,24 @@ function defineModels(sequelize: Sequelize) {
       },
       lost: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
 
-      hash: { type: DataTypes.CHAR(40), allowNull: false },
+      hash: { type: DataTypes.TEXT, allowNull: false },
       size: { type: DataTypes.INTEGER, allowNull: false },
       mtime: { type: DataTypes.DATE, allowNull: false },
       time: { type: DataTypes.DATE, allowNull: false },
-      timeMode: { type: DataTypes.CHAR(4), allowNull: false },
+      timeMode: { type: DataTypes.TEXT, allowNull: false },
 
       rating: {
-        type: DataTypes.SMALLINT,
+        type: DataTypes.INTEGER,
         allowNull: false,
         defaultValue: 0,
         validate: { min: 0, max: 10 },
       },
       memo: DataTypes.TEXT,
 
-      type: { type: DataTypes.CHAR(4), allowNull: false },
-      width: { type: DataTypes.SMALLINT, allowNull: false },
-      height: { type: DataTypes.SMALLINT, allowNull: false },
-      duration: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+      type: { type: DataTypes.TEXT, allowNull: false },
+      width: { type: DataTypes.INTEGER, allowNull: false },
+      height: { type: DataTypes.INTEGER, allowNull: false },
+      duration: DataTypes.INTEGER,
 
       thumbnailBase64: DataTypes.TEXT,
       thumbnailPath: DataTypes.TEXT,
