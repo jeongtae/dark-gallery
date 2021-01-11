@@ -5,6 +5,7 @@ sequelize.Sequelize = function (...args) {
   for (const arg of args) {
     if (typeof arg === "object") {
       arg.storage = ":memory:";
+      arg.logging = false;
     }
   }
   return new Sequelize(...args);
