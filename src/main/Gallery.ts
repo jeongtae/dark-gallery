@@ -535,7 +535,7 @@ export default class Gallery implements Disposable {
                 continue;
               } else {
                 // If the item is `lost: false` then update it to `lost: true`
-                await Item.update({ lost: true }, { where: { id: item.id } });
+                await Item.update({ lost: true }, { where: { id: item.id }, sideEffects: false });
                 yield {
                   ...step,
                   processedInfo: {
@@ -560,7 +560,7 @@ export default class Gallery implements Disposable {
                 mtime: fileInfo.mtime,
                 ...(item.timeMode === "MTIME" && { time: fileInfo.mtime }),
               },
-              { where: { id: item.id, lost: true } }
+              { where: { id: item.id, lost: true }, sideEffects: false }
             );
             if (updatedCount === 0) {
               // Failed to update due to some unexpected situation.
@@ -623,7 +623,7 @@ export default class Gallery implements Disposable {
                 mtime: fileInfo.mtime,
                 ...(item.timeMode === "MTIME" && { time: fileInfo.mtime }),
               },
-              { where: { id: item.id } }
+              { where: { id: item.id }, sideEffects: false }
             );
             yield {
               ...step,
@@ -674,7 +674,7 @@ export default class Gallery implements Disposable {
               thumbnailPath: null,
               previewVideoPath: null,
             },
-            { where: { id: item.id } }
+            { where: { id: item.id }, sideEffects: false }
           );
           yield {
             ...step,
@@ -826,7 +826,10 @@ export default class Gallery implements Disposable {
                 mtime: fileInfo.mtime,
                 ...(preindexedSamePathItem.timeMode === "MTIME" && { time: fileInfo.mtime }),
               },
-              { where: { directory, filename, hash, lost: true } }
+              {
+                where: { directory, filename, hash, lost: true },
+                sideEffects: false,
+              }
             );
             if (updatedCount === 0) {
               // Failed to update due to some unexpected situation.
