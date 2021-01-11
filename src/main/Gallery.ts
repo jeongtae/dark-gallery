@@ -642,7 +642,7 @@ export default class Gallery implements Disposable {
             const imageInfo = await getImageInfo(fullFilePath);
             width = imageInfo.width;
             height = imageInfo.height;
-            if (imageInfo.taggedTime !== null) {
+            if (imageInfo.taggedTime instanceof Date) {
               timeMode = "METAD";
               time = imageInfo.taggedTime;
             }
@@ -651,7 +651,7 @@ export default class Gallery implements Disposable {
             width = videoInfo.width;
             height = videoInfo.height;
             duration = videoInfo.duration;
-            if (videoInfo.taggedTime !== null) {
+            if (videoInfo.taggedTime instanceof Date) {
               timeMode = "METAD";
               time = videoInfo.taggedTime;
             }
@@ -882,7 +882,7 @@ export default class Gallery implements Disposable {
           const imageInfo = await getImageInfo(fullFilePath);
           width = imageInfo.width;
           height = imageInfo.height;
-          if (imageInfo.taggedTime !== null) {
+          if (imageInfo.taggedTime instanceof Date) {
             timeMode = "METAD";
             time = imageInfo.taggedTime;
           }
@@ -892,7 +892,7 @@ export default class Gallery implements Disposable {
           width = videoInfo.width;
           height = videoInfo.height;
           duration = videoInfo.duration;
-          if (videoInfo.taggedTime !== null) {
+          if (videoInfo.taggedTime instanceof Date) {
             timeMode = "METAD";
             time = videoInfo.taggedTime;
           }
