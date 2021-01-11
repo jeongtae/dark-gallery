@@ -795,10 +795,12 @@ export default class Gallery implements Disposable {
           (
             await Item.findAll({
               attributes: ["filename", "lost", "hash", "timeMode"],
-              where: { directory, lost: true },
+              where: { directory },
               raw: true,
             })
-          ).forEach(({ filename, ...attrs }) => map.set(filename, { ...attrs }));
+          ).forEach(({ filename, ...attrs }) =>
+            map.set(filename, { ...attrs, lost: !!attrs.lost })
+          );
           filenameToItemMapPerDirectory.directory = directory;
           filenameToItemMapPerDirectory.map = map;
         }
