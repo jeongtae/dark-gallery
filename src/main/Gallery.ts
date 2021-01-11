@@ -915,8 +915,11 @@ export default class Gallery implements Disposable {
           timeMode,
         });
         if (itemsToBulkCreate.length >= bulkCount) {
-          await Item.bulkCreate(itemsToBulkCreate);
-          itemsToBulkCreate = [];
+          try {
+            await Item.bulkCreate(itemsToBulkCreate);
+          } finally {
+            itemsToBulkCreate = [];
+          }
         }
         yield {
           ...step,
