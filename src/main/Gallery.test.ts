@@ -156,6 +156,24 @@ describe("testing gallery indexing", () => {
     expect(dogItem.height).toBe(1080);
     expect(dogItem.duration).toBeNull();
 
+    const appleItem = await Item.findOne({ where: { filename: "apple.png" } });
+    appleItem.lost = true;
+    await appleItem.save();
+    bulkCreateSpy.mockClear();
+    i = 0;
+    for await (const step of gallery.generateIndexingSequenceForNewFiles()) {
+      expect(step.totalCount).toBe(1);
+      expect(step.processedCount).toBe(i);
+      if (i > 0) {
+        expect(step.processedInfo.result).toBe("found-lost-items-file-and-updated");
+      }
+      i += 1;
+    }
+    expect(i).toBe(2);
+    expect(bulkCreateSpy).toBeCalledTimes(0);
+    await appleItem.reload();
+    expect(appleItem.lost).toBeFalse();
+
     await gallery.dispose();
   });
 });
