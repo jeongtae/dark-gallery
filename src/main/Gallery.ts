@@ -634,7 +634,8 @@ export default class Gallery implements Disposable {
             };
             continue;
           }
-          let width: number, height: number, duration: number;
+          let width: number, height: number;
+          let duration: number = null;
           let time = fileInfo.mtime;
           let timeMode: Models.Item["timeMode"] = "MTIME";
           if (item.type === "IMG") {
@@ -872,7 +873,8 @@ export default class Gallery implements Disposable {
           continue;
         }
         let type: Models.Item["type"];
-        let width: number, height: number, duration: number;
+        let width: number, height: number;
+        let duration: number = null;
         let time = fileInfo.mtime;
         let timeMode: Models.Item["timeMode"] = "MTIME";
         if (hasImageExtension) {
