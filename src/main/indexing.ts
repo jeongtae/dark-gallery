@@ -111,7 +111,7 @@ export function getFileHash(filePath: string): Promise<string> {
 type FileInfo = {
   /** 바이트 단위의 파일 크기입니다. */
   size: number;
-  /** 파일의 수정한 시각입니다. */
+  /** 파일의 수정한 시각입니다. (초 정밀도) */
   mtime: Date;
 };
 /** 주어진 경로에 해당하는 파일의 정보를 조회합니다.
@@ -123,7 +123,7 @@ export async function getFileInfo(filePath: string): Promise<FileInfo> {
   const stat = await fs.promises.stat(filePath);
   return {
     size: stat.size,
-    mtime: stat.mtime,
+    mtime: new Date(Math.round(stat.mtimeMs / 1000) * 1000),
   };
 }
 

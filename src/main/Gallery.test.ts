@@ -87,26 +87,22 @@ describe("testing gallery indexing", () => {
   });
 
   test("index new files", async () => {
-    const catFileMtime = new Date("2021-01-01 01:23:45");
-    const catFile = mockfs.file({
-      content: "1024x768 1994-10-29 12:34:56",
-      mtime: catFileMtime,
-    });
     mockfs({
       "inf-testing-gallery": {
         ".darkgallery": {},
         "foo-bar": {
           "animal images": {
-            "cat.gif": catFile,
+            "cat.gif": mockfs.file({
+              content: "1024x768 1994-10-29 12:34:56",
+              mtime: new Date("2021-01-01 11:59:59.678"),
+            }),
             "dog.jpeg": "1920x1080",
             "jaguar.txt": "123x456",
           },
         },
         "Fruits HERE": {
           "apple.png": "3840x2160",
-          "banana.webp": "1280x1024",
-          "citrus.webm": "1920x1080 10s",
-          "dragon-fruit.jpg": "1024x768",
+          "banana.webm": "1280x720 12s",
         },
         "foo.bar": "f",
         "baz.qux": "b",
@@ -117,10 +113,10 @@ describe("testing gallery indexing", () => {
     await gallery.open();
     const Item = gallery.models.item;
     const bulkCreateSpy = jest.spyOn(Item, "bulkCreate");
-    const gen = gallery.generateIndexingSequenceForNewFiles({ bulkCount: 2 });
+
     let i = 0;
-    for await (const step of gen) {
-      expect(step.totalCount).toBe(6);
+    for await (const step of gallery.generateIndexingSequenceForNewFiles({ bulkCount: 3 })) {
+      expect(step.totalCount).toBe(4);
       expect(step.processedCount).toBe(i);
       if (i > 0) {
         expect(step.processedInfo.result).toBe("item-added");
@@ -129,10 +125,10 @@ describe("testing gallery indexing", () => {
       }
       i += 1;
     }
-    expect(bulkCreateSpy).toBeCalledTimes(3);
+    expect(bulkCreateSpy).toBeCalledTimes(2);
 
     const allItems = await Item.findAll();
-    expect(allItems.length).toBe(6);
+    expect(allItems.length).toBe(4);
 
     const catItem = await Item.findOne({ where: { filename: "cat.gif" } });
     expect(catItem.directory).toBe(path.join("foo-bar", "animal images"));
@@ -141,11 +137,24 @@ describe("testing gallery indexing", () => {
     expect(catItem.size).toBeGreaterThan(0);
     expect(catItem.timeMode).toBe("METAD");
     expect(catItem.time).toEqual(new Date("1994-10-29 12:34:56"));
-    expect(catItem.mtime).toEqual(catFileMtime);
+    expect(catItem.mtime).toEqual(new Date("2021-01-01 12:00:00"));
     expect(catItem.type).toBe("IMG");
     expect(catItem.width).toBe(1024);
     expect(catItem.height).toBe(768);
     expect(catItem.duration).toBeNull();
+
+    const dogItem = await Item.findOne({ where: { filename: "dog.jpeg" } });
+    expect(dogItem.directory).toBe(path.join("foo-bar", "animal images"));
+    expect(dogItem.getDataValue("directory")).toBe("foo-bar/animal images");
+    expect(dogItem.timeMode).toBe("MTIME");
+    expect(dogItem.lost).toBe(false);
+    expect(dogItem.size).toBeGreaterThan(0);
+    expect(dogItem.timeMode).toBe("MTIME");
+    expect(dogItem.time).toEqual(dogItem.mtime);
+    expect(dogItem.type).toBe("IMG");
+    expect(dogItem.width).toBe(1920);
+    expect(dogItem.height).toBe(1080);
+    expect(dogItem.duration).toBeNull();
 
     await gallery.dispose();
   });
