@@ -745,7 +745,7 @@ export default class Gallery implements Disposable {
     const allChildFilesCount = await countAllChildFiles(galleryPath, childFilesFilter);
     const allNonLostItemsCount = await Item.count({ where: { lost: false } });
     const step: IndexingStepForNewFiles = {
-      totalCount: allChildFilesCount - allNonLostItemsCount,
+      totalCount: Math.max(allChildFilesCount - allNonLostItemsCount, 0),
       processedCount: 0,
     };
 
