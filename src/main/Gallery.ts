@@ -745,6 +745,7 @@ export default class Gallery implements Disposable {
     const allChildFilesCount = await countAllChildFiles(galleryPath, childFilesFilter);
     const allNonLostItemsCount = await Item.count({ where: { lost: false } });
     const step: IndexingStepForNewFiles = {
+      // NOTE: this value may be wrong when the lost fields of many items are not correct.
       totalCount: Math.max(allChildFilesCount - allNonLostItemsCount, 0),
       processedCount: 0,
     };
@@ -921,6 +922,7 @@ export default class Gallery implements Disposable {
         });
         if (itemsToBulkCreate.length >= bulkCount) {
           try {
+            // NOTE: if an unexpected error occurs, a lot of items may not be added.
             await Item.bulkCreate(itemsToBulkCreate);
           } finally {
             itemsToBulkCreate = [];
@@ -958,6 +960,7 @@ export default class Gallery implements Disposable {
       }
     }
     if (itemsToBulkCreate.length >= 1) {
+      // FIXME: this code will not be executed when the generator stops iterating
       await Item.bulkCreate(itemsToBulkCreate);
     }
   }
