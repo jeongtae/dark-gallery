@@ -1,6 +1,7 @@
 import "jest-extended";
 import fs from "fs";
 import path from "path";
+import { cloneDeep } from "lodash";
 import mockfs from "mock-fs";
 import type { DirectoryItems } from "mock-fs/lib/filesystem";
 import { Op } from "sequelize";
@@ -49,7 +50,7 @@ jest.mock("./indexing", () => ({
   },
 }));
 
-describe("testing gallery indexing", () => {
+describe("testing gallery overall", () => {
   beforeAll(() => {
     mockfs({
       node_modules: mockfs.load(path.resolve(process.cwd(), "node_modules"), { lazy: true }),
@@ -87,33 +88,46 @@ describe("testing gallery indexing", () => {
     await gallery.open();
     await gallery.dispose();
   });
+});
+
+describe("testing gallery indexing", () => {
+  const mockDirectoryItems: DirectoryItems = {
+    "testing-gallery": {
+      ".darkgallery": {},
+      "foo-bar": {
+        "animal images": {
+          "cat.gif": mockfs.file({
+            content: "1024x768 1994-10-29 12:34:56",
+            mtime: new Date("2021-01-01 11:59:59.678"),
+          }),
+          "dog.jpeg": "1920x1080",
+          "jaguar.txt": "123x456",
+        },
+      },
+      "Fruits HERE": {
+        "apple.png": "3840x2160",
+        "banana.webm": "1280x720 12s",
+      },
+      "apple-copy.png": "3840x2160",
+      "foo.bar": "f",
+      "baz.qux": "b",
+    },
+    "not-me.jpg": "2048x3096",
+  };
+
+  beforeAll(() => {
+    mockfs({
+      node_modules: mockfs.load(path.resolve(process.cwd(), "node_modules"), { lazy: true }),
+    });
+  });
+  afterAll(() => {
+    mockfs.restore();
+  });
 
   test("index new files", async () => {
-    const mockDirectoryItems: DirectoryItems = {
-      "inf-testing-gallery": {
-        ".darkgallery": {},
-        "foo-bar": {
-          "animal images": {
-            "cat.gif": mockfs.file({
-              content: "1024x768 1994-10-29 12:34:56",
-              mtime: new Date("2021-01-01 11:59:59.678"),
-            }),
-            "dog.jpeg": "1920x1080",
-            "jaguar.txt": "123x456",
-          },
-        },
-        "Fruits HERE": {
-          "apple.png": "3840x2160",
-          "banana.webm": "1280x720 12s",
-        },
-        "apple-copy.png": "3840x2160",
-        "foo.bar": "f",
-        "baz.qux": "b",
-      },
-      "not-me.jpg": "2048x3096",
-    };
-    mockfs(mockDirectoryItems);
-    const gallery = new Gallery("./inf-testing-gallery");
+    const mockDirectoryItemsCopy = cloneDeep(mockDirectoryItems);
+    mockfs(mockDirectoryItemsCopy);
+    const gallery = new Gallery("./testing-gallery");
     await gallery.open();
     const Item = gallery.models.item;
     const bulkCreateSpy = jest.spyOn(Item, "bulkCreate");
@@ -185,8 +199,8 @@ describe("testing gallery indexing", () => {
     expect(appleItem.duration).toBeNull();
 
     // process lost item correctly (different hash, same path)
-    (mockDirectoryItems as any)["inf-testing-gallery"]["Fruits HERE"]["banana.webm"] = "480x272 8s";
-    mockfs(mockDirectoryItems);
+    (mockDirectoryItemsCopy as any)["testing-gallery"]["Fruits HERE"]["banana.webm"] = "480x272 8s";
+    mockfs(mockDirectoryItemsCopy);
     const bananaItem = await Item.findOne({ where: { filename: "banana.webm" } });
     bananaItem.lost = true;
     await bananaItem.save();
@@ -211,13 +225,13 @@ describe("testing gallery indexing", () => {
     expect(bananaItem.width).not.toBe(480);
     expect(bananaItem.height).not.toBe(272);
     expect(bananaItem.duration).not.toBe(8000);
-    delete (mockDirectoryItems as any)["inf-testing-gallery"]["Fruits HERE"]["banana.webm"];
+    delete (mockDirectoryItemsCopy as any)["testing-gallery"]["Fruits HERE"]["banana.webm"];
 
     // process lost item correctly (same hash, different path)
-    delete (mockDirectoryItems as any)["inf-testing-gallery"]["Fruits HERE"]["apple.png"];
-    delete (mockDirectoryItems as any)["inf-testing-gallery"]["apple-copy.png"];
-    (mockDirectoryItems as any)["inf-testing-gallery"]["new-same-apple.png"] = "3840x2160";
-    mockfs(mockDirectoryItems);
+    delete (mockDirectoryItemsCopy as any)["testing-gallery"]["Fruits HERE"]["apple.png"];
+    delete (mockDirectoryItemsCopy as any)["testing-gallery"]["apple-copy.png"];
+    (mockDirectoryItemsCopy as any)["testing-gallery"]["new-same-apple.png"] = "3840x2160";
+    mockfs(mockDirectoryItemsCopy);
     expect(
       await Item.update(
         { lost: true },
@@ -241,7 +255,7 @@ describe("testing gallery indexing", () => {
     expect(i).toBe(2);
     expect(bulkCreateSpy).toBeCalledTimes(0);
     expect(await Item.findOne({ where: { filename: "new-same-apple.png" } })).toBeNull();
-    delete (mockDirectoryItems as any)["inf-testing-gallery"]["new-same-apple.png"];
+    delete (mockDirectoryItemsCopy as any)["testing-gallery"]["new-same-apple.png"];
 
     await gallery.dispose();
   });
