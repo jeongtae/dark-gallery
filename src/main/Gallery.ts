@@ -210,7 +210,18 @@ export interface IndexingStepForNewFiles {
     path: string;
   } & (
     | { result: "item-added" | "found-lost-items-file-and-updated" }
-    | { result: "found-lost-item-candidate-file"; lostItemPaths: string[] }
+    | {
+        /** NOTE: This situation can happen
+         * if the file was moved from an already indexed item's path.
+         * Or the lost file is discovered with a different content(hash).
+         * MOST WEIRED SITUATION: Some lost item's file is came back and copied to other path,
+         * the copied file may not be indexed.
+         * but this situation may not happen depends on the order of indexing . */
+        result: "found-lost-item-candidate-file";
+        /** NOTE: `lostItemPaths` may not accurate.
+         * This list may contain item paths to be found in the next enumerations */
+        lostItemPaths: string[];
+      }
     | { result: "error"; error: string }
   );
 }
@@ -823,6 +834,7 @@ export default class Gallery implements Disposable {
           // If there is already indexed item with same path, and it is `lost: true`
           if (preindexedSamePathItem.hash === hash) {
             // If the hash is same then update it's lost value to false
+            hashToLostItemPathSetMap.get(hash)?.delete(relativeFilePath);
             const [updatedCount] = await Item.update(
               {
                 lost: false,
@@ -864,9 +876,8 @@ export default class Gallery implements Disposable {
           }
         }
         const preindexedSameHashLostItemPathSet = hashToLostItemPathSetMap.get(hash);
-        preindexedSameHashLostItemPathSet?.delete(relativeFilePath);
-        if (preindexedSameHashLostItemPathSet?.has(relativeFilePath)) {
-          // If there are already indexed items with same hash but different path, and it is `lost: false`
+        if (preindexedSameHashLostItemPathSet?.size > 0) {
+          // If there are already indexed lost items with same hash but different path
           // then notify them as a candidates.
           yield {
             ...step,
