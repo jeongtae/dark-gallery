@@ -2,8 +2,10 @@ import "jest-extended";
 import fs from "fs";
 import path from "path";
 import mockfs from "mock-fs";
+import type { DirectoryItems } from "mock-fs/lib/filesystem";
+import { Op } from "sequelize";
 import type { GalleryPathInfo } from "./ipc";
-import Gallery, { IndexingStepForNewFiles } from "./Gallery";
+import Gallery from "./Gallery";
 import type { ImageInfo, VideoInfo } from "./indexing";
 
 jest.mock("./environments", () => ({ isDev: true }));
@@ -87,7 +89,7 @@ describe("testing gallery indexing", () => {
   });
 
   test("index new files", async () => {
-    mockfs({
+    const mockDirectoryItems: DirectoryItems = {
       "inf-testing-gallery": {
         ".darkgallery": {},
         "foo-bar": {
@@ -104,11 +106,13 @@ describe("testing gallery indexing", () => {
           "apple.png": "3840x2160",
           "banana.webm": "1280x720 12s",
         },
+        "apple-copy.png": "3840x2160",
         "foo.bar": "f",
         "baz.qux": "b",
       },
       "not-me.jpg": "2048x3096",
-    });
+    };
+    mockfs(mockDirectoryItems);
     const gallery = new Gallery("./inf-testing-gallery");
     await gallery.open();
     const Item = gallery.models.item;
@@ -116,7 +120,7 @@ describe("testing gallery indexing", () => {
 
     let i = 0;
     for await (const step of gallery.generateIndexingSequenceForNewFiles({ bulkCount: 3 })) {
-      expect(step.totalCount).toBe(4);
+      expect(step.totalCount).toBe(5);
       expect(step.processedCount).toBe(i);
       if (i > 0) {
         expect(step.processedInfo.result).toBe("item-added");
@@ -128,8 +132,9 @@ describe("testing gallery indexing", () => {
     expect(bulkCreateSpy).toBeCalledTimes(2);
 
     const allItems = await Item.findAll();
-    expect(allItems.length).toBe(4);
+    expect(allItems.length).toBe(5);
 
+    // process item creation correctly (image with EXIF)
     const catItem = await Item.findOne({ where: { filename: "cat.gif" } });
     expect(catItem.directory).toBe(path.join("foo-bar", "animal images"));
     expect(catItem.getDataValue("directory")).toBe("foo-bar/animal images");
@@ -143,6 +148,7 @@ describe("testing gallery indexing", () => {
     expect(catItem.height).toBe(768);
     expect(catItem.duration).toBeNull();
 
+    // process item creation correctly (image without EXIF)
     const dogItem = await Item.findOne({ where: { filename: "dog.jpeg" } });
     expect(dogItem.directory).toBe(path.join("foo-bar", "animal images"));
     expect(dogItem.getDataValue("directory")).toBe("foo-bar/animal images");
@@ -156,6 +162,7 @@ describe("testing gallery indexing", () => {
     expect(dogItem.height).toBe(1080);
     expect(dogItem.duration).toBeNull();
 
+    // process lost item correctly (same hash)
     const appleItem = await Item.findOne({ where: { filename: "apple.png" } });
     appleItem.lost = true;
     await appleItem.save();
@@ -173,6 +180,68 @@ describe("testing gallery indexing", () => {
     expect(bulkCreateSpy).toBeCalledTimes(0);
     await appleItem.reload();
     expect(appleItem.lost).toBeFalse();
+    expect(appleItem.width).toBe(3840);
+    expect(appleItem.height).toBe(2160);
+    expect(appleItem.duration).toBeNull();
+
+    // process lost item correctly (different hash, same path)
+    (mockDirectoryItems as any)["inf-testing-gallery"]["Fruits HERE"]["banana.webm"] = "480x272 8s";
+    mockfs(mockDirectoryItems);
+    const bananaItem = await Item.findOne({ where: { filename: "banana.webm" } });
+    bananaItem.lost = true;
+    await bananaItem.save();
+    bulkCreateSpy.mockClear();
+    i = 0;
+    for await (const step of gallery.generateIndexingSequenceForNewFiles()) {
+      expect(step.totalCount).toBe(1);
+      expect(step.processedCount).toBe(i);
+      if (i > 0) {
+        expect(step.processedInfo.result).toBe("found-lost-item-candidate-file");
+        expect(
+          step.processedInfo.result === "found-lost-item-candidate-file" &&
+            step.processedInfo.lostItemPaths
+        ).toIncludeSameMembers(["Fruits HERE/banana.webm"]);
+      }
+      i += 1;
+    }
+    expect(i).toBe(2);
+    expect(bulkCreateSpy).toBeCalledTimes(0);
+    await bananaItem.reload();
+    expect(bananaItem.lost).toBeTrue();
+    expect(bananaItem.width).not.toBe(480);
+    expect(bananaItem.height).not.toBe(272);
+    expect(bananaItem.duration).not.toBe(8000);
+    delete (mockDirectoryItems as any)["inf-testing-gallery"]["Fruits HERE"]["banana.webm"];
+
+    // process lost item correctly (same hash, different path)
+    delete (mockDirectoryItems as any)["inf-testing-gallery"]["Fruits HERE"]["apple.png"];
+    delete (mockDirectoryItems as any)["inf-testing-gallery"]["apple-copy.png"];
+    (mockDirectoryItems as any)["inf-testing-gallery"]["new-same-apple.png"] = "3840x2160";
+    mockfs(mockDirectoryItems);
+    expect(
+      await Item.update(
+        { lost: true },
+        { where: { filename: { [Op.like]: "apple%" } }, sideEffects: false }
+      )
+    ).toIncludeSameMembers([2]);
+    bulkCreateSpy.mockClear();
+    i = 0;
+    for await (const step of gallery.generateIndexingSequenceForNewFiles()) {
+      expect(step.totalCount).toBe(1);
+      expect(step.processedCount).toBe(i);
+      if (i > 0) {
+        expect(step.processedInfo.result).toBe("found-lost-item-candidate-file");
+        expect(
+          step.processedInfo.result === "found-lost-item-candidate-file" &&
+            step.processedInfo.lostItemPaths
+        ).toIncludeSameMembers(["Fruits HERE/apple.png", "apple-copy.png"]);
+      }
+      i += 1;
+    }
+    expect(i).toBe(2);
+    expect(bulkCreateSpy).toBeCalledTimes(0);
+    expect(await Item.findOne({ where: { filename: "new-same-apple.png" } })).toBeNull();
+    delete (mockDirectoryItems as any)["inf-testing-gallery"]["new-same-apple.png"];
 
     await gallery.dispose();
   });
