@@ -278,11 +278,17 @@ export default class Gallery implements Disposable {
   async getConfig<K extends keyof GalleryConfigs>(key: K): Promise<GalleryConfigs[K]> {
     const { config: Config } = this.models;
     const row = await Config.findByPk(key);
+    const defaultValue = this.defaultConfigs[key];
     if (!row) {
-      return this.defaultConfigs[key];
+      return defaultValue;
     } else {
       const jsonValue = row.value;
-      return JSON.parse(jsonValue);
+      const parsedValue = JSON.parse(jsonValue);
+      if (defaultValue instanceof Date) {
+        return new Date(parsedValue) as any;
+      } else {
+        return parsedValue;
+      }
     }
   }
 
