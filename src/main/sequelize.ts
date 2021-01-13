@@ -50,8 +50,10 @@ function defineModels(sequelize: Sequelize) {
         allowNull: false,
         get() {
           let value = this.getDataValue("directory");
-          value = value.replace(path.posix.sep, path.sep);
-          return value;
+          if (value !== undefined) {
+            value = value.replace(path.posix.sep, path.sep);
+            return value;
+          }
         },
         set(value: string) {
           value = value.replace(path.sep, path.posix.sep);
