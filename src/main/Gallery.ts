@@ -21,8 +21,8 @@ import {
   writeResizedWebpImageFileOfVideoFile,
 } from "./indexing";
 
-const INDEXING_DIRNAME = ".darkgallery";
-const DEFAULT_CONFIGS: Readonly<GalleryConfigs> = {
+export const INDEXING_DIRNAME = ".darkgallery";
+export const DEFAULT_CONFIGS: Readonly<GalleryConfigs> = {
   title: "",
   description: "",
   createdAt: new Date(0),
@@ -201,7 +201,8 @@ export interface IndexingOptionsForNewFiles {
 }
 
 export interface IndexingStepForNewFiles {
-  /** Total count of files to process */
+  /** Total count of files to process
+   * (NOTE: this value may be wrong when the lost fields of some items are incorrect)*/
   totalCount: number;
   /** Processed count of files */
   processedCount: number;
@@ -762,7 +763,6 @@ export default class Gallery implements Disposable {
     const allChildFilesCount = await countAllChildFiles(galleryPath, childFilesFilter);
     const allNonLostItemsCount = await Item.count({ where: { lost: false } });
     const step: IndexingStepForNewFiles = {
-      // NOTE: this value may be wrong when the lost fields of many items are not correct.
       totalCount: Math.max(allChildFilesCount - allNonLostItemsCount, 0),
       processedCount: 0,
     };

@@ -1,13 +1,12 @@
 import "jest-extended";
 import fs from "fs";
 import path from "path";
-import { cloneDeep } from "lodash";
 import mockfs from "mock-fs";
-import type { DirectoryItems } from "mock-fs/lib/filesystem";
-import { Op } from "sequelize";
+import type MockFile from "mock-fs/lib/file";
 import type { GalleryPathInfo } from "./ipc";
-import Gallery from "./Gallery";
+import Gallery, { INDEXING_DIRNAME, DEFAULT_CONFIGS } from "./Gallery";
 import type { ImageInfo, VideoInfo } from "./indexing";
+import { Models } from "./sequelize";
 
 jest.mock("./environments", () => ({ isDev: true }));
 
@@ -28,7 +27,7 @@ jest.mock("./indexing", () => ({
   async getImageInfo(path: string): Promise<ImageInfo> {
     const content = fs.readFileSync(path, "utf-8");
     const [_, width, height] = [...content.matchAll(/(\d+)x(\d+)/g)][0];
-    const [date] = content.match(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/g) ?? [];
+    const [date] = content.match(/\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}/g) ?? [];
     return {
       width: parseInt(width),
       height: parseInt(height),
@@ -38,7 +37,7 @@ jest.mock("./indexing", () => ({
   async getVideoInfo(path: string): Promise<VideoInfo> {
     const content = fs.readFileSync(path, "utf-8");
     const [_, width, height] = [...content.matchAll(/(\d+)x(\d+)/g)][0];
-    const [date] = content.match(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/g) ?? [];
+    const [date] = content.match(/\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}/g) ?? [];
     const [duration] = content.match(/\d+s/g);
     return {
       width: parseInt(width),
@@ -50,19 +49,59 @@ jest.mock("./indexing", () => ({
   },
 }));
 
-describe("testing gallery overall", () => {
-  beforeAll(() => {
-    mockfs({
-      node_modules: mockfs.load(path.resolve(process.cwd(), "node_modules"), { lazy: true }),
-      "test-gallery": { ".darkgallery": {} },
-    });
+beforeAll(async () => {
+  // Resolve the modules that using lazy require
+  mockfs({
+    node_modules: mockfs.load(path.resolve(process.cwd(), "node_modules"), { lazy: true }),
+    [INDEXING_DIRNAME]: {},
   });
-  afterAll(() => {
-    mockfs.restore();
+  const gallery = new Gallery(".");
+  await gallery.open();
+  await gallery.dispose();
+});
+
+afterAll(() => mockfs.restore());
+
+interface FileInfo {
+  type: Models.Item["type"];
+  mtime: Date;
+  taggedTime?: Date;
+  content?: string;
+  width: number;
+  height: number;
+  duration?: number;
+}
+function createMockFileFactory(info: FileInfo): () => MockFile {
+  let content = `${info.width}x${info.height}`;
+  if (info.duration) {
+    content += ` ${info.duration / 1000}s`;
+  }
+  if (info.taggedTime) {
+    const year = info.taggedTime.getFullYear();
+    const month = info.taggedTime.getMonth() + 1;
+    const date = info.taggedTime.getDate();
+    const hours = info.taggedTime.getHours();
+    const minutes = info.taggedTime.getMinutes();
+    const seconds = info.taggedTime.getSeconds();
+    content += ` ${year}-${month}-${date} ${hours}:${minutes}:${seconds}`;
+  }
+  if (info.content) {
+    content += " " + info.content;
+  }
+  return mockfs.file({
+    content,
+    mtime: info.mtime,
+  });
+}
+
+describe("testing gallery config", () => {
+  const mockGalleryPath = path.join("test-dir", "test-gal");
+  beforeAll(() => {
+    mockfs({ "test-dir": { "test-gal": { [INDEXING_DIRNAME]: {} } } });
   });
 
   test("set a config and get it", async () => {
-    const gallery = new Gallery("./test-gallery");
+    const gallery = new Gallery(mockGalleryPath);
     await gallery.open();
     await gallery.setConfig("description", "foo");
     const jsonValue = await (
@@ -76,65 +115,133 @@ describe("testing gallery overall", () => {
   });
 
   test("get default config without setting it", async () => {
-    const gallery = new Gallery("./test-gallery");
+    const gallery = new Gallery(mockGalleryPath);
     await gallery.open();
-    expect(await gallery.getConfig("imageExtensions")).toIncludeAnyMembers(["jpg", "webp"]);
-    expect(await gallery.getConfig("videoExtensions")).toIncludeAnyMembers(["mp4", "webm"]);
-    await gallery.dispose();
-  });
+    const getConfigSpy = jest.spyOn(gallery, "getConfig");
 
-  test("creating and close gallery", async () => {
-    const gallery = new Gallery("./test-gallery");
-    await gallery.open();
+    for (const [key, defaultValue] of Object.entries(DEFAULT_CONFIGS)) {
+      if (key === "createdAt") continue;
+      const valueJson = JSON.stringify(await gallery.getConfig(key as any));
+      const defaultValueJson = JSON.stringify(defaultValue);
+      expect(valueJson).toBe(defaultValueJson);
+    }
+
+    const createdAt = await gallery.getConfig("createdAt");
+    const fiveSecondsAgo = new Date(Date.now() - 5000);
+    expect(createdAt.getTime()).toBeGreaterThan(fiveSecondsAgo.getTime());
+
+    expect(getConfigSpy).toBeCalledTimes(Object.keys(DEFAULT_CONFIGS).length);
+
     await gallery.dispose();
   });
 });
 
-describe("testing gallery indexing", () => {
-  const mockDirectoryItems: DirectoryItems = {
-    "testing-gallery": {
-      ".darkgallery": {},
-      "foo-bar": {
-        "animal images": {
-          "cat.gif": mockfs.file({
-            content: "1024x768 1994-10-29 12:34:56",
-            mtime: new Date("2021-01-01 11:59:59.678"),
-          }),
-          "dog.jpeg": "1920x1080",
-          "jaguar.txt": "123x456",
-        },
-      },
-      "Fruits HERE": {
-        "apple.png": "3840x2160",
-        "banana.webm": "1280x720 12s",
-      },
-      "apple-copy.png": "3840x2160",
-      "foo.bar": "f",
-      "baz.qux": "b",
-    },
-    "not-me.jpg": "2048x3096",
-  };
-
-  beforeAll(() => {
+describe("testing gallery indexing for new items", () => {
+  test("bulkCount option works correctly", async () => {
     mockfs({
-      node_modules: mockfs.load(path.resolve(process.cwd(), "node_modules"), { lazy: true }),
+      "test-gal": {
+        [INDEXING_DIRNAME]: {},
+        "foo.gif": "1024x768",
+        "bar.jpeg": "1024x768",
+        "baz.png": "1024x768",
+        "qux.webm": "1024x768 10s",
+      },
     });
-  });
-  afterAll(() => {
-    mockfs.restore();
-  });
 
-  test("index new files", async () => {
-    const mockDirectoryItemsCopy = cloneDeep(mockDirectoryItems);
-    mockfs(mockDirectoryItemsCopy);
-    const gallery = new Gallery("./testing-gallery");
+    const gallery = new Gallery("test-gal");
     await gallery.open();
     const Item = gallery.models.item;
     const bulkCreateSpy = jest.spyOn(Item, "bulkCreate");
 
+    for await (const _ of gallery.generateIndexingSequenceForNewFiles({ bulkCount: 5 })) {
+    }
+    expect(bulkCreateSpy).toBeCalledTimes(1);
+    bulkCreateSpy.mockClear();
+    expect(await Item.count()).toBe(4);
+    await Item.destroy({ where: {} });
+
+    for await (const _ of gallery.generateIndexingSequenceForNewFiles({ bulkCount: 4 })) {
+    }
+    expect(bulkCreateSpy).toBeCalledTimes(1);
+    bulkCreateSpy.mockClear();
+    expect(await Item.count()).toBe(4);
+    await Item.destroy({ where: {} });
+
+    for await (const _ of gallery.generateIndexingSequenceForNewFiles({ bulkCount: 3 })) {
+    }
+    expect(bulkCreateSpy).toBeCalledTimes(2);
+    bulkCreateSpy.mockClear();
+    expect(await Item.count()).toBe(4);
+    await Item.destroy({ where: {} });
+
+    for await (const _ of gallery.generateIndexingSequenceForNewFiles({ bulkCount: 2 })) {
+    }
+    expect(bulkCreateSpy).toBeCalledTimes(2);
+    bulkCreateSpy.mockClear();
+    expect(await Item.count()).toBe(4);
+    await Item.destroy({ where: {} });
+
+    for await (const _ of gallery.generateIndexingSequenceForNewFiles({ bulkCount: 1 })) {
+    }
+    expect(bulkCreateSpy).toBeCalledTimes(4);
+    bulkCreateSpy.mockClear();
+    expect(await Item.count()).toBe(4);
+    await Item.destroy({ where: {} });
+  });
+
+  test("indexing works correctly on complicated structure", async () => {
+    const mockFilesInfo: { [posixPath: string]: FileInfo } = {
+      "foo-bar/animal images/cat.gif": {
+        type: "IMG",
+        mtime: new Date("2021-01-01 12:34:56.789"),
+        taggedTime: new Date("1994-10-29 12:34:56"),
+        width: 1024,
+        height: 768,
+      },
+      "foo-bar/animal images/dog.jpeg": {
+        type: "IMG",
+        mtime: new Date("2021-01-02 12:34:56"),
+        width: 1920,
+        height: 1080,
+      },
+      "Fruits HERE/apple.png": {
+        type: "IMG",
+        mtime: new Date("2021-01-03 12:34:56"),
+        width: 640,
+        height: 480,
+      },
+      "Fruits HERE/banana.webm": {
+        type: "VID",
+        mtime: new Date("2021-01-04 12:34:56"),
+        width: 1280,
+        height: 720,
+        duration: 12000,
+      },
+      "apple-copy.png": {
+        type: "IMG",
+        mtime: new Date("2021-01-03 12:34:56"),
+        width: 640,
+        height: 480,
+      },
+    };
+    const mockDirectoryStructure: any = {
+      "test-gal": { [INDEXING_DIRNAME]: {} },
+      "test-gal/foo-bar/animal images/jaguar.txt": "just a text",
+      "test-gal/foo.bar": "just a binary",
+      "test-gal/baz.qux": "just a binary",
+      "not-me.jpg": "2048x3096",
+    };
+    for (const [relativePath, info] of Object.entries(mockFilesInfo)) {
+      mockDirectoryStructure["test-gal/" + relativePath] = createMockFileFactory(info);
+    }
+    mockfs(mockDirectoryStructure);
+
+    const gallery = new Gallery("test-gal");
+    await gallery.open();
+
     let i = 0;
-    for await (const step of gallery.generateIndexingSequenceForNewFiles({ bulkCount: 3 })) {
-      expect(step.totalCount).toBe(5);
+    for await (const step of gallery.generateIndexingSequenceForNewFiles()) {
+      expect(step.totalCount).toBe(Object.keys(mockFilesInfo).length);
       expect(step.processedCount).toBe(i);
       if (i > 0) {
         expect(step.processedInfo.result).toBe("item-added");
@@ -143,45 +250,57 @@ describe("testing gallery indexing", () => {
       }
       i += 1;
     }
-    expect(bulkCreateSpy).toBeCalledTimes(2);
+    expect(i).toBe(1 + Object.keys(mockFilesInfo).length);
 
+    const Item = gallery.models.item;
     const allItems = await Item.findAll();
     expect(allItems.length).toBe(5);
+    for (const item of allItems) {
+      const posixDirectory = item.directory.replace(path.sep, "/");
+      const relativePosixPath = path.posix.join(posixDirectory, item.filename);
+      const fileInfo = mockFilesInfo[relativePosixPath];
+      const roundedMtime = new Date(Math.round(fileInfo.mtime.getTime() / 1000) * 1000);
+      expect(fileInfo).not.toBeUndefined();
+      expect(item.getDataValue("directory")).toBe(posixDirectory);
+      expect(item.lost).toBe(false);
+      expect(item.size).toBeGreaterThan(0);
+      expect(item.mtime.getTime()).toBe(roundedMtime.getTime());
+      expect(item.timeMode).toBe(fileInfo.taggedTime ? "METAD" : "MTIME");
+      expect(item.time.getTime()).toBe(fileInfo.taggedTime?.getTime() || roundedMtime.getTime());
+      expect(item.type).toBe(fileInfo.type);
+      expect(item.width).toBe(fileInfo.width);
+      expect(item.height).toBe(fileInfo.height);
+      expect(item.duration).toBe(fileInfo.duration || null);
+    }
 
-    // process item creation correctly (image with EXIF)
-    const catItem = await Item.findOne({ where: { filename: "cat.gif" } });
-    expect(catItem.directory).toBe(path.join("foo-bar", "animal images"));
-    expect(catItem.getDataValue("directory")).toBe("foo-bar/animal images");
-    expect(catItem.lost).toBe(false);
-    expect(catItem.size).toBeGreaterThan(0);
-    expect(catItem.timeMode).toBe("METAD");
-    expect(catItem.time).toEqual(new Date("1994-10-29 12:34:56"));
-    expect(catItem.mtime).toEqual(new Date("2021-01-01 12:00:00"));
-    expect(catItem.type).toBe("IMG");
-    expect(catItem.width).toBe(1024);
-    expect(catItem.height).toBe(768);
-    expect(catItem.duration).toBeNull();
+    await gallery.dispose();
+  });
 
-    // process item creation correctly (image without EXIF)
-    const dogItem = await Item.findOne({ where: { filename: "dog.jpeg" } });
-    expect(dogItem.directory).toBe(path.join("foo-bar", "animal images"));
-    expect(dogItem.getDataValue("directory")).toBe("foo-bar/animal images");
-    expect(dogItem.timeMode).toBe("MTIME");
-    expect(dogItem.lost).toBe(false);
-    expect(dogItem.size).toBeGreaterThan(0);
-    expect(dogItem.timeMode).toBe("MTIME");
-    expect(dogItem.time).toEqual(dogItem.mtime);
-    expect(dogItem.type).toBe("IMG");
-    expect(dogItem.width).toBe(1920);
-    expect(dogItem.height).toBe(1080);
-    expect(dogItem.duration).toBeNull();
+  test("indexing lost item (same path, same hash)", async () => {
+    mockfs({
+      "test-gal": {
+        [INDEXING_DIRNAME]: {},
+        "foo-dir": {
+          "bar-dir": {
+            "foo.jpg": "1920x1080",
+          },
+        },
+      },
+    });
 
-    // process lost item correctly (same hash)
-    const appleItem = await Item.findOne({ where: { filename: "apple.png" } });
-    appleItem.lost = true;
-    await appleItem.save();
-    bulkCreateSpy.mockClear();
-    i = 0;
+    const gallery = new Gallery("test-gal");
+    await gallery.open();
+
+    for await (const step of gallery.generateIndexingSequenceForNewFiles()) {
+      expect(step.totalCount).toBe(1);
+    }
+
+    const Item = gallery.models.item;
+    await Item.update({ lost: true }, { where: { filename: "foo.jpg" } });
+    expect((await Item.findOne({ where: { filename: "foo.jpg" } })).lost).toBeTrue();
+
+    const updateSpy = jest.spyOn(Item, "update");
+    let i = 0;
     for await (const step of gallery.generateIndexingSequenceForNewFiles()) {
       expect(step.totalCount).toBe(1);
       expect(step.processedCount).toBe(i);
@@ -190,22 +309,42 @@ describe("testing gallery indexing", () => {
       }
       i += 1;
     }
-    expect(i).toBe(2);
-    expect(bulkCreateSpy).toBeCalledTimes(0);
-    await appleItem.reload();
-    expect(appleItem.lost).toBeFalse();
-    expect(appleItem.width).toBe(3840);
-    expect(appleItem.height).toBe(2160);
-    expect(appleItem.duration).toBeNull();
+    expect(i).toBe(1 + 1);
+    expect(updateSpy).toBeCalledTimes(1);
+    expect((await Item.findOne({ where: { filename: "foo.jpg" } })).lost).toBeFalse();
 
-    // process lost item correctly (different hash, same path)
-    (mockDirectoryItemsCopy as any)["testing-gallery"]["Fruits HERE"]["banana.webm"] = "480x272 8s";
-    mockfs(mockDirectoryItemsCopy);
-    const bananaItem = await Item.findOne({ where: { filename: "banana.webm" } });
-    bananaItem.lost = true;
-    await bananaItem.save();
-    bulkCreateSpy.mockClear();
-    i = 0;
+    await gallery.dispose();
+  });
+
+  test("indexing lost item (same path, different hash)", async () => {
+    const mockDirectoryStructure = {
+      "test-gal": {
+        [INDEXING_DIRNAME]: {},
+        "foo-dir": {
+          "bar-dir": {
+            "foo.jpg": "1920x1080",
+          },
+        },
+      },
+    };
+    mockfs(mockDirectoryStructure);
+
+    const gallery = new Gallery("test-gal");
+    await gallery.open();
+
+    for await (const step of gallery.generateIndexingSequenceForNewFiles()) {
+      expect(step.totalCount).toBe(1);
+    }
+
+    const Item = gallery.models.item;
+    await Item.update({ lost: true }, { where: { filename: "foo.jpg" } });
+    expect((await Item.findOne({ where: { filename: "foo.jpg" } })).lost).toBeTrue();
+
+    mockDirectoryStructure["test-gal"]["foo-dir"]["bar-dir"]["foo.jpg"] = "320x240";
+    mockfs(mockDirectoryStructure);
+
+    const updateSpy = jest.spyOn(Item, "update");
+    let i = 0;
     for await (const step of gallery.generateIndexingSequenceForNewFiles()) {
       expect(step.totalCount).toBe(1);
       expect(step.processedCount).toBe(i);
@@ -214,32 +353,50 @@ describe("testing gallery indexing", () => {
         expect(
           step.processedInfo.result === "found-lost-item-candidate-file" &&
             step.processedInfo.lostItemPaths
-        ).toIncludeSameMembers(["Fruits HERE/banana.webm"]);
+        ).toContain(path.join("foo-dir", "bar-dir", "foo.jpg"));
       }
       i += 1;
     }
-    expect(i).toBe(2);
-    expect(bulkCreateSpy).toBeCalledTimes(0);
-    await bananaItem.reload();
-    expect(bananaItem.lost).toBeTrue();
-    expect(bananaItem.width).not.toBe(480);
-    expect(bananaItem.height).not.toBe(272);
-    expect(bananaItem.duration).not.toBe(8000);
-    delete (mockDirectoryItemsCopy as any)["testing-gallery"]["Fruits HERE"]["banana.webm"];
+    expect(i).toBe(1 + 1);
+    expect(updateSpy).not.toBeCalled();
 
-    // process lost item correctly (same hash, different path)
-    delete (mockDirectoryItemsCopy as any)["testing-gallery"]["Fruits HERE"]["apple.png"];
-    delete (mockDirectoryItemsCopy as any)["testing-gallery"]["apple-copy.png"];
-    (mockDirectoryItemsCopy as any)["testing-gallery"]["new-same-apple.png"] = "3840x2160";
-    mockfs(mockDirectoryItemsCopy);
-    expect(
-      await Item.update(
-        { lost: true },
-        { where: { filename: { [Op.like]: "apple%" } }, sideEffects: false }
-      )
-    ).toIncludeSameMembers([2]);
-    bulkCreateSpy.mockClear();
-    i = 0;
+    await gallery.dispose();
+  });
+
+  test("indexing lost item (different path, same hash)", async () => {
+    const mockDirectoryStructure = {
+      "test-gal": {
+        [INDEXING_DIRNAME]: {},
+        "foo.jpg": "1920x1080 Foo",
+        "bar.jpg": "1920x1080 Foo",
+      },
+    };
+    mockfs(mockDirectoryStructure);
+    expect(mockDirectoryStructure["test-gal"]["foo.jpg"]).toBe(
+      mockDirectoryStructure["test-gal"]["bar.jpg"]
+    );
+
+    const gallery = new Gallery("test-gal");
+    await gallery.open();
+
+    for await (const step of gallery.generateIndexingSequenceForNewFiles()) {
+      expect(step.totalCount).toBe(2);
+    }
+
+    const Item = gallery.models.item;
+    await Item.update({ lost: true }, { where: { filename: "foo.jpg" } });
+    expect((await Item.findOne({ where: { filename: "foo.jpg" } })).lost).toBeTrue();
+    await Item.update({ lost: true }, { where: { filename: "bar.jpg" } });
+    expect((await Item.findOne({ where: { filename: "bar.jpg" } })).lost).toBeTrue();
+
+    (mockDirectoryStructure as any)["test-gal"]["QUX.jpg"] =
+      mockDirectoryStructure["test-gal"]["foo.jpg"];
+    delete mockDirectoryStructure["test-gal"]["foo.jpg"];
+    delete mockDirectoryStructure["test-gal"]["bar.jpg"];
+    mockfs(mockDirectoryStructure);
+
+    const updateSpy = jest.spyOn(Item, "update");
+    let i = 0;
     for await (const step of gallery.generateIndexingSequenceForNewFiles()) {
       expect(step.totalCount).toBe(1);
       expect(step.processedCount).toBe(i);
@@ -248,14 +405,12 @@ describe("testing gallery indexing", () => {
         expect(
           step.processedInfo.result === "found-lost-item-candidate-file" &&
             step.processedInfo.lostItemPaths
-        ).toIncludeSameMembers(["Fruits HERE/apple.png", "apple-copy.png"]);
+        ).toIncludeSameMembers(["foo.jpg", "bar.jpg"]);
       }
       i += 1;
     }
-    expect(i).toBe(2);
-    expect(bulkCreateSpy).toBeCalledTimes(0);
-    expect(await Item.findOne({ where: { filename: "new-same-apple.png" } })).toBeNull();
-    delete (mockDirectoryItemsCopy as any)["testing-gallery"]["new-same-apple.png"];
+    expect(i).toBe(1 + 1);
+    expect(updateSpy).not.toBeCalled();
 
     await gallery.dispose();
   });
