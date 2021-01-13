@@ -2,15 +2,39 @@ import "jest-extended";
 import mockfs from "mock-fs";
 import * as testee from "./indexing";
 
+afterAll(() => mockfs.restore());
+
+describe("testing getFileInfo function", () => {
+  const { getFileInfo } = testee;
+
+  test("file's size is correct", async () => {
+    mockfs({
+      "size-test.bin": mockfs.file({
+        content: Buffer.from([1, 2, 3]),
+      }),
+    });
+    const info = await getFileInfo("size-test.bin");
+    expect(info.size).toBe(3);
+  });
+
+  test("file's mtime is rounded", async () => {
+    mockfs({
+      "mtime-test.bin": mockfs.file({
+        mtime: new Date("2021-01-01 12:34:56.789"),
+      }),
+    });
+    const info = await getFileInfo("mtime-test.bin");
+    expect(info.mtime.getTime()).toBe(new Date("2021-01-01 12:34:57").getTime());
+  });
+});
+
 describe("testing getFileHash function", () => {
   const { getFileHash } = testee;
-  beforeAll(() =>
+
+  test("file's hash is calculating correctly", async () => {
     mockfs({
       "test.bin": Buffer.from([1, 2, 3, 4, 5]),
-    })
-  );
-  afterAll(() => mockfs.restore());
-  test("file's hash is calculating correctly", async () => {
+    });
     const hash = await getFileHash("./test.bin");
     expect(hash).toBe("11966ab9c099f8fabefac54c08d5be2bd8c903af");
   });
@@ -18,6 +42,7 @@ describe("testing getFileHash function", () => {
 
 describe("testing countAllChildFiles function", () => {
   const { countAllChildFiles } = testee;
+
   beforeAll(() =>
     mockfs({
       "the-dir": {
@@ -46,7 +71,7 @@ describe("testing countAllChildFiles function", () => {
       },
     })
   );
-  afterAll(() => mockfs.restore());
+
   test("getting all descendant file paths count correctly with extension filter", async () => {
     const count = await countAllChildFiles("./the-dir", {
       acceptingExtensions: ["JPG", "MoV", "png", "webp", "webm"],
@@ -141,6 +166,7 @@ describe("testing countAllChildFiles function", () => {
 
 describe("testing generateAllChildFileRelativePaths function", () => {
   const { generateAllChildFileRelativePaths } = testee;
+
   beforeAll(() =>
     mockfs({
       "the-dir": {
@@ -169,7 +195,6 @@ describe("testing generateAllChildFileRelativePaths function", () => {
       },
     })
   );
-  afterAll(() => mockfs.restore());
 
   test("getting all descendant file paths with right order", async () => {
     const paths: string[] = [];
