@@ -1,4 +1,5 @@
 import "jest-extended";
+import path from "path";
 import mockfs from "mock-fs";
 import * as testee from "./indexing";
 
@@ -35,7 +36,7 @@ describe("testing getFileHash function", () => {
     mockfs({
       "test.bin": Buffer.from([1, 2, 3, 4, 5]),
     });
-    const hash = await getFileHash("./test.bin");
+    const hash = await getFileHash("test.bin");
     expect(hash).toBe("11966ab9c099f8fabefac54c08d5be2bd8c903af");
   });
 });
@@ -73,19 +74,19 @@ describe("testing countAllChildFiles function", () => {
   );
 
   test("getting all descendant file paths count correctly with extension filter", async () => {
-    const count = await countAllChildFiles("./the-dir", {
+    const count = await countAllChildFiles("the-dir", {
       acceptingExtensions: ["JPG", "MoV", "png", "webp", "webm"],
     });
     expect(count).toBe(
       [
-        "foo-dir/foo-img.jpg",
-        "foo-dir/foo-img.PNG",
-        "foo-dir/foo-img.webp",
-        // "foo-dir/foo-vid.mp4",
-        "foo-dir/foo-vid.webm",
-        // "foo-dir/foo-bin",
-        "bar-dir/image.jpg",
-        ".darkgallery/image.jpg",
+        path.join("foo-dir", "foo-img.jpg"),
+        path.join("foo-dir", "foo-img.PNG"),
+        path.join("foo-dir", "foo-img.webp"),
+        // path.join("foo-dir", "foo-vid.mp4"),
+        path.join("foo-dir", "foo-vid.webm"),
+        // path.join("foo-dir", "foo-bin"),
+        path.join("bar-dir", "image.jpg"),
+        path.join(".darkgallery", "image.jpg"),
         // "abc-def",
         // "jpg",
         // "test.bin",
@@ -94,20 +95,21 @@ describe("testing countAllChildFiles function", () => {
       ].length
     );
   });
+
   test("getting all descendant file paths count correctly with file name filter", async () => {
-    const count = await countAllChildFiles("./the-dir", {
+    const count = await countAllChildFiles("the-dir", {
       ignoreFiles: ["img.webp", "foo-vid.webm"],
     });
     expect(count).toBe(
       [
-        "foo-dir/foo-img.jpg",
-        "foo-dir/foo-img.PNG",
-        "foo-dir/foo-img.webp",
-        "foo-dir/foo-vid.mp4",
-        // "foo-dir/foo-vid.webm",
-        "foo-dir/foo-bin",
-        "bar-dir/image.jpg",
-        ".darkgallery/image.jpg",
+        path.join("foo-dir", "foo-img.jpg"),
+        path.join("foo-dir", "foo-img.PNG"),
+        path.join("foo-dir", "foo-img.webp"),
+        path.join("foo-dir", "foo-vid.mp4"),
+        // path.join("foo-dir", "foo-vid.webm"),
+        path.join("foo-dir", "foo-bin"),
+        path.join("bar-dir", "image.jpg"),
+        path.join(".darkgallery", "image.jpg"),
         "abc-def",
         "jpg",
         "test.bin",
@@ -116,20 +118,21 @@ describe("testing countAllChildFiles function", () => {
       ].length
     );
   });
+
   test("getting all descendant file paths count correctly with directory name filter", async () => {
-    const count = await countAllChildFiles("./the-dir", {
+    const count = await countAllChildFiles("the-dir", {
       ignoreDirectories: ["bar-dir", ".darkgallery"],
     });
     expect(count).toBe(
       [
-        "foo-dir/foo-img.jpg",
-        "foo-dir/foo-img.PNG",
-        "foo-dir/foo-img.webp",
-        "foo-dir/foo-vid.mp4",
-        "foo-dir/foo-vid.webm",
-        "foo-dir/foo-bin",
-        // "bar-dir/image.jpg",
-        // ".darkgallery/image.jpg",
+        path.join("foo-dir", "foo-img.jpg"),
+        path.join("foo-dir", "foo-img.PNG"),
+        path.join("foo-dir", "foo-img.webp"),
+        path.join("foo-dir", "foo-vid.mp4"),
+        path.join("foo-dir", "foo-vid.webm"),
+        path.join("foo-dir", "foo-bin"),
+        // path.join("bar-dir", "image.jpg"),
+        // path.join(".darkgallery", "image.jpg"),
         "abc-def",
         "jpg",
         "test.bin",
@@ -138,22 +141,23 @@ describe("testing countAllChildFiles function", () => {
       ].length
     );
   });
+
   test("getting all descendant file paths count correctly with all options", async () => {
-    const count = await countAllChildFiles("./the-dir", {
+    const count = await countAllChildFiles("the-dir", {
       acceptingExtensions: ["JPG", "MoV", "png", "webp", "webm"],
       ignoreFiles: ["img.webp", "foo-vid.webm"],
       ignoreDirectories: ["bar-dir", ".darkgallery"],
     });
     expect(count).toBe(
       [
-        "foo-dir/foo-img.jpg",
-        "foo-dir/foo-img.PNG",
-        "foo-dir/foo-img.webp",
-        // "foo-dir/foo-vid.mp4",
-        // "foo-dir/foo-vid.webm",
-        // "foo-dir/foo-bin",
-        // "bar-dir/image.jpg",
-        // ".darkgallery/image.jpg",
+        path.join("foo-dir", "foo-img.jpg"),
+        path.join("foo-dir", "foo-img.PNG"),
+        path.join("foo-dir", "foo-img.webp"),
+        // path.join("foo-dir", "foo-vid.mp4"),
+        // path.join("foo-dir", "foo-vid.webm"),
+        // path.join("foo-dir", "foo-bin"),
+        // path.join("bar-dir", "image.jpg"),
+        // path.join(".darkgallery", "image.jpg"),
         // "abc-def",
         // "jpg",
         // "test.bin",
@@ -198,40 +202,40 @@ describe("testing generateAllChildFileRelativePaths function", () => {
 
   test("getting all descendant file paths with right order", async () => {
     const paths: string[] = [];
-    for await (const path of generateAllChildFileRelativePaths("./the-dir")) {
+    for await (const path of generateAllChildFileRelativePaths("the-dir")) {
       paths.push(path);
     }
     const filePaths = ["abc-def", "jpg", "test.bin", "image.jpeg", "video.mov"];
     expect(paths.slice(0, filePaths.length)).toIncludeSameMembers(filePaths);
     const dirPaths = [
-      "foo-dir/foo-img.jpg",
-      "foo-dir/foo-img.PNG",
-      "foo-dir/foo-img.webp",
-      "foo-dir/foo-vid.mp4",
-      "foo-dir/foo-vid.webm",
-      "foo-dir/foo-bin",
-      "bar-dir/image.jpg",
-      ".darkgallery/image.jpg",
+      path.join("foo-dir", "foo-img.jpg"),
+      path.join("foo-dir", "foo-img.PNG"),
+      path.join("foo-dir", "foo-img.webp"),
+      path.join("foo-dir", "foo-vid.mp4"),
+      path.join("foo-dir", "foo-vid.webm"),
+      path.join("foo-dir", "foo-bin"),
+      path.join("bar-dir", "image.jpg"),
+      path.join(".darkgallery", "image.jpg"),
     ];
     expect(paths.slice(filePaths.length)).toIncludeSameMembers(dirPaths);
   });
 
   test("getting all descendant file paths correctly with extension filter", async () => {
     const paths: string[] = [];
-    for await (const path of generateAllChildFileRelativePaths("./the-dir", {
+    for await (const path of generateAllChildFileRelativePaths("the-dir", {
       acceptingExtensions: ["JPG", "MoV", "png", "webp", "webm"],
     })) {
       paths.push(path);
     }
     expect(paths).toIncludeSameMembers([
-      "foo-dir/foo-img.jpg",
-      "foo-dir/foo-img.PNG",
-      "foo-dir/foo-img.webp",
-      // "foo-dir/foo-vid.mp4",
-      "foo-dir/foo-vid.webm",
-      // "foo-dir/foo-bin",
-      "bar-dir/image.jpg",
-      ".darkgallery/image.jpg",
+      path.join("foo-dir", "foo-img.jpg"),
+      path.join("foo-dir", "foo-img.PNG"),
+      path.join("foo-dir", "foo-img.webp"),
+      // path.join("foo-dir", "foo-vid.mp4"),
+      path.join("foo-dir", "foo-vid.webm"),
+      // path.join("foo-dir", "foo-bin"),
+      path.join("bar-dir", "image.jpg"),
+      path.join(".darkgallery", "image.jpg"),
       // "abc-def",
       // "jpg",
       // "test.bin",
@@ -242,20 +246,20 @@ describe("testing generateAllChildFileRelativePaths function", () => {
 
   test("getting all descendant file paths correctly with file name filter", async () => {
     const paths: string[] = [];
-    for await (const path of generateAllChildFileRelativePaths("./the-dir", {
+    for await (const path of generateAllChildFileRelativePaths("the-dir", {
       ignoreFiles: ["img.webp", "foo-vid.webm"],
     })) {
       paths.push(path);
     }
     expect(paths).toIncludeSameMembers([
-      "foo-dir/foo-img.jpg",
-      "foo-dir/foo-img.PNG",
-      "foo-dir/foo-img.webp",
-      "foo-dir/foo-vid.mp4",
-      // "foo-dir/foo-vid.webm",
-      "foo-dir/foo-bin",
-      "bar-dir/image.jpg",
-      ".darkgallery/image.jpg",
+      path.join("foo-dir", "foo-img.jpg"),
+      path.join("foo-dir", "foo-img.PNG"),
+      path.join("foo-dir", "foo-img.webp"),
+      path.join("foo-dir", "foo-vid.mp4"),
+      // path.join("foo-dir", "foo-vid.webm"),
+      path.join("foo-dir", "foo-bin"),
+      path.join("bar-dir", "image.jpg"),
+      path.join(".darkgallery", "image.jpg"),
       "abc-def",
       "jpg",
       "test.bin",
@@ -266,20 +270,20 @@ describe("testing generateAllChildFileRelativePaths function", () => {
 
   test("getting all descendant file paths correctly with directory name filter", async () => {
     const paths: string[] = [];
-    for await (const path of generateAllChildFileRelativePaths("./the-dir", {
+    for await (const path of generateAllChildFileRelativePaths("the-dir", {
       ignoreDirectories: ["bar-dir", ".darkgallery"],
     })) {
       paths.push(path);
     }
     expect(paths).toIncludeSameMembers([
-      "foo-dir/foo-img.jpg",
-      "foo-dir/foo-img.PNG",
-      "foo-dir/foo-img.webp",
-      "foo-dir/foo-vid.mp4",
-      "foo-dir/foo-vid.webm",
-      "foo-dir/foo-bin",
-      // "bar-dir/image.jpg",
-      // ".darkgallery/image.jpg",
+      path.join("foo-dir", "foo-img.jpg"),
+      path.join("foo-dir", "foo-img.PNG"),
+      path.join("foo-dir", "foo-img.webp"),
+      path.join("foo-dir", "foo-vid.mp4"),
+      path.join("foo-dir", "foo-vid.webm"),
+      path.join("foo-dir", "foo-bin"),
+      // path.join("bar-dir", "image.jpg"),
+      // path.join(".darkgallery", "image.jpg"),
       "abc-def",
       "jpg",
       "test.bin",
@@ -290,7 +294,7 @@ describe("testing generateAllChildFileRelativePaths function", () => {
 
   test("getting all descendant file paths correctly with all options", async () => {
     const paths: string[] = [];
-    for await (const path of generateAllChildFileRelativePaths("./the-dir", {
+    for await (const path of generateAllChildFileRelativePaths("the-dir", {
       acceptingExtensions: ["JPG", "MoV", "png", "webp", "webm"],
       ignoreFiles: ["img.webp", "foo-vid.webm"],
       ignoreDirectories: ["bar-dir", ".darkgallery"],
@@ -298,14 +302,14 @@ describe("testing generateAllChildFileRelativePaths function", () => {
       paths.push(path);
     }
     expect(paths).toIncludeSameMembers([
-      "foo-dir/foo-img.jpg",
-      "foo-dir/foo-img.PNG",
-      "foo-dir/foo-img.webp",
-      // "foo-dir/foo-vid.mp4",
-      // "foo-dir/foo-vid.webm",
-      // "foo-dir/foo-bin",
-      // "bar-dir/image.jpg",
-      // ".darkgallery/image.jpg",
+      path.join("foo-dir", "foo-img.jpg"),
+      path.join("foo-dir", "foo-img.PNG"),
+      path.join("foo-dir", "foo-img.webp"),
+      // path.join("foo-dir", "foo-vid.mp4"),
+      // path.join("foo-dir", "foo-vid.webm"),
+      // path.join("foo-dir", "foo-bin"),
+      // path.join("bar-dir", "image.jpg"),
+      // path.join(".darkgallery", "image.jpg"),
       // "abc-def",
       // "jpg",
       // "test.bin",
