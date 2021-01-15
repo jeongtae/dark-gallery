@@ -201,8 +201,8 @@ export interface IndexingOptionsForNewFiles {
 }
 
 export interface IndexingStepForNewFiles {
-  /** Total count of files to process
-   * (NOTE: this value may be wrong when the lost fields of some items are incorrect)*/
+  /** Total count of files to process **(BUT IT IS NOT ACCURATE)**
+   * (NOTE: because this value may be wrong when the lost fields of some items are incorrect)*/
   totalCount: number;
   /** Processed count of files */
   processedCount: number;
@@ -521,12 +521,17 @@ export default class Gallery implements Disposable {
           "thumbnailPath",
           "previewVideoPath",
         ],
-        order: Sequelize.col("id"),
+        order: ["id"],
         where: {
           id: { [Op.gt]: lastProcessedItemId },
         },
         limit: fetchCount,
         raw: true,
+      });
+      fetchedItems.forEach(item => {
+        item.directory = item.directory.replace(nodePath.posix.sep, nodePath.sep);
+        item.mtime = new Date(item.mtime);
+        item.lost = !!item.lost;
       });
       lastProcessedItemId = fetchedItems[fetchedItems.length - 1]?.id;
       lastFetchedItemsCount = fetchedItems.length;
@@ -619,7 +624,7 @@ export default class Gallery implements Disposable {
           }
           const fileInfo = await getFileInfo(fullFilePath);
           const isMtimeOrSizeDifferent =
-            item.mtime !== fileInfo.mtime || item.size !== fileInfo.size;
+            item.mtime.getTime() !== fileInfo.mtime.getTime() || item.size !== fileInfo.size;
           if (!isMtimeOrSizeDifferent) {
             // If the items mtile and size are both same
             // then it does not need any update.
@@ -837,6 +842,7 @@ export default class Gallery implements Disposable {
         const hash = await getFileHash(fullFilePath);
         const fileInfo = await getFileInfo(fullFilePath);
         if (preindexedSamePathItem?.lost === true) {
+          // `generateIndexingSequenceForPreexistences` do this too
           // If there is already indexed item with same path, and it is `lost: true`
           if (preindexedSamePathItem.hash === hash) {
             // If the hash is same then update it's lost value to false
@@ -869,6 +875,7 @@ export default class Gallery implements Disposable {
               continue;
             }
           } else {
+            // `generateIndexingSequenceForPreexistences` do this too
             // If the hash is different then notify it as a candidate.
             yield {
               ...step,
