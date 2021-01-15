@@ -136,7 +136,7 @@ describe("testing gallery config", () => {
   });
 });
 
-describe("testing gallery indexing for new items", () => {
+describe("testing gallery indexing for new files", () => {
   test("bulkCount option works correctly", async () => {
     mockfs({
       "test-gal": {
@@ -187,6 +187,8 @@ describe("testing gallery indexing for new items", () => {
     bulkCreateSpy.mockClear();
     expect(await Item.count()).toBe(4);
     await Item.destroy({ where: {} });
+
+    await gallery.dispose();
   });
 
   test("indexing works correctly on complicated structure", async () => {
@@ -411,6 +413,382 @@ describe("testing gallery indexing for new items", () => {
     }
     expect(i).toBe(1 + 1);
     expect(updateSpy).not.toBeCalled();
+
+    await gallery.dispose();
+  });
+});
+
+describe("testing gallery indexing for existing items", () => {
+  test("fetchCount options works correctly", async () => {
+    mockfs({
+      "test-gal": {
+        [INDEXING_DIRNAME]: {},
+        "foo.gif": "1024x768",
+        "bar.jpeg": "1024x768",
+        "baz.png": "1024x768",
+        "qux.webm": "1024x768 10s",
+      },
+    });
+
+    const gallery = new Gallery("test-gal");
+    await gallery.open();
+    for await (const _ of gallery.generateIndexingSequenceForNewFiles()) {
+    }
+
+    const Item = gallery.models.item;
+    const findAllSpy = jest.spyOn(Item, "findAll");
+
+    for await (const _ of gallery.generateIndexingSequenceForPreexistences({ fetchCount: 5 })) {
+    }
+    expect(findAllSpy).toBeCalledTimes(1 + 1);
+    findAllSpy.mockClear();
+
+    for await (const _ of gallery.generateIndexingSequenceForPreexistences({ fetchCount: 4 })) {
+    }
+    expect(findAllSpy).toBeCalledTimes(1 + 1);
+    findAllSpy.mockClear();
+
+    for await (const _ of gallery.generateIndexingSequenceForPreexistences({ fetchCount: 3 })) {
+    }
+    expect(findAllSpy).toBeCalledTimes(2 + 1);
+    findAllSpy.mockClear();
+
+    for await (const _ of gallery.generateIndexingSequenceForPreexistences({ fetchCount: 2 })) {
+    }
+    expect(findAllSpy).toBeCalledTimes(2 + 1);
+    findAllSpy.mockClear();
+
+    for await (const _ of gallery.generateIndexingSequenceForPreexistences({ fetchCount: 1 })) {
+    }
+    expect(findAllSpy).toBeCalledTimes(4 + 1);
+    findAllSpy.mockClear();
+
+    await gallery.dispose();
+  });
+
+  test("with no changes", async () => {
+    mockfs({
+      "test-gal": {
+        [INDEXING_DIRNAME]: {},
+        "foo.gif": "1024x768",
+        "bar.jpeg": "1024x768",
+        "baz.png": "1024x768",
+        "qux.webm": "1024x768 10s",
+      },
+    });
+
+    const gallery = new Gallery("test-gal");
+    await gallery.open();
+    for await (const _ of gallery.generateIndexingSequenceForNewFiles()) {
+    }
+
+    const Item = gallery.models.item;
+    const updateSpy = jest.spyOn(Item, "update");
+
+    let i = 0;
+    for await (const step of gallery.generateIndexingSequenceForPreexistences()) {
+      expect(step.totalCount).toBe(4);
+      expect(step.processedCount).toBe(i);
+      if (i > 0) {
+        expect(step.processedInfo?.result).toBe("no-big-change");
+      }
+      i++;
+    }
+    expect(updateSpy).toBeCalledTimes(0);
+
+    await gallery.dispose();
+  });
+
+  test("file's content is changed", async () => {
+    const mockFilesInfo = {
+      "foo-bar/baz-qux/foo.jpg": {
+        type: "IMG",
+        mtime: new Date("2021-01-01 12:34:56"),
+        taggedTime: new Date("1994-10-29 12:34:56"),
+        width: 1024,
+        height: 768,
+      } as FileInfo,
+      "foo-bar/baz-qux/bar.mp4": {
+        type: "IMG",
+        mtime: new Date("2021-01-02 12:34:56"),
+        taggedTime: new Date("1994-10-29 12:34:56"),
+        width: 1280,
+        height: 720,
+        duration: 10000,
+      } as FileInfo,
+      "foo-bar/baz-qux/baz.webp": {
+        type: "IMG",
+        mtime: new Date("2021-01-03 12:34:56"),
+        taggedTime: new Date("1994-10-29 12:34:56"),
+        width: 1024,
+        height: 768,
+      } as FileInfo,
+      "foo-bar/baz-qux/qux.webm": {
+        type: "IMG",
+        mtime: new Date("2021-01-04 12:34:56"),
+        taggedTime: new Date("1994-10-29 12:34:56"),
+        width: 1280,
+        height: 720,
+        duration: 10000,
+      } as FileInfo,
+    };
+    const mockFilesCount = Object.keys(mockFilesInfo).length;
+    const updateMockfs = () => {
+      const mockDirectoryStructure: any = {
+        "test-gal": { [INDEXING_DIRNAME]: {} },
+      };
+      for (const [relativePath, info] of Object.entries(mockFilesInfo)) {
+        mockDirectoryStructure["test-gal/" + relativePath] = createMockFileFactory(info);
+      }
+      mockfs(mockDirectoryStructure);
+    };
+    updateMockfs();
+
+    const gallery = new Gallery("test-gal");
+    await gallery.open();
+    for await (const _ of gallery.generateIndexingSequenceForNewFiles()) {
+    }
+
+    const Item = gallery.models.item;
+    const updateSpy = jest.spyOn(Item, "update");
+
+    mockFilesInfo["foo-bar/baz-qux/foo.jpg"].taggedTime = new Date("2010-10-29 12:34:56");
+    updateMockfs();
+    let i = 0;
+    for await (const step of gallery.generateIndexingSequenceForPreexistences()) {
+      expect(step.totalCount).toBe(mockFilesCount);
+      expect(step.processedCount).toBe(i);
+      if (i > 0) {
+        expect(step.processedInfo.result).toBe("no-big-change");
+      }
+      i += 1;
+    }
+    expect(i).toBe(1 + mockFilesCount);
+    expect(updateSpy).toBeCalledTimes(0);
+    updateSpy.mockClear();
+
+    mockFilesInfo["foo-bar/baz-qux/foo.jpg"].content = "CHANGING FILE'S SIZE AND HASH";
+    updateMockfs();
+    i = 0;
+    for await (const step of gallery.generateIndexingSequenceForPreexistences()) {
+      expect(step.totalCount).toBe(mockFilesCount);
+      expect(step.processedCount).toBe(i);
+      if (i > 0) {
+        if (step.processedInfo.path.includes("foo.jpg")) {
+          expect(step.processedInfo.result).toBe("item-updated");
+        } else {
+          expect(step.processedInfo.result).toBe("no-big-change");
+        }
+      }
+      i += 1;
+    }
+    expect(i).toBe(1 + mockFilesCount);
+    expect(updateSpy).toBeCalledTimes(1);
+    updateSpy.mockClear();
+
+    mockFilesInfo["foo-bar/baz-qux/bar.mp4"].width = 3840;
+    mockFilesInfo["foo-bar/baz-qux/bar.mp4"].height = 2160;
+    mockFilesInfo["foo-bar/baz-qux/bar.mp4"].duration = 20000;
+    updateMockfs();
+    i = 0;
+    for await (const step of gallery.generateIndexingSequenceForPreexistences()) {
+      expect(step.totalCount).toBe(mockFilesCount);
+      expect(step.processedCount).toBe(i);
+      if (i > 0) {
+        if (step.processedInfo.path.includes("bar.mp4")) {
+          expect(step.processedInfo.result).toBe("item-updated");
+        } else {
+          expect(step.processedInfo.result).toBe("no-big-change");
+        }
+      }
+      i += 1;
+    }
+    expect(i).toBe(1 + mockFilesCount);
+    expect(updateSpy).toBeCalledTimes(1);
+    updateSpy.mockClear();
+
+    const barItem = await Item.findOne({ where: { filename: "bar.mp4" } });
+    expect(barItem.width).toBe(3840);
+    expect(barItem.height).toBe(2160);
+    expect(barItem.duration).toBe(20000);
+
+    await gallery.dispose();
+  });
+
+  test("file's mtime is changed only", async () => {
+    const fooFile: FileInfo = {
+      type: "IMG",
+      mtime: new Date("1997-01-01 12:34:56"),
+      taggedTime: new Date("1994-10-29 12:34:56"),
+      width: 1024,
+      height: 768,
+    };
+    mockfs({
+      "test-gal": {
+        [INDEXING_DIRNAME]: {},
+        "foo.jpg": createMockFileFactory(fooFile),
+      },
+    });
+
+    const gallery = new Gallery("test-gal");
+    await gallery.open();
+    for await (const _ of gallery.generateIndexingSequenceForNewFiles()) {
+    }
+
+    const Item = gallery.models.item;
+    const updateSpy = jest.spyOn(Item, "update");
+
+    const newMtime = new Date("2021-01-01- 12:34:56");
+    fooFile.mtime = newMtime;
+    mockfs({
+      "test-gal": {
+        [INDEXING_DIRNAME]: {},
+        "foo.jpg": createMockFileFactory(fooFile),
+      },
+    });
+
+    let i = 0;
+    for await (const step of gallery.generateIndexingSequenceForPreexistences()) {
+      expect(step.totalCount).toBe(1);
+      expect(step.processedCount).toBe(i);
+      if (i > 0) {
+        expect(step.processedInfo?.result).toBe("no-big-change");
+      }
+      i++;
+    }
+    expect(updateSpy).toBeCalledTimes(1);
+    expect((await Item.findOne()).mtime.getTime()).toBe(newMtime.getTime());
+
+    await gallery.dispose();
+  });
+
+  test("file is lost", async () => {
+    const mockDirectoryStructure = {
+      "test-gal": {
+        [INDEXING_DIRNAME]: {},
+        "foo.gif": "1024x768",
+        "bar.jpeg": "1024x768",
+        "baz.png": "1024x768",
+        "qux.webm": "1024x768 10s",
+      },
+    };
+    mockfs(mockDirectoryStructure);
+
+    const gallery = new Gallery("test-gal");
+    await gallery.open();
+    for await (const _ of gallery.generateIndexingSequenceForNewFiles()) {
+    }
+
+    const Item = gallery.models.item;
+    const updateSpy = jest.spyOn(Item, "update");
+
+    delete mockDirectoryStructure["test-gal"]["foo.gif"];
+    delete mockDirectoryStructure["test-gal"]["qux.webm"];
+    mockfs(mockDirectoryStructure);
+
+    let i = 0;
+    for await (const step of gallery.generateIndexingSequenceForPreexistences()) {
+      expect(step.totalCount).toBe(4);
+      expect(step.processedCount).toBe(i);
+      if (i > 0) {
+        if (["foo.gif", "qux.webm"].includes(step.processedInfo.path)) {
+          expect(step.processedInfo?.result).toBe("item-lost");
+        } else {
+          expect(step.processedInfo?.result).toBe("no-big-change");
+        }
+      }
+      i++;
+    }
+    expect(updateSpy).toBeCalledTimes(2);
+    expect((await Item.findOne({ where: { filename: "foo.gif" } })).lost).toBeTrue();
+    expect((await Item.findOne({ where: { filename: "qux.webm" } })).lost).toBeTrue();
+
+    await gallery.dispose();
+  });
+
+  test("discovering lost item with same hash", async () => {
+    const mockDirectoryStructure = {
+      "test-gal": {
+        [INDEXING_DIRNAME]: {},
+        "foo.gif": "1024x768",
+        "bar.jpeg": "1024x768",
+        "baz.png": "1024x768",
+        "qux.webm": "1024x768 10s",
+      },
+    };
+    mockfs(mockDirectoryStructure);
+
+    const gallery = new Gallery("test-gal");
+    await gallery.open();
+    for await (const _ of gallery.generateIndexingSequenceForNewFiles()) {
+    }
+
+    const Item = gallery.models.item;
+    await Item.update({ lost: true }, { where: { filename: ["foo.gif", "qux.webm"] } });
+
+    const updateSpy = jest.spyOn(Item, "update");
+    let i = 0;
+    for await (const step of gallery.generateIndexingSequenceForPreexistences()) {
+      expect(step.totalCount).toBe(4);
+      expect(step.processedCount).toBe(i);
+      if (i > 0) {
+        if (["foo.gif", "qux.webm"].includes(step.processedInfo.path)) {
+          expect(step.processedInfo?.result).toBe("found-lost-items-file-and-updated");
+        } else {
+          expect(step.processedInfo?.result).toBe("no-big-change");
+        }
+      }
+      i++;
+    }
+    expect(updateSpy).toBeCalledTimes(2);
+    expect((await Item.findOne({ where: { filename: "foo.gif" } })).lost).toBeFalse();
+    expect((await Item.findOne({ where: { filename: "qux.webm" } })).lost).toBeFalse();
+
+    await gallery.dispose();
+  });
+
+  test("discovering lost item but different hash", async () => {
+    // TODO: implement
+    const mockDirectoryStructure = {
+      "test-gal": {
+        [INDEXING_DIRNAME]: {},
+        "foo.gif": "1024x768",
+        "bar.jpeg": "1024x768",
+        "baz.png": "1024x768",
+        "qux.webm": "1024x768 10s",
+      },
+    };
+    mockfs(mockDirectoryStructure);
+
+    const gallery = new Gallery("test-gal");
+    await gallery.open();
+    for await (const _ of gallery.generateIndexingSequenceForNewFiles()) {
+    }
+
+    mockDirectoryStructure["test-gal"]["foo.gif"] = "2048x1536";
+    mockDirectoryStructure["test-gal"]["qux.webm"] = "2048x1536 20s";
+    mockfs(mockDirectoryStructure);
+
+    const Item = gallery.models.item;
+    await Item.update({ lost: true }, { where: { filename: ["foo.gif", "qux.webm"] } });
+
+    const updateSpy = jest.spyOn(Item, "update");
+    let i = 0;
+    for await (const step of gallery.generateIndexingSequenceForPreexistences()) {
+      expect(step.totalCount).toBe(4);
+      expect(step.processedCount).toBe(i);
+      if (i > 0) {
+        if (["foo.gif", "qux.webm"].includes(step.processedInfo.path)) {
+          expect(step.processedInfo?.result).toBe("found-lost-items-candidate-file");
+        } else {
+          expect(step.processedInfo?.result).toBe("no-big-change");
+        }
+      }
+      i++;
+    }
+    expect(updateSpy).not.toBeCalled();
+    expect((await Item.findOne({ where: { filename: "foo.gif" } })).lost).toBeTrue();
+    expect((await Item.findOne({ where: { filename: "qux.webm" } })).lost).toBeTrue();
 
     await gallery.dispose();
   });
