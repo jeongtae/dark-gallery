@@ -102,7 +102,7 @@
     ipc.on("openGallery", (_, path) => {
       currentGalleryPath.set(path);
     });
-    ipc.on("reportGalleryIndexingProgress", (_, progress) => {
+    ipc.on("reportGalleryWholeIndexingProgress", (_, progress) => {
       lastReportedIndexingProgress.set(progress);
     });
   });

@@ -64,36 +64,33 @@ export interface GalleryWholeIndexingOptions {
   target: "update-preexistences" | "find-new" | "both";
 }
 
-interface GalleryWholeIndexingStartedReport {
-  phase: "started";
-}
 interface GalleryWholeIndexingUpdatingReport {
   phase: "updating";
-  totalCount: number;
-  leftCount: number;
-  updatedCount: number;
-  lostCount: number;
-  errorCount: number;
+  progressRatio: number;
 }
 interface GalleryWholeIndexingFindingReport {
   phase: "finding";
-  foundCount: number;
-  errorCount: number;
+  progressRatio: number;
 }
-interface GalleryWholeIndexingFinishedReport {
-  phase: "finished";
-  lostCount: number;
+interface GalleryWholeIndexingEndedReport {
+  phase: "finished" | "aborted";
   newCount: number;
-}
-interface GalleryWholeIndexingAbortedReport {
-  phase: "aborted";
+  updatedCount: number;
+  lostCount: number;
+  foundCount: number;
+  lostCandidateCount: number;
+  errorCount: number;
+  newPathSet: Set<string>;
+  updatedPathSet: Set<string>;
+  lostPathSet: Set<string>;
+  foundPathSet: Set<string>;
+  lostItemPathToCandidateFilePathSetMap: Map<string, Set<string>>;
+  errorPathToMessageMap: Map<string, string>;
 }
 export type GalleryWholeIndexingProgressReport =
-  | GalleryWholeIndexingStartedReport
   | GalleryWholeIndexingUpdatingReport
   | GalleryWholeIndexingFindingReport
-  | GalleryWholeIndexingFinishedReport
-  | GalleryWholeIndexingAbortedReport;
+  | GalleryWholeIndexingEndedReport;
 //#endregion
 
 //#region IPC Events (Main -> Renderer)
@@ -139,7 +136,7 @@ export type Commands = {
    * 작업 상태는 `reportGalleryIndexingProgressForPreexistences` 이벤트로 계속 보고됩니다.
    * @param options 인덱싱 옵션
    */
-  startGalleryWholeIndexing: (options: GalleryWholeIndexingOptions) => boolean;
+  startGalleryWholeIndexing: (options?: GalleryWholeIndexingOptions) => boolean;
   /** 갤러리를 인덱싱하는 백그라운드 작업을 중단할 것을 요청합니다.
    * 중단되면 `reportGalleryIndexingProgress` 이벤트로 보고됩니다.
    */

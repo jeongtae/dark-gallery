@@ -1,5 +1,5 @@
 import path from "path";
-import { throttle } from "lodash";
+import { throttle, union } from "lodash";
 import { app, BrowserWindow, dialog, Menu, shell } from "electron";
 import { MenuItemId, GalleryWholeIndexingProgressReport } from "../common/ipc";
 import { isSquirrelStartup, isDev, isMac, appPath } from "./environments";
@@ -45,7 +45,6 @@ export default class Main {
     app.once("ready", this.onAppReady.bind(this));
     app.on("window-all-closed", this.onAppWindowAllClosed.bind(this));
     app.on("activate", this.onAppActivate.bind(this));
-    app.on("quit", this.onAppQuit.bind(this));
 
     // 일렉트론 ipcMain 이벤트 핸들러 등록
     for (const [key, handler] of Object.entries(this.ipcHandlers)) {
@@ -179,42 +178,172 @@ export default class Main {
       // TODO: 윈도우 id별로 상태 저장하고, 윈도우 focus될 때 메뉴에 적용시키는 매커니즘이 필요하다.
       setMenuItemEnabled(id, enabled);
     },
-    async startGalleryWholeIndexing(this: Main, { sender }, { target = "both" }) {
+    async startGalleryWholeIndexing(this: Main, { sender }, { target = "both" } = <any>{}) {
+      const MAX_MAP_SET_SIZE = 1000;
+
       const gallery = this.galleries[sender.id];
       if (!gallery) {
         return false;
       }
 
-      (async function () {
+      setImmediate(async () => {
+        let newCount = 0;
+        let updatedCount = 0;
+        let lostCount = 0;
+        let foundCount = 0;
+        let lostCandidateCount = 0;
+        let errorCount = 0;
+
+        const newPathSet = new Set<string>();
+        const updatedPathSet = new Set<string>();
+        const lostPathSet = new Set<string>();
+        const foundPathSet = new Set<string>();
+        const lostItemPathToCandidateFilePathSetMap = new Map<string, Set<string>>();
+        const errorPathToMessageMap = new Map<string, string>();
+
         const sendProgressReport = (progress: GalleryWholeIndexingProgressReport) =>
           sendEvent(sender, "reportGalleryWholeIndexingProgress", progress);
         const sendProgressReportThrottled = throttle(sendProgressReport, 500, { trailing: false });
 
-        sendProgressReport({ phase: "started" });
         if (target === "both" || target === "update-preexistences") {
-          const updatingPreexistencesGenerator = gallery.generateIndexingSequenceForPreexistences();
-          for await (const step of updatingPreexistencesGenerator) {
-            console.log(step);
+          const phase = "updating";
+
+          sendProgressReportThrottled.cancel();
+          sendProgressReport({ phase, progressRatio: 0 });
+
+          for await (const step of gallery.generateIndexingSequenceForPreexistences()) {
+            const progressRatio = Math.max(0, Math.min(1, step.processedCount / step.totalCount));
+            sendProgressReportThrottled({ phase, progressRatio });
+
+            if (step.processedInfo) {
+              const { processedInfo } = step;
+
+              switch (processedInfo.result) {
+                case "item-updated":
+                  updatedCount++;
+                  if (updatedPathSet.size < MAX_MAP_SET_SIZE) {
+                    updatedPathSet.add(processedInfo.path);
+                  }
+                  break;
+
+                case "item-lost":
+                  lostCount++;
+                  if (lostPathSet.size < MAX_MAP_SET_SIZE) {
+                    lostPathSet.add(processedInfo.path);
+                  }
+                  break;
+
+                case "found-lost-items-file-and-updated":
+                  foundCount++;
+                  if (foundPathSet.size < MAX_MAP_SET_SIZE) {
+                    foundPathSet.add(processedInfo.path);
+                  }
+                  break;
+
+                case "found-lost-items-candidate-file":
+                  lostCandidateCount++;
+                  const set = lostItemPathToCandidateFilePathSetMap.get(processedInfo.path);
+                  if (set) {
+                    set.add(processedInfo.path);
+                  } else if (lostItemPathToCandidateFilePathSetMap.size < MAX_MAP_SET_SIZE) {
+                    lostItemPathToCandidateFilePathSetMap.set(
+                      processedInfo.path,
+                      new Set([processedInfo.path])
+                    );
+                  }
+                  break;
+
+                case "error":
+                  errorCount++;
+                  if (errorPathToMessageMap.size < MAX_MAP_SET_SIZE) {
+                    errorPathToMessageMap.set(processedInfo.path, processedInfo.error);
+                  }
+                  break;
+
+                case "no-big-change":
+                default:
+                  break;
+              }
+            }
           }
         }
+
         if (target === "both" || target === "find-new") {
-          const findingNewGenerator = gallery.generateIndexingSequenceForNewFiles();
-          for await (const step of findingNewGenerator) {
-            console.log(step);
+          const phase = "finding";
+
+          sendProgressReportThrottled.cancel();
+          sendProgressReport({ phase, progressRatio: 0 });
+
+          for await (const step of gallery.generateIndexingSequenceForNewFiles()) {
+            const progressRatio = Math.max(0, Math.min(1, step.processedCount / step.totalCount));
+            sendProgressReportThrottled({ phase, progressRatio });
+
+            if (step.processedInfo) {
+              const { processedInfo } = step;
+
+              switch (processedInfo.result) {
+                case "item-added":
+                  newCount++;
+                  if (newPathSet.size < MAX_MAP_SET_SIZE) {
+                    newPathSet.add(processedInfo.path);
+                  }
+                  break;
+
+                case "found-lost-items-file-and-updated":
+                  foundCount++;
+                  if (foundPathSet.size < MAX_MAP_SET_SIZE) {
+                    foundPathSet.add(processedInfo.path);
+                  }
+                  break;
+
+                case "found-lost-item-candidate-file":
+                  for (const lostItemPath of processedInfo.lostItemPaths) {
+                    const set = lostItemPathToCandidateFilePathSetMap.get(lostItemPath);
+                    if (set) {
+                      set.add(processedInfo.path);
+                    } else if (lostItemPathToCandidateFilePathSetMap.size < MAX_MAP_SET_SIZE) {
+                      lostItemPathToCandidateFilePathSetMap.set(
+                        lostItemPath,
+                        new Set([processedInfo.path])
+                      );
+                    }
+                  }
+                  break;
+
+                case "error":
+                  errorCount++;
+                  if (errorPathToMessageMap.size < MAX_MAP_SET_SIZE) {
+                    errorPathToMessageMap.set(processedInfo.path, processedInfo.error);
+                  }
+                  break;
+
+                default:
+                  break;
+              }
+            }
           }
         }
 
         sendProgressReportThrottled.cancel();
-        sendProgressReport({ phase: "finished", lostCount: 0, newCount: 0 });
-      })();
+        sendProgressReport({
+          phase: "finished",
+          newCount,
+          updatedCount,
+          lostCount,
+          foundCount,
+          lostCandidateCount,
+          errorCount,
+          newPathSet,
+          updatedPathSet,
+          lostPathSet,
+          foundPathSet,
+          lostItemPathToCandidateFilePathSetMap,
+          errorPathToMessageMap,
+        });
+      });
 
       return true;
     },
-
-
-
-
-
     async getItems(this: Main, { sender }) {
       const {
         models: { item: Item },
