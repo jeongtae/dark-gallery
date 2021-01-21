@@ -98,6 +98,8 @@ export type Events = {
   clickMenu: (id: MenuItemId) => void;
   openGallery: (path: string) => void;
   reportGalleryWholeIndexingProgress: (report: GalleryWholeIndexingProgressReport) => void;
+  reportItemThumbnailCreation: (hash: string) => void;
+  reportItemDetail: (item: RawItem) => void;
 };
 //#endregion
 
@@ -136,6 +138,8 @@ export type Commands = {
    * 작업 상태는 `reportGalleryIndexingProgressForPreexistences` 이벤트로 계속 보고됩니다.
    * @param options 인덱싱 옵션
    */
+  requestItemThumbnailCreation: (hash: string) => void;
+  cancelItemThumbnailCreation: (hash: string) => void;
   startGalleryWholeIndexing: (options?: GalleryWholeIndexingOptions) => boolean;
   /** 갤러리를 인덱싱하는 백그라운드 작업을 중단할 것을 요청합니다.
    * 중단되면 `reportGalleryIndexingProgress` 이벤트로 보고됩니다.
@@ -155,5 +159,8 @@ export type Commands = {
    */
   setGalleryConfig: <K extends keyof GalleryConfigs>(key: K, value: GalleryConfigs[K]) => void;
   getItems: () => RawItem[];
+  getItemsMinimal: () => Pick<RawItem, "id" | "hash" | "aspectRatio" | "lost">[];
+  requestItemDetail: (id: number) => void;
+  cancelItemDetail: (id: number) => void;
 };
 //#endregion

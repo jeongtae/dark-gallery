@@ -4,8 +4,16 @@ import type { Commands, Events, GalleryConfigs } from "../common/ipc";
 
 export type { GalleryConfigs } from "../common/ipc";
 
+export type IpcEventListeners = {
+  [key in keyof Events]: (
+    event: Electron.IpcRendererEvent,
+    ...args: Parameters<Events[key]>
+  ) => void;
+};
+
 /** 타이핑 적용된 ipcRenderer 객체 */
 export const ipc = ipcRenderer as TypedIpcRenderer<Events, Commands>;
+ipc.setMaxListeners(0);
 
 /** 현재 갤러리의 데이터베이스에서 모든 설정을 가져옵니다.
  * @returns 설정 모음객체

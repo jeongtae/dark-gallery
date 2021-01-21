@@ -20,13 +20,14 @@
   import Renew20 from "carbon-icons-svelte/lib/Renew20";
   import ChevronRight20 from "carbon-icons-svelte/lib/ChevronRight20";
   import { ipc } from "../ipc";
+  import type { IpcEventListeners } from "../ipc";
   import { path as nodePath } from "../node";
   import { currentGalleryPath } from "../stores";
   import VirtualGrid from "../components/VirtualGrid.svelte";
   import GridItem from "../components/GridItem.svelte";
 
   onMount(async () => {
-    items = await ipc.invoke("getItems");
+    items = await ipc.invoke("getItemsMinimal");
     console.dir(items);
   });
 
@@ -220,6 +221,13 @@
         let:item
       >
         <GridItem
+          itemId={item.id}
+          lost={item.lost}
+          hash={item.hash}
+          thumbnailAspectRatio={item.aspectRatio}
+          thumbnailFitMode={gridItemFitCoverMode ? 'cover' : 'contain'}
+          selectedItemBorderMode={gridItemsPerRow > 5 ? 'thin' : 'normal'}
+          selected={selectedItemKeys.has(item.id)}
           on:click={() => {
             if (selectedItemKeys.has(item.id)) {
               selectedItemKeys.delete(item.id);
@@ -229,12 +237,6 @@
               selectedItemKeys.add(item.id);
             }
           }}
-          selected={selectedItemKeys.has(item.id)}
-          selectedItemBorderMode={gridItemsPerRow > 5 ? 'thin' : 'normal'}
-          thumbnailBase64={item.thumbnailBase64}
-          thumbnailPath={nodePath.join($currentGalleryPath, item.thumbnailPath)}
-          thumbnailAspect={item.width / item.height}
-          thumbnailFitMode={gridItemFitCoverMode ? 'cover' : 'contain'}
         />
       </VirtualGrid>
     </div>

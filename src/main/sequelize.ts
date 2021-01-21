@@ -83,13 +83,18 @@ function defineModels(sequelize: Sequelize) {
       type: { type: DataTypes.TEXT, allowNull: false },
       width: { type: DataTypes.INTEGER, allowNull: false },
       height: { type: DataTypes.INTEGER, allowNull: false },
+      aspectRatio: { type: DataTypes.INTEGER, allowNull: false },
       duration: DataTypes.INTEGER,
-
-      thumbnailBase64: DataTypes.TEXT,
-      thumbnailPath: DataTypes.TEXT,
-      previewVideoPath: DataTypes.TEXT,
     },
-    { indexes: [{ unique: true, fields: ["directory", "filename"] }] }
+    {
+      validate: {
+        "aspect-ratio-is-correct": () => {
+          if (this.aspectRatio !== this.width / this.height)
+            throw new Error("aspectRatio is not correct");
+        },
+      },
+      indexes: [{ unique: true, fields: ["directory", "filename"] }],
+    }
   );
 
   const Tag = sequelize.define<Models.Tag>("tag", {

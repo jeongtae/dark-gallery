@@ -67,15 +67,10 @@ export type ItemAttributes = {
   width: number;
   /** 미디어의 세로 길이 (픽셀 단위) */
   height: number;
+  /** 미디어의 가로세로비 */
+  aspectRatio: number;
   /** 미디어의 길이 (마이크로초 단위, 1/1000초) */
   duration: number;
-
-  /** WEBP Base64로 인코딩된 썸네일 이미지 */
-  thumbnailBase64: string;
-  /** 미리보기용 썸네일 이미지 경로 (*갤러리 폴더에 대한 상대경로*) */
-  thumbnailPath: string;
-  /** 미리보기용 비디오 경로 (*갤러리 폴더에 대한 상대경로*) */
-  previewVideoPath: string;
 };
 export type RawItem = Raw<
   ItemAttributes & {
@@ -84,17 +79,7 @@ export type RawItem = Raw<
 >;
 export type ItemCreationAttributes = Optional<
   ItemAttributes,
-  | "id"
-  | "createdAt"
-  | "updatedAt"
-  | "title"
-  | "lost"
-  | "rating"
-  | "memo"
-  | "duration"
-  | "thumbnailBase64"
-  | "thumbnailPath"
-  | "previewVideoPath"
+  "id" | "createdAt" | "updatedAt" | "title" | "lost" | "rating" | "memo" | "duration"
 >;
 export type Item = Model<ItemAttributes, ItemCreationAttributes> &
   ItemAttributes & {

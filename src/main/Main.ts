@@ -344,11 +344,68 @@ export default class Main {
 
       return true;
     },
+    requestItemThumbnailCreation(this: Main, { sender }, hash) {
+      console.log("REQUESTED THUMBNAIL", hash);
+
+      setImmediate(async () => {
+        try {
+          const gallery = this.galleries[sender.id];
+          if (!gallery) {
+            return;
+          }
+
+          const created = await gallery.createThumbnailImage(hash);
+          sendEvent(sender, "reportItemThumbnailCreation", hash, created);
+        } catch {
+          sendEvent(sender, "reportItemThumbnailCreation", hash, false);
+        }
+      });
+    },
+    cancelItemThumbnailCreation(this: Main, { sender }, hash) {
+      console.log("CANCELED THUMBNAIL", hash);
+    },
+    requestItemDetail(this: Main, { sender }, id) {
+      console.log("REQUESTED DETAIL", id);
+
+      setImmediate(async () => {
+        try {
+          const gallery = this.galleries[sender.id];
+          if (!gallery) {
+            throw new Error();
+          }
+
+          const item = await gallery.models.item.findByPk(id, { raw: true });
+          (<any>item).createdAt = new Date(item.createdAt);
+          (<any>item).updatedAt = new Date(item.updatedAt);
+          item.mtime = new Date(item.mtime);
+          item.time = new Date(item.time);
+          item.directory = item.directory.replace("/", path.sep);
+          item.lost = Boolean(item.lost);
+          sendEvent(sender, "reportItemDetail", item);
+        } catch {
+          sendEvent(sender, "reportItemDetail", null);
+        }
+      });
+    },
+    cancelItemDetail(this: Main, { sender }, id) {
+      console.log("CANCELED DETAIL", id);
+    },
     async getItems(this: Main, { sender }) {
       const {
         models: { item: Item },
       } = this.galleries[sender.id];
       return Item.findAll({ raw: true });
+    },
+    async getItemsMinimal(this: Main, { sender }) {
+      const {
+        models: { item: Item },
+      } = this.galleries[sender.id];
+      const items = await Item.findAll({
+        attributes: ["id", "hash", "aspectRatio", "lost"],
+        raw: true,
+      });
+      items.forEach(item => (item.lost = Boolean(item.lost)));
+      return items;
     },
     async getAllGalleryConfigs(this: Main, { sender }) {
       const gallery = this.galleries[sender.id];

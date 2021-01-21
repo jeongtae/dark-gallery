@@ -11,6 +11,18 @@ export * from "./gallery-configs";
 export const currentGalleryPath = writable<string>(null);
 currentGalleryPath.subscribe(galleryPath => galleryPath && reloadAllGalleryConfigs());
 
+/** 현재 열린 갤러리의 썸네일 경로 */
+export const currentGalleryThumbnailPath = readable<string>(null, set => {
+  const unsubscribe = currentGalleryPath.subscribe(galleryPath => {
+    if (galleryPath) {
+      set(nodePath.join(galleryPath, ".darkgallery", "thumbs"));
+    } else {
+      set(null);
+    }
+  });
+  return unsubscribe;
+});
+
 /** 갤러리 제목의 폴백 */
 export const galleryTitleFallback = readable<string>(null, set => {
   const unsubscribe = currentGalleryPath.subscribe(galleryPath => {

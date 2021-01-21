@@ -424,7 +424,7 @@ export default class Gallery implements Disposable {
     if (isNew) {
       const indexPath = buildIndexDirectoryPath(this.path);
       try {
-        nodeFs.promises.access(indexPath);
+        await nodeFs.promises.access(indexPath);
       } catch (error) {
         if (error.code === "ENOENT") {
           await nodeFs.promises.mkdir(indexPath, { recursive: true });
@@ -518,8 +518,6 @@ export default class Gallery implements Disposable {
           "size",
           "hash",
           "lost",
-          "thumbnailPath",
-          "previewVideoPath",
         ],
         order: ["id"],
         where: {
@@ -689,13 +687,11 @@ export default class Gallery implements Disposable {
               size: fileInfo.size,
               width,
               height,
+              aspectRatio: width / height,
               duration,
               mtime: fileInfo.mtime,
               time,
               timeMode,
-              thumbnailBase64: null,
-              thumbnailPath: null,
-              previewVideoPath: null,
             },
             { where: { id: item.id }, sideEffects: false }
           );
@@ -939,6 +935,7 @@ export default class Gallery implements Disposable {
           filename,
           width,
           height,
+          aspectRatio: width / height,
           duration,
           mtime: fileInfo.mtime,
           time,
@@ -987,6 +984,101 @@ export default class Gallery implements Disposable {
       // FIXME: this code will not be executed when the generator stops iterating
       await Item.bulkCreate(itemsToBulkCreate);
     }
+  }
+
+  async createThumbnailImage(hash: string): Promise<boolean> {
+    const {
+      path: galleryPath,
+      models: { item: Item },
+    } = this;
+
+    const thumbnailDirectory = nodePath.join(
+      galleryPath,
+      INDEXING_DIRNAME,
+      "thumbs",
+      hash.substr(0, 2)
+    );
+
+    try {
+      await nodeFs.promises.access(thumbnailDirectory);
+    } catch (error) {
+      if (error.code === "ENOENT") {
+        await nodeFs.promises.mkdir(thumbnailDirectory, { recursive: true });
+      } else {
+        return false;
+      }
+    }
+
+    const normalThumbnailPath = nodePath.join(thumbnailDirectory, hash + ".normal.webp");
+    const microThumbnailPath = nodePath.join(thumbnailDirectory, hash + ".micro.webp");
+
+    try {
+      const isNormalThumbnailExists = (await nodeFs.promises.stat(normalThumbnailPath)).size > 0;
+      const isMicroThumbnailExists = (await nodeFs.promises.stat(microThumbnailPath)).size > 0;
+      if (isNormalThumbnailExists && isMicroThumbnailExists) {
+        return true;
+      }
+    } catch {}
+
+    const items = (await Item.findAll({
+      attributes: ["type", "directory", "filename", "width", "height"],
+      where: { hash },
+      raw: true,
+    })) as Pick<Models.RawItem, "type" | "directory" | "filename" | "width" | "height">[];
+
+    for (const item of items) {
+      item.directory = item.directory.replace("/", nodePath.sep);
+      const fullPath = nodePath.join(galleryPath, item.directory, item.filename);
+
+      try {
+        await nodeFs.promises.access(fullPath);
+      } catch {
+        continue;
+      }
+
+      const normalThumbnailSize = getResizedImageSize(item.width, item.height, 256, 3);
+      const microThumbnailSize = getResizedImageSize(item.width, item.height, 24, 3);
+
+      try {
+        if (item.type === "IMG") {
+          await writeResizedWebpImageFileOfImageFile(
+            fullPath,
+            normalThumbnailPath,
+            normalThumbnailSize.width,
+            normalThumbnailSize.height,
+            60
+          );
+          await writeResizedWebpImageFileOfImageFile(
+            fullPath,
+            microThumbnailPath,
+            microThumbnailSize.width,
+            microThumbnailSize.height,
+            50
+          );
+        } else if (item.type === "VID") {
+          await writeResizedWebpImageFileOfVideoFile(
+            fullPath,
+            normalThumbnailPath,
+            normalThumbnailSize.width,
+            normalThumbnailSize.height,
+            60
+          );
+          await writeResizedWebpImageFileOfImageFile(
+            normalThumbnailPath,
+            microThumbnailPath,
+            microThumbnailSize.width,
+            microThumbnailSize.height,
+            50
+          );
+        } else {
+          continue;
+        }
+      } catch {
+        continue;
+      }
+      return true;
+    }
+    return false;
   }
 
   /** 데이터베이스 연결을 닫고 참조를 지웁니다. */
