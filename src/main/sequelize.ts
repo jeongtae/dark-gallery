@@ -89,7 +89,7 @@ function defineModels(sequelize: Sequelize) {
     {
       validate: {
         "aspect-ratio-is-correct": () => {
-          if (this.aspectRatio !== this.width / this.height)
+          if (this && this.aspectRatio !== this.width / this.height)
             throw new Error("aspectRatio is not correct");
         },
       },
