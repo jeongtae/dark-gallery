@@ -32,7 +32,7 @@ const packagerConfig = {
  * @type {RebuildConfig}
  * @see https://github.com/electron/electron-rebuild#how-can-i-integrate-this-into-grunt--gulp--whatever
  */
-const rebuildConfig = {};
+const electronRebuildConfig = { onlyModules: ["sharp"] };
 
 /**
  * @type {ForgeConfig}
@@ -40,7 +40,7 @@ const rebuildConfig = {};
  */
 const forgeConfig = {
   packagerConfig,
-  rebuildConfig,
+  electronRebuildConfig,
   hooks: {
     prePackage() {
       // ICON
