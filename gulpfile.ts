@@ -3,7 +3,7 @@ import cleancss from "gulp-clean-css";
 import htmlmin from "gulp-htmlmin";
 import filter from "gulp-filter";
 import typescript from "gulp-typescript";
-import uglify from "gulp-uglify";
+import terser from "gulp-terser";
 import sourcemaps from "gulp-sourcemaps";
 
 const publicSource = "src/public/**/*";
@@ -38,7 +38,7 @@ const mainSource = "src/main/**/*";
 export function buildMain() {
   return src([`${mainSource}.ts`, `!${mainSource}.test.ts`])
     .pipe(mainTypeScripProject())
-    .pipe(uglify())
+    .pipe(terser())
     .pipe(dest("dist/main"));
 }
 export function devMain() {
