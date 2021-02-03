@@ -18,6 +18,8 @@ const packagerConfig = {
     "^/.git",
     "^/.prettier",
     "^/tsconfig",
+    "^/coverage",
+    "^/dev-gallery",
     "^/(yarn|package-lock)",
     "^/\\w+.config.js",
     "^/gulpfile",
