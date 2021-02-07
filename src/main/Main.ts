@@ -29,11 +29,8 @@ export default class Main {
 
     // Electron Reload 처리
     if (isDev) {
-      import("electron-reload").then(({ default: watch }) => {
-        watch(path.join(appPath, "dist"), {
-          electron: path.join(appPath, "node_modules", ".bin", "electron"),
-          awaitWriteFinish: true,
-        });
+      import("electron-reloader").then(({ default: watch }) => {
+        watch(module);
       });
     }
 
