@@ -1,14 +1,19 @@
 import path from "path";
-import { throttle, union } from "lodash";
-import { app, BrowserWindow, dialog, Menu, shell } from "electron";
+import { throttle } from "lodash";
+import { app, BrowserWindow, webContents, dialog, Menu, shell } from "electron";
 import { MenuItemId, GalleryWholeIndexingProgressReport } from "../common/ipc";
 import { isSquirrelStartup, isDev, isMac, appPath } from "./environments";
 import { ipc, IpcHandlers, sendEvent } from "./ipc";
+import { Models } from "./sequelize";
 import { getMenu, addMenuClickHandler, setMenuItemEnabled } from "./menu";
 import { createWindow } from "./window";
+import BackgroundTaskProcessor from "./BackgroundTaskProcessor";
 import Gallery from "./Gallery";
 
 const DEV_GALLERY_PATH = path.join(app.getAppPath(), "dev-gallery");
+
+type CreatingItemThumbnailTask = { webContentsId: number; hash: string };
+type GettingItemDetailTask = { webContentsId: number; id: number };
 
 /** 이 애플리케이션의 진입 클래스 */
 export default class Main {
@@ -16,6 +21,11 @@ export default class Main {
 
   /** WebContents ID별 열려있는 갤러리 모음객체 */
   private galleries: { [webContentsId: number]: Gallery } = {};
+
+  private backgroundTaskProcessors = {
+    creatingItemThumbnail: null as BackgroundTaskProcessor<CreatingItemThumbnailTask, boolean>,
+    gettingItemDetail: null as BackgroundTaskProcessor<GettingItemDetailTask, Models.RawItem>,
+  };
 
   constructor(readonly argv?: string[]) {
     // 단일 인스턴스만 허용
@@ -47,6 +57,62 @@ export default class Main {
     for (const [key, handler] of Object.entries(this.ipcHandlers)) {
       ipc.handle(key as any, handler.bind(this));
     }
+
+    // Background Task Processor - Creating Item Thumbnail
+    this.backgroundTaskProcessors.creatingItemThumbnail = new BackgroundTaskProcessor(
+      async ({ webContentsId, hash }) => {
+        try {
+          const gallery = this.galleries[webContentsId];
+          if (!gallery) {
+            return false;
+          }
+          const created = await gallery.createThumbnailImage(hash);
+          return created;
+        } catch {
+          return false;
+        }
+      }
+    );
+    this.backgroundTaskProcessors.creatingItemThumbnail.addListener(
+      "done",
+      this.onCreatingItemThumbnailTaskDone
+    );
+    this.backgroundTaskProcessors.creatingItemThumbnail.addListener(
+      "error",
+      this.onCreatingItemThumbnailTaskError
+    );
+    this.backgroundTaskProcessors.creatingItemThumbnail.start();
+
+    // Background Task Processor - Getting Item Detail
+    this.backgroundTaskProcessors.gettingItemDetail = new BackgroundTaskProcessor(
+      async ({ webContentsId, id }) => {
+        try {
+          const gallery = this.galleries[webContentsId];
+          if (!gallery) {
+            return null;
+          }
+          const item = await gallery.models.item.findByPk(id, { raw: true });
+          (<any>item).createdAt = new Date(item.createdAt);
+          (<any>item).updatedAt = new Date(item.updatedAt);
+          item.mtime = new Date(item.mtime);
+          item.time = new Date(item.time);
+          item.directory = item.directory.replace("/", path.sep);
+          item.lost = Boolean(item.lost);
+          return item;
+        } catch {
+          return null;
+        }
+      }
+    );
+    this.backgroundTaskProcessors.gettingItemDetail.addListener(
+      "done",
+      this.onGettingItemDetailTaskDone
+    );
+    this.backgroundTaskProcessors.gettingItemDetail.addListener(
+      "error",
+      this.onGettingItemDetailTaskError
+    );
+    this.backgroundTaskProcessors.gettingItemDetail.start();
   }
 
   /** 새 윈도우를 생성합니다. */
@@ -125,10 +191,36 @@ export default class Main {
     }
   }
   /** 일렉트론 `app`의 `quit` 이벤트 핸들러 */
-  async onAppQuit() {
+  onAppQuit() {
     for (const gallery of Object.values(this.galleries)) {
-      await gallery.dispose();
+      gallery.dispose();
     }
+    for (const backgroundTaskProcessor of Object.values(this.backgroundTaskProcessors)) {
+      backgroundTaskProcessor.stop();
+    }
+  }
+  //#endregion
+
+  //#region BackgroundTaskProcessor 이벤트 핸들러
+  onCreatingItemThumbnailTaskDone(task: CreatingItemThumbnailTask, created: boolean) {
+    const { webContentsId, hash } = task;
+    const wc = webContents.fromId(webContentsId);
+    sendEvent(wc, "reportItemThumbnailCreation", hash);
+  }
+  onCreatingItemThumbnailTaskError(task: CreatingItemThumbnailTask, error: Error) {
+    const { webContentsId, hash } = task;
+    const wc = webContents.fromId(webContentsId);
+    sendEvent(wc, "reportItemThumbnailCreation", hash, error.message);
+  }
+  onGettingItemDetailTaskDone(task: GettingItemDetailTask, item: Models.RawItem) {
+    const { webContentsId, id } = task;
+    const wc = webContents.fromId(webContentsId);
+    sendEvent(wc, "reportItemDetail", item);
+  }
+  onGettingItemDetailTaskError(task: GettingItemDetailTask, error: Error) {
+    const { webContentsId, id } = task;
+    const wc = webContents.fromId(webContentsId);
+    sendEvent(wc, "reportItemDetail", null, error.message);
   }
   //#endregion
 
@@ -342,50 +434,29 @@ export default class Main {
       return true;
     },
     requestItemThumbnailCreation(this: Main, { sender }, hash) {
-      console.log("REQUESTED THUMBNAIL", hash);
-
-      setImmediate(async () => {
-        try {
-          const gallery = this.galleries[sender.id];
-          if (!gallery) {
-            return;
-          }
-
-          const created = await gallery.createThumbnailImage(hash);
-          sendEvent(sender, "reportItemThumbnailCreation", hash, created);
-        } catch {
-          sendEvent(sender, "reportItemThumbnailCreation", hash, false);
-        }
+      this.backgroundTaskProcessors.creatingItemThumbnail.pushTask({
+        webContentsId: sender.id,
+        hash,
       });
     },
     cancelItemThumbnailCreation(this: Main, { sender }, hash) {
-      console.log("CANCELED THUMBNAIL", hash);
+      const taskToCancel = this.backgroundTaskProcessors.creatingItemThumbnail.findTask(
+        task => task.webContentsId === sender.id && task.hash === hash
+      );
+      if (taskToCancel !== undefined) {
+        this.backgroundTaskProcessors.creatingItemThumbnail.cancelTask(taskToCancel);
+      }
     },
     requestItemDetail(this: Main, { sender }, id) {
-      console.log("REQUESTED DETAIL", id);
-
-      setImmediate(async () => {
-        try {
-          const gallery = this.galleries[sender.id];
-          if (!gallery) {
-            throw new Error();
-          }
-
-          const item = await gallery.models.item.findByPk(id, { raw: true });
-          (<any>item).createdAt = new Date(item.createdAt);
-          (<any>item).updatedAt = new Date(item.updatedAt);
-          item.mtime = new Date(item.mtime);
-          item.time = new Date(item.time);
-          item.directory = item.directory.replace("/", path.sep);
-          item.lost = Boolean(item.lost);
-          sendEvent(sender, "reportItemDetail", item);
-        } catch {
-          sendEvent(sender, "reportItemDetail", null);
-        }
-      });
+      this.backgroundTaskProcessors.gettingItemDetail.pushTask({ webContentsId: sender.id, id });
     },
     cancelItemDetail(this: Main, { sender }, id) {
-      console.log("CANCELED DETAIL", id);
+      const taskToCancel = this.backgroundTaskProcessors.gettingItemDetail.findTask(
+        task => task.webContentsId === sender.id && task.id === id
+      );
+      if (taskToCancel !== undefined) {
+        this.backgroundTaskProcessors.gettingItemDetail.cancelTask(taskToCancel);
+      }
     },
     async getItems(this: Main, { sender }) {
       const {

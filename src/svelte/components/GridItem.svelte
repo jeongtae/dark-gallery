@@ -115,8 +115,12 @@
   onMount(() => {
     shouldShowMicroThumbnail = true;
 
-    const thumbnailListener = ((_, thumbnailHash) => {
+    const thumbnailListener = ((_, thumbnailHash, errorMessage) => {
       if (thumbnailHash !== hash) {
+        return;
+      }
+      if (errorMessage) {
+        // TODO: DISPLAY ERROR SYMBOL
         return;
       }
       watingThumbnailCreation = false;
@@ -179,8 +183,8 @@
     {#if lost}<span>ERROR IT IS LOST</span>{/if}
     {#if selected}
       <inner-border
-        class:thick={selectedItemBorderMode === 'thick'}
-        class:thin={selectedItemBorderMode === 'thin'}
+        class:thick={selectedItemBorderMode === "thick"}
+        class:thin={selectedItemBorderMode === "thin"}
       />
     {/if}
   </pad>
